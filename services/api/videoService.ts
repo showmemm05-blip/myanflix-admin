@@ -59,8 +59,8 @@ export const videoService = {
     return { ...res, items: res.items.map(mapWatchHistory) };
   },
 
-  getProcessingStatus(movieId: string) {
-    return apiClient.get<VideoStatusInfo>(`/videos/status/${movieId}`);
+  getProcessingStatus(movieId: string, signal?: AbortSignal) {
+    return apiClient.get<VideoStatusInfo>(`/videos/status/${movieId}`, { signal });
   },
 
   getStreamInfo(movieId: string) {

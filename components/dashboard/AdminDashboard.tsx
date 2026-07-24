@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
-import { formatKyatWhole } from "@/lib/currency";
+import { formatKyat } from "@/lib/currency";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
 import { userService } from "@/services/api/userService";
@@ -79,12 +79,12 @@ export function AdminDashboard({ role }: { role: UserRole }) {
           <>
             <DashboardCard
               title="Total Revenue"
-              value={formatKyatWhole(summary.totalRevenue)}
+              value={formatKyat(summary.totalRevenue)}
               icon={Banknote}
             />
             <DashboardCard
               title="Monthly Revenue"
-              value={formatKyatWhole(summary.monthlyRevenue)}
+              value={formatKyat(summary.monthlyRevenue)}
               icon={TrendingUp}
             />
           </>

@@ -6,7 +6,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { RoleProvider } from "@/lib/context/role-context";
 import { SidebarProvider } from "@/lib/context/sidebar-context";
+import { UploadProvider } from "@/lib/context/upload-context";
 import { AppShell } from "@/components/layout/AppShell";
+import { GlobalUploadIndicator } from "@/components/uploads/GlobalUploadIndicator";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -49,7 +51,10 @@ export default function RootLayout({
           <TooltipProvider>
             <RoleProvider>
               <SidebarProvider>
-                <AppShell>{children}</AppShell>
+                <UploadProvider>
+                  <AppShell>{children}</AppShell>
+                  <GlobalUploadIndicator />
+                </UploadProvider>
               </SidebarProvider>
             </RoleProvider>
           </TooltipProvider>

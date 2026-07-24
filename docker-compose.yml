@@ -1,0 +1,12 @@
+services:
+  admin:
+    build:
+      context: .
+      args:
+        # Baked into the browser bundle at build time — must be a URL the
+        # end user's browser can actually reach (not a Docker-internal
+        # hostname like "backend:3001"). Point this at the real API domain
+        # once deployed.
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api}
+    ports:
+      - "${PORT:-3002}:3002"

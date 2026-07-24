@@ -55,12 +55,16 @@ export const movieService = {
     return apiClient.delete<void>(`/categories/${id}`);
   },
 
-  createMovie(values: MovieUploadFormValues) {
-    return apiClient.post<Movie>("/movies", values);
+  createMovie(values: MovieUploadFormValues, signal?: AbortSignal) {
+    return apiClient.post<Movie>("/movies", values, { signal });
   },
 
-  updateMovie(id: string, values: Partial<MovieUploadFormValues> & { status?: MovieStatus }) {
-    return apiClient.put<Movie>(`/movies/${id}`, values);
+  updateMovie(
+    id: string,
+    values: Partial<MovieUploadFormValues> & { status?: MovieStatus },
+    signal?: AbortSignal,
+  ) {
+    return apiClient.put<Movie>(`/movies/${id}`, values, { signal });
   },
 
   deleteMovie(id: string) {

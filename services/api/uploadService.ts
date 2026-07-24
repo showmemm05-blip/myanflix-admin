@@ -23,10 +23,10 @@ export const uploadService = {
     return apiClient.post<InitUploadResponse>("/uploads/init", { movieId, filename, filesize });
   },
 
-  uploadChunk(uploadId: string, chunkNumber: number, chunk: Blob) {
+  uploadChunk(uploadId: string, chunkNumber: number, chunk: Blob, signal?: AbortSignal) {
     const formData = new FormData();
     formData.append("chunk", chunk, `chunk-${chunkNumber}`);
-    return apiClient.post<UploadStatusResponse>(`/uploads/${uploadId}/chunk/${chunkNumber}`, formData);
+    return apiClient.post<UploadStatusResponse>(`/uploads/${uploadId}/chunk/${chunkNumber}`, formData, { signal });
   },
 
   getStatus(uploadId: string) {
@@ -38,12 +38,12 @@ export const uploadService = {
   },
 
   /** Uploads an image and resolves its backend-relative path into an absolute URL (movie DTOs require @IsUrl()). */
-  async uploadImage(file: File): Promise<{ url: string }> {
+  async uploadImage(file: File, signal?: AbortSignal): Promise<{ url: string }> {
     const { url } = await apiClient.post<{ url: string }>("/uploads/image", (() => {
       const formData = new FormData();
       formData.append("file", file);
       return formData;
-    })());
+    })(), { signal });
     return { url: url.startsWith("http") ? url : `${API_ORIGIN}${url}` };
   },
 };

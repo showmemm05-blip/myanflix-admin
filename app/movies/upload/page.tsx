@@ -27,12 +27,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useUploads, type PublishInput } from "@/lib/context/upload-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
-import {
-  videoService,
-  type VideoProcessingStatus,
-} from "@/services/api/videoService";
 import type { UploadStage } from "@/types/movie";
 import { toast } from "sonner";
 
@@ -83,8 +80,6 @@ const STAGE_LABEL: Record<UploadStage, string> = {
   error: "Error",
 };
 
-const CHUNK_POLL_INTERVAL_MS = 2500;
-const CHUNK_UPLOAD_CONCURRENCY = 6;
 /** Rough multiplier of the source video's own length — sequential multi-tier HLS transcoding on typical dev hardware. */
 const PROCESSING_ESTIMATE_MULTIPLIER = 1;
 
@@ -96,10 +91,6 @@ function useObjectUrl(file: File | null) {
     };
   }, [url]);
   return url;
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function formatUploadSpeed(bytesPerSecond: number): string {
@@ -120,6 +111,7 @@ function formatTimeRemaining(totalSeconds: number): string {
 
 export default function UploadMoviePage() {
   const { data: categories } = useAsyncData(movieService.getCategories, []);
+  const { tasks, startPublish } = useUploads();
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -140,24 +132,15 @@ export default function UploadMoviePage() {
   const posterPreview = useObjectUrl(posterFile);
   const coverPreview = useObjectUrl(coverFile);
 
-  const [stage, setStage] = useState<UploadStage>("idle");
-  const [videoProgress, setVideoProgress] = useState(0);
-  const [uploadSpeedBps, setUploadSpeedBps] = useState<number | null>(null);
-  const [uploadEtaSeconds, setUploadEtaSeconds] = useState<number | null>(null);
-  const [videoDurationSeconds, setVideoDurationSeconds] = useState<
-    number | null
-  >(null);
-  const [processingElapsedSeconds, setProcessingElapsedSeconds] = useState(0);
-  const [publishedTitle, setPublishedTitle] = useState("");
-
-  useEffect(() => {
-    if (stage !== "processing") return;
-    const interval = setInterval(
-      () => setProcessingElapsedSeconds((s) => s + 1),
-      1000,
-    );
-    return () => clearInterval(interval);
-  }, [stage]);
+  // The whole publish pipeline (images, movie creation, chunked video
+  // upload, transcode polling, publishing) runs inside UploadProvider
+  // (mounted at the root layout) so it — and its progress — survive
+  // navigating away from this page entirely; this page just looks its own
+  // task back up by id to render the same detail it always has while
+  // you're still on it.
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const activeTask = tasks.find((t) => t.id === taskId) ?? null;
+  const stage: UploadStage = activeTask?.stage ?? "idle";
 
   const toggleCategory = (id: string) => {
     setCategoryIds((prev) =>
@@ -178,72 +161,10 @@ export default function UploadMoviePage() {
     setPosterFile(null);
     setCoverFile(null);
     setVideoFile(null);
-    setStage("idle");
-    setVideoProgress(0);
-    setUploadSpeedBps(null);
-    setUploadEtaSeconds(null);
-    setVideoDurationSeconds(null);
-    setProcessingElapsedSeconds(0);
+    setTaskId(null);
   };
 
-  const uploadVideoInChunks = async (movieId: string, file: File) => {
-    const { uploadId, chunkSize, totalChunks } = await uploadService.init(
-      movieId,
-      file.name,
-      file.size,
-    );
-
-    let nextChunk = 0;
-    let completedChunks = 0;
-    let uploadedBytes = 0;
-    const startedAt = Date.now();
-
-    const worker = async () => {
-      for (;;) {
-        const chunkNumber = nextChunk++;
-        if (chunkNumber >= totalChunks) return;
-        const start = chunkNumber * chunkSize;
-        const chunk = file.slice(start, start + chunkSize);
-        await uploadService.uploadChunk(uploadId, chunkNumber, chunk);
-        completedChunks++;
-        uploadedBytes += chunk.size;
-        setVideoProgress(Math.round((completedChunks / totalChunks) * 100));
-
-        const elapsedSeconds = (Date.now() - startedAt) / 1000;
-        if (elapsedSeconds > 0.5) {
-          const speed = uploadedBytes / elapsedSeconds;
-          setUploadSpeedBps(speed);
-          setUploadEtaSeconds(
-            speed > 0 ? (file.size - uploadedBytes) / speed : null,
-          );
-        }
-      }
-    };
-
-    await Promise.all(
-      Array.from(
-        { length: Math.min(CHUNK_UPLOAD_CONCURRENCY, totalChunks) },
-        worker,
-      ),
-    );
-
-    setUploadEtaSeconds(0);
-    await uploadService.complete(uploadId);
-  };
-
-  const pollProcessingStatus = async (
-    movieId: string,
-  ): Promise<VideoProcessingStatus> => {
-    for (;;) {
-      const status = await videoService.getProcessingStatus(movieId);
-      if (status.duration) setVideoDurationSeconds(status.duration);
-      if (status.status === "READY" || status.status === "FAILED")
-        return status.status;
-      await sleep(CHUNK_POLL_INTERVAL_MS);
-    }
-  };
-
-  const handlePublish = async () => {
+  const handlePublish = () => {
     if (
       !title.trim() ||
       !description.trim() ||
@@ -258,57 +179,32 @@ export default function UploadMoviePage() {
       return;
     }
 
-    try {
-      setStage("uploading-images");
-      const posterUrl = (await uploadService.uploadImage(posterFile)).url;
-      const coverUrl = coverFile
-        ? (await uploadService.uploadImage(coverFile)).url
-        : undefined;
+    const input: PublishInput = {
+      title,
+      description,
+      genre,
+      categoryIds,
+      language,
+      releaseYear: Number(releaseYear),
+      duration: Number(durationMinutes),
+      price: Number(price),
+      isPremium,
+      posterFile,
+      coverFile,
+      videoFile,
+    };
 
-      setStage("creating-movie");
-      const movie = await movieService.createMovie({
-        title,
-        description,
-        genre,
-        categoryIds,
-        language,
-        releaseYear: Number(releaseYear),
-        duration: Number(durationMinutes),
-        price: Number(price),
-        isPremium,
-        posterUrl,
-        coverUrl,
-      });
-
-      setStage("uploading-video");
-      setVideoProgress(0);
-      setUploadSpeedBps(null);
-      setUploadEtaSeconds(null);
-      await uploadVideoInChunks(movie.id, videoFile);
-
-      setStage("processing");
-      setProcessingElapsedSeconds(0);
-      const result = await pollProcessingStatus(movie.id);
-
-      if (result === "FAILED") {
-        setStage("error");
-        toast.error("Video processing failed", {
-          description:
-            "The upload succeeded but transcoding failed. Check the movie's status later.",
+    const { id, done } = startPublish(input);
+    setTaskId(id);
+    done
+      .then(() => {
+        toast.success("Movie published", {
+          description: `"${title}" is now live on MyanFlix.`,
         });
-        return;
-      }
-
-      await movieService.updateMovie(movie.id, { status: "PUBLISHED" });
-      setPublishedTitle(title);
-      setStage("published");
-      toast.success("Movie published", {
-        description: `"${title}" is now live on MyanFlix.`,
+      })
+      .catch((err) => {
+        toast.error(err instanceof Error ? err.message : "Publish failed");
       });
-    } catch (err) {
-      setStage("error");
-      toast.error(err instanceof Error ? err.message : "Upload failed");
-    }
   };
 
   const handleSaveDraft = async () => {
@@ -348,15 +244,15 @@ export default function UploadMoviePage() {
   const isBusy = stage !== "idle" && stage !== "published" && stage !== "error";
 
   const estimatedProcessingSeconds =
-    videoDurationSeconds !== null
-      ? videoDurationSeconds * PROCESSING_ESTIMATE_MULTIPLIER
+    activeTask?.videoDurationSeconds != null
+      ? activeTask.videoDurationSeconds * PROCESSING_ESTIMATE_MULTIPLIER
       : null;
   const processingProgress =
     estimatedProcessingSeconds && estimatedProcessingSeconds > 0
       ? Math.min(
           95,
           Math.round(
-            (processingElapsedSeconds / estimatedProcessingSeconds) * 100,
+            ((activeTask?.processingElapsedSeconds ?? 0) / estimatedProcessingSeconds) * 100,
           ),
         )
       : null;
@@ -375,7 +271,7 @@ export default function UploadMoviePage() {
             </div>
             <div>
               <p className="text-lg font-semibold">
-                &ldquo;{publishedTitle}&rdquo; is published
+                &ldquo;{activeTask?.title}&rdquo; is published
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Your movie has finished processing and is now live in the
@@ -569,7 +465,7 @@ export default function UploadMoviePage() {
                 accept="video/*"
                 file={videoFile}
                 progress={
-                  stage === "uploading-video" ? videoProgress : undefined
+                  stage === "uploading-video" ? (activeTask?.videoProgress ?? 0) : undefined
                 }
                 onChange={setVideoFile}
                 disabled={isBusy}
@@ -647,18 +543,18 @@ export default function UploadMoviePage() {
                   <div className="space-y-2 border-t border-white/[0.08] pt-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Video upload progress</span>
-                      <span>{videoProgress}%</span>
+                      <span>{activeTask?.videoProgress ?? 0}%</span>
                     </div>
-                    <Progress value={videoProgress} className="h-1.5" />
+                    <Progress value={activeTask?.videoProgress ?? 0} className="h-1.5" />
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>
-                        {uploadSpeedBps !== null
-                          ? formatUploadSpeed(uploadSpeedBps)
+                        {activeTask?.speedBps != null
+                          ? formatUploadSpeed(activeTask.speedBps)
                           : "Measuring speed…"}
                       </span>
                       <span>
-                        {uploadEtaSeconds !== null
-                          ? `${formatTimeRemaining(uploadEtaSeconds)} left`
+                        {activeTask?.etaSeconds != null
+                          ? `${formatTimeRemaining(activeTask.etaSeconds)} left`
                           : "Estimating time…"}
                       </span>
                     </div>
@@ -669,7 +565,7 @@ export default function UploadMoviePage() {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>Elapsed</span>
                       <span>
-                        {formatTimeRemaining(processingElapsedSeconds)}
+                        {formatTimeRemaining(activeTask?.processingElapsedSeconds ?? 0)}
                       </span>
                     </div>
                     <Progress
