@@ -23,10 +23,15 @@ export const uploadService = {
     return apiClient.post<InitUploadResponse>("/uploads/init", { movieId, filename, filesize });
   },
 
+  // chunkNumber travels as a form field rather than part of the URL, so
+  // every chunk in an upload hits the exact same endpoint — letting the
+  // browser reuse one cached CORS preflight for the whole upload instead of
+  // repeating it per chunk.
   uploadChunk(uploadId: string, chunkNumber: number, chunk: Blob, signal?: AbortSignal) {
     const formData = new FormData();
     formData.append("chunk", chunk, `chunk-${chunkNumber}`);
-    return apiClient.post<UploadStatusResponse>(`/uploads/${uploadId}/chunk/${chunkNumber}`, formData, { signal });
+    formData.append("chunkNumber", String(chunkNumber));
+    return apiClient.post<UploadStatusResponse>(`/uploads/${uploadId}/chunk`, formData, { signal });
   },
 
   getStatus(uploadId: string) {
