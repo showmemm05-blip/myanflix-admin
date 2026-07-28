@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowDownToLine,
   Film,
   LayoutDashboard,
   ListVideo,
@@ -64,6 +65,13 @@ export const navItems: NavItem[] = [
     href: "/finance",
     icon: Wallet,
     roles: ["SUPER_ADMIN", "ADMIN", "USER"],
+  },
+  {
+    // Backend gates deposit review behind DEPOSIT_MANAGE, granted to Admin/Super Admin only.
+    label: "Deposits",
+    href: "/deposits",
+    icon: ArrowDownToLine,
+    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     label: "Roles & Permissions",

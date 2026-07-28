@@ -9,6 +9,7 @@ import { SidebarProvider } from "@/lib/context/sidebar-context";
 import { UploadProvider } from "@/lib/context/upload-context";
 import { AppShell } from "@/components/layout/AppShell";
 import { GlobalUploadIndicator } from "@/components/uploads/GlobalUploadIndicator";
+import { AdminDepositNotifications } from "@/components/deposits/AdminDepositNotifications";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -54,6 +55,7 @@ export default function RootLayout({
                 <UploadProvider>
                   <AppShell>{children}</AppShell>
                   <GlobalUploadIndicator />
+                  <AdminDepositNotifications />
                 </UploadProvider>
               </SidebarProvider>
             </RoleProvider>

@@ -13,6 +13,7 @@ import { authService } from "@/services/api/authService";
 import { userService } from "@/services/api/userService";
 import { ApiError } from "@/services/api/apiClient";
 import { onUnauthorized, tokenStore } from "@/lib/auth/token-store";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
 import { ROLE_LABELS, type AppUser, type UserRole } from "@/types/user";
 
 /**
@@ -61,11 +62,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!tokenStore.getAccessToken()) {
+    const accessToken = tokenStore.getAccessToken();
+    if (!accessToken) {
       setIsLoading(false);
       return;
     }
 
+    connectSocket(accessToken);
     userService
       .getMe()
       .then(setCurrentUser)
@@ -73,11 +76,19 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false));
   }, []);
 
-  useEffect(() => onUnauthorized(() => setCurrentUser(null)), []);
+  useEffect(
+    () =>
+      onUnauthorized(() => {
+        setCurrentUser(null);
+        disconnectSocket();
+      }),
+    []
+  );
 
   const login = useCallback(async (email: string, password: string) => {
     const { user, accessToken, refreshToken } = await authService.login(email, password);
     tokenStore.setSession(accessToken, refreshToken, user);
+    connectSocket(accessToken);
     const profile = await userService.getMe();
     setCurrentUser(profile);
   }, []);
@@ -86,6 +97,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     const refreshToken = tokenStore.getRefreshToken();
     tokenStore.clear();
     setCurrentUser(null);
+    disconnectSocket();
     if (refreshToken) {
       try {
         await authService.logout(refreshToken);
