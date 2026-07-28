@@ -57,6 +57,17 @@ interface UploadContextValue {
 
 const UploadContext = createContext<UploadContextValue | undefined>(undefined);
 
+function generateTaskId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // crypto.randomUUID() only exists in secure contexts (HTTPS, or
+  // http://localhost) — over plain HTTP on a VPS it's undefined. This id is
+  // just a client-side task-tracking key, never sent anywhere as a security
+  // token, so a Math.random fallback is fine here.
+  return `task_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+}
+
 function sleep(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) return reject(signal.reason);
