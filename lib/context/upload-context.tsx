@@ -235,7 +235,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const startPublish = useCallback(
     (input: PublishInput) => {
-      const id = crypto.randomUUID();
+      const id = generateTaskId();
       setTasks((prev) => [
         ...prev,
         {
