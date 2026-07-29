@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { movieService } from "@/services/api/movieService";
+import { uploadService } from "@/services/api/uploadService";
+import { ApiError } from "@/services/api/apiClient";
 import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
 
@@ -34,6 +36,7 @@ export default function MoviesPage() {
   const [editMovie, setEditMovie] = useState<Movie | null>(null);
   const [deleteMovie, setDeleteMovie] = useState<Movie | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   const handleDelete = async () => {
     if (!deleteMovie) return;
@@ -45,11 +48,33 @@ export default function MoviesPage() {
     setDeleteMovie(null);
   };
 
+  const handleReprocess = async (movie: Movie) => {
+    setReprocessingId(movie.id);
+    try {
+      await uploadService.reprocess(movie.id);
+      setMovies(activeMovies.map((m) => (m.id === movie.id ? { ...m, status: "PROCESSING" } : m)));
+      toast.success("Reprocessing started", {
+        description: `"${movie.title}" is transcoding again — no re-upload needed.`,
+      });
+    } catch (err) {
+      toast.error("Couldn't reprocess this movie", {
+        description:
+          err instanceof ApiError
+            ? err.message
+            : "Only a movie whose video failed to process can be reprocessed.",
+      });
+    } finally {
+      setReprocessingId(null);
+    }
+  };
+
   const columns = getMovieColumns({
     canManage,
     onView: setViewMovie,
     onEdit: setEditMovie,
     onDelete: setDeleteMovie,
+    onReprocess: handleReprocess,
+    reprocessingId,
   });
 
   if (error) {

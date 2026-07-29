@@ -112,34 +112,57 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const uploadVideoChunks = useCallback(
     async (taskId: string, movieId: string, file: File, signal: AbortSignal) => {
-      const { uploadId, chunkSize, totalChunks } = await uploadService.init(movieId, file.name, file.size);
+      const { uploadId, chunkSize, totalChunks, uploadedChunks: alreadyUploaded } = await uploadService.init(
+        movieId,
+        file.name,
+        file.size,
+      );
 
-      let nextChunk = 0;
-      let completedChunks = 0;
-      let uploadedBytes = 0;
+      // init() resumes an interrupted session for this exact movie/filename/
+      // size instead of always starting fresh — the chunks it already has
+      // are the ones a previous attempt got through before failing, so
+      // there's no reason to send them again.
+      const done = new Set(alreadyUploaded);
+      const remainingChunks = Array.from({ length: totalChunks }, (_, i) => i).filter((n) => !done.has(n));
+      let nextIndex = 0;
+      let completedChunks = done.size;
+      let totalUploadedBytes = done.size * chunkSize;
+      // Speed/ETA are measured from THIS attempt only — mixing in bytes a
+      // previous session already sent would make a resumed upload's speed
+      // read as absurdly fast for its first few chunks (lots of "already
+      // done" bytes divided by a just-reset timer).
+      let sessionUploadedBytes = 0;
       const startedAt = Date.now();
+
+      if (completedChunks > 0) {
+        updateTask(taskId, { videoProgress: Math.round((completedChunks / totalChunks) * 100) });
+      }
 
       const worker = async () => {
         for (;;) {
-          const chunkNumber = nextChunk++;
-          if (chunkNumber >= totalChunks) return;
+          const index = nextIndex++;
+          if (index >= remainingChunks.length) return;
+          const chunkNumber = remainingChunks[index];
           const start = chunkNumber * chunkSize;
           const chunk = file.slice(start, start + chunkSize);
           await uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal);
           completedChunks++;
-          uploadedBytes += chunk.size;
+          totalUploadedBytes += chunk.size;
+          sessionUploadedBytes += chunk.size;
 
           const elapsedSeconds = (Date.now() - startedAt) / 1000;
-          const speedBps = elapsedSeconds > 0.5 ? uploadedBytes / elapsedSeconds : null;
+          const speedBps = elapsedSeconds > 0.5 ? sessionUploadedBytes / elapsedSeconds : null;
           updateTask(taskId, {
             videoProgress: Math.round((completedChunks / totalChunks) * 100),
             speedBps,
-            etaSeconds: speedBps && speedBps > 0 ? (file.size - uploadedBytes) / speedBps : null,
+            etaSeconds: speedBps && speedBps > 0 ? (file.size - totalUploadedBytes) / speedBps : null,
           });
         }
       };
 
-      await Promise.all(Array.from({ length: Math.min(CHUNK_UPLOAD_CONCURRENCY, totalChunks) }, worker));
+      await Promise.all(
+        Array.from({ length: Math.min(CHUNK_UPLOAD_CONCURRENCY, remainingChunks.length) }, worker),
+      );
       await uploadService.complete(uploadId);
     },
     [updateTask],

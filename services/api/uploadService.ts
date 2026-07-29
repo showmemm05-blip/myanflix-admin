@@ -4,6 +4,13 @@ export interface InitUploadResponse {
   uploadId: string;
   chunkSize: number;
   totalChunks: number;
+  /** Chunks the backend already has for this exact movie/filename/size — an interrupted upload resuming, not a fresh one. */
+  uploadedChunks: number[];
+}
+
+export interface ReprocessResponse {
+  videoId: string;
+  status: string;
 }
 
 export interface UploadStatusResponse {
@@ -40,6 +47,11 @@ export const uploadService = {
 
   complete(uploadId: string) {
     return apiClient.post<CompleteUploadResponse>(`/uploads/${uploadId}/complete`);
+  },
+
+  /** Retries transcoding for a movie whose video failed — no re-upload required. */
+  reprocess(movieId: string) {
+    return apiClient.post<ReprocessResponse>(`/uploads/${movieId}/reprocess`);
   },
 
   /** Uploads an image and resolves its backend-relative path into an absolute URL (movie DTOs require @IsUrl()). */

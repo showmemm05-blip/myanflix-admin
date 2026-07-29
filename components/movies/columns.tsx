@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,9 @@ interface GetMovieColumnsOptions {
   onView: (movie: Movie) => void;
   onEdit: (movie: Movie) => void;
   onDelete: (movie: Movie) => void;
+  onReprocess: (movie: Movie) => void;
+  /** Movie id currently reprocessing, if any — disables its own dropdown item to prevent a double-trigger. */
+  reprocessingId: string | null;
 }
 
 export function getMovieColumns({
@@ -42,6 +45,8 @@ export function getMovieColumns({
   onView,
   onEdit,
   onDelete,
+  onReprocess,
+  reprocessingId,
 }: GetMovieColumnsOptions): ColumnDef<Movie>[] {
   const columns: ColumnDef<Movie>[] = [
     {
@@ -140,6 +145,15 @@ export function getMovieColumns({
                   <Pencil className="size-4" />
                   Edit
                 </DropdownMenuItem>
+                {movie.status === "DRAFT" && (
+                  <DropdownMenuItem
+                    disabled={reprocessingId === movie.id}
+                    onClick={() => onReprocess(movie)}
+                  >
+                    <RefreshCw className={reprocessingId === movie.id ? "size-4 animate-spin" : "size-4"} />
+                    Reprocess video
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
                   <Trash2 className="size-4" />
                   Delete
