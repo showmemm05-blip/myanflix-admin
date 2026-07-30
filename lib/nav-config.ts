@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
   Film,
+  FolderInput,
   LayoutDashboard,
   ListVideo,
   Settings,
@@ -43,6 +44,12 @@ export const navItems: NavItem[] = [
         label: "Upload Movie",
         href: "/movies/upload",
         icon: Upload,
+        roles: ["SUPER_ADMIN", "ADMIN"],
+      },
+      {
+        label: "Upload (Pre-transcoded)",
+        href: "/movies/upload-external",
+        icon: FolderInput,
         roles: ["SUPER_ADMIN", "ADMIN"],
       },
       {

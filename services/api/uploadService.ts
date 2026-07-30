@@ -4,11 +4,23 @@ export interface InitUploadResponse {
   uploadId: string;
   chunkSize: number;
   totalChunks: number;
-  /** Chunks the backend already has for this exact movie/filename/size — an interrupted upload resuming, not a fresh one. */
+  /** Chunks the backend already has for this exact movie/filename/size(/relativePath) — an interrupted upload resuming, not a fresh one. */
   uploadedChunks: number[];
 }
 
 export interface ReprocessResponse {
+  videoId: string;
+  status: string;
+}
+
+export interface ValidateExternalBundleResponse {
+  missing: string[];
+  /** Bundle doesn't match the fixed folder-structure contract (e.g. no original.mp4, no rendition folder) — distinct from files simply not having arrived yet. */
+  structureErrors: string[];
+  valid: boolean;
+}
+
+export interface PublishExternalVideoResponse {
   videoId: string;
   status: string;
 }
@@ -26,8 +38,15 @@ export interface CompleteUploadResponse {
 }
 
 export const uploadService = {
-  init(movieId: string, filename: string, filesize: number) {
-    return apiClient.post<InitUploadResponse>("/uploads/init", { movieId, filename, filesize });
+  /**
+   * `relativePath` (e.g. "original.mp4", "hls/720p/index.m3u8") switches this
+   * upload into the externally-pre-transcoded flow: completeUpload() on the
+   * backend uploads the merged file straight to
+   * `videos/<movieId>/<relativePath>` in storage and never runs ffmpeg or
+   * creates a Video row — omit it for the classic single-video-file flow.
+   */
+  init(movieId: string, filename: string, filesize: number, relativePath?: string) {
+    return apiClient.post<InitUploadResponse>("/uploads/init", { movieId, filename, filesize, relativePath });
   },
 
   // chunkNumber travels as a form field rather than part of the URL, so
@@ -52,6 +71,20 @@ export const uploadService = {
   /** Retries transcoding for a movie whose video failed — no re-upload required. */
   reprocess(movieId: string) {
     return apiClient.post<ReprocessResponse>(`/uploads/${movieId}/reprocess`);
+  },
+
+  /** Cross-checks an externally-pre-transcoded bundle's uploaded files against what's actually in storage. */
+  validateExternalBundle(movieId: string, relativePaths: string[]) {
+    return apiClient.post<ValidateExternalBundleResponse>(`/uploads/${movieId}/validate-external`, { relativePaths });
+  },
+
+  /**
+   * Publishes a movie whose video was transcoded entirely externally — never
+   * runs ffmpeg. `relativePaths` is every file uploaded for the bundle; the
+   * backend derives which renditions and subtitles exist from it.
+   */
+  publishExternalVideo(movieId: string, relativePaths: string[]) {
+    return apiClient.post<PublishExternalVideoResponse>(`/uploads/${movieId}/publish-external`, { relativePaths });
   },
 
   /** Uploads an image and resolves its backend-relative path into an absolute URL (movie DTOs require @IsUrl()). */

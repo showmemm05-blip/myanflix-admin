@@ -11,6 +11,7 @@ export interface Movie {
   description: string;
   posterUrl: string | null;
   coverUrl: string | null;
+  thumbnailUrl: string | null;
   genre: string;
   language: string;
   releaseYear: number;
@@ -43,6 +44,7 @@ export interface MovieUploadFormValues {
   isPremium: boolean;
   posterUrl?: string;
   coverUrl?: string;
+  thumbnailUrl?: string;
 }
 
 export type UploadStage =

@@ -17,6 +17,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { movieService } from "@/services/api/movieService";
+import { videoService } from "@/services/api/videoService";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { SubtitleManager } from "./SubtitleManager";
 import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
 
@@ -35,6 +38,14 @@ function EditMovieForm({
   const [isPremium, setIsPremium] = useState(movie.isPremium);
   const [status, setStatus] = useState<Movie["status"]>(movie.status);
   const [saving, setSaving] = useState(false);
+
+  // A video only exists once something has actually been uploaded for this
+  // movie — getProcessingStatus() 404s otherwise, which useAsyncData already
+  // turns into a normal `error` we can just check for instead of throwing.
+  const { data: videoStatus, error: videoError } = useAsyncData(
+    () => videoService.getProcessingStatus(movie.id),
+    [movie.id],
+  );
 
   const handleSave = async () => {
     setSaving(true);
@@ -112,6 +123,8 @@ function EditMovieForm({
           </div>
           <Switch checked={isPremium} onCheckedChange={setIsPremium} />
         </div>
+
+        {!videoError && videoStatus && <SubtitleManager videoId={videoStatus.id} />}
       </div>
 
       <DialogFooter>
