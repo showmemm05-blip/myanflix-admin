@@ -1,4 +1,11 @@
-export type MovieStatus = "DRAFT" | "PROCESSING" | "PUBLISHED" | "ARCHIVED";
+export type MovieStatus =
+  | "DRAFT"
+  | "PROCESSING"
+  | "PUBLISHED"
+  | "ARCHIVED"
+  | "UPLOADING"
+  | "FAILED"
+  | "READY_TO_PUBLISH";
 
 export interface MovieCategoryRef {
   id: string;

@@ -30,38 +30,9 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useUploads, type PublishInput } from "@/lib/context/upload-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
+import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
 import type { UploadStage } from "@/types/movie";
 import { toast } from "sonner";
-
-const GENRE_OPTIONS = [
-  "Action",
-  "Adventure",
-  "Animation",
-  "Comedy",
-  "Crime",
-  "Documentary",
-  "Drama",
-  "Family",
-  "Fantasy",
-  "History",
-  "Horror",
-  "Musical",
-  "Mystery",
-  "Romance",
-  "Sci-Fi",
-  "Thriller",
-];
-
-const LANGUAGES = [
-  "English",
-  "Burmese",
-  "Korean",
-  "Japanese",
-  "Hindi",
-  "Chinese",
-  "Spanish",
-  "French",
-];
 
 const STAGE_ORDER: UploadStage[] = [
   "uploading-images",

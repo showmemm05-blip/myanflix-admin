@@ -167,3 +167,121 @@
     border-radius: 9999px;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Toast notifications (sonner)
+
+   Appearance only — deliberately no position/display/width/gap/padding here.
+   Sonner owns the toast's layout (it positions each one absolutely and drives
+   the stack with inline transforms measured off its own --front-toast-height),
+   and overriding any of that puts the toasts back in normal flow *as well as*
+   transformed, which collapses its <ol> and throws the stack off-screen.
+
+   Unlayered, and the doubled [data-sonner-toaster] is not a typo: sonner
+   injects its stylesheet at runtime and unlayered rules always beat layered
+   ones, while its own selectors are two-attribute — so a single prefix merely
+   ties and then loses on source order. Repeating the attribute costs nothing
+   visually and puts these one specificity notch clear of !important.
+
+   Each type drives a single --toast-accent, which then colors the edge bar,
+   the icon chip and the border, so a toast's meaning reads from color alone
+   before any of its text is parsed.
+--------------------------------------------------------------------------- */
+
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] {
+  --toast-accent: oklch(0.72 0.02 260);
+
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  background: color-mix(in oklab, var(--popover) 82%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid color-mix(in oklab, var(--toast-accent) 22%, transparent);
+  box-shadow:
+    0 1px 0 0 rgb(255 255 255 / 0.06) inset,
+    0 12px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+/* Full-height accent edge — the primary at-a-glance type signal. */
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast]::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--toast-accent);
+}
+
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="success"] { --toast-accent: var(--success); }
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="error"] { --toast-accent: oklch(0.65 0.21 22); }
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="warning"] { --toast-accent: var(--warning); }
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="info"] { --toast-accent: oklch(0.7 0.15 245); }
+
+/* Icon sits in a tinted chip rather than floating loose beside the text. */
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-icon] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.875rem;
+  height: 1.875rem;
+  margin-inline-end: 0.125rem;
+  border-radius: var(--radius-md);
+  background: color-mix(in oklab, var(--toast-accent) 16%, transparent);
+  color: var(--toast-accent);
+}
+
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-title] {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.006em;
+  color: var(--foreground);
+}
+
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-description] {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+}
+
+/* Action button picks up the same accent so it reads as part of the toast. */
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-button] {
+  height: 1.75rem;
+  padding-inline: 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: color-mix(in oklab, var(--toast-accent) 18%, transparent);
+  color: var(--toast-accent);
+  border: 1px solid color-mix(in oklab, var(--toast-accent) 30%, transparent);
+  transition: background-color 150ms ease;
+}
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-button]:hover {
+  background: color-mix(in oklab, var(--toast-accent) 28%, transparent);
+}
+
+/* Close button stays out of the way until the toast is actually hovered. */
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+  inset: 0.5rem 0.5rem auto auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  border-radius: 9999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease;
+}
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast]:hover [data-close-button] {
+  opacity: 1;
+}
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-close-button]:hover {
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-button],
+  [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-close-button] {
+    transition: none;
+  }
+}

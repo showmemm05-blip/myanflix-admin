@@ -9,17 +9,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
-import { formatDuration } from "@/components/movies/columns";
+import { StatusBadge } from "@/components/shared/StatusBadge";
+import { formatDuration, STATUS_TONE } from "@/components/movies/columns";
 import { formatKyat } from "@/lib/currency";
-import type { Movie, MovieStatus } from "@/types/movie";
-
-const STATUS_TONE: Record<MovieStatus, StatusTone> = {
-  PUBLISHED: "success",
-  PROCESSING: "info",
-  DRAFT: "neutral",
-  ARCHIVED: "warning",
-};
+import type { Movie } from "@/types/movie";
 
 const FALLBACK_COVER = "https://picsum.photos/seed/myanflix-cover/1280/720";
 

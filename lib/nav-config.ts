@@ -5,6 +5,7 @@ import {
   FolderInput,
   LayoutDashboard,
   ListVideo,
+  Rocket,
   Settings,
   ShieldCheck,
   Upload,
@@ -47,9 +48,15 @@ export const navItems: NavItem[] = [
         roles: ["SUPER_ADMIN", "ADMIN"],
       },
       {
-        label: "Upload (Pre-transcoded)",
+        label: "Bulk Upload (Pre-transcoded)",
         href: "/movies/upload-external",
         icon: FolderInput,
+        roles: ["SUPER_ADMIN", "ADMIN"],
+      },
+      {
+        label: "Ready to Publish",
+        href: "/movies/ready-to-publish",
+        icon: Rocket,
         roles: ["SUPER_ADMIN", "ADMIN"],
       },
       {

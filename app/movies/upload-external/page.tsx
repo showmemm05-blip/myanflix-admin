@@ -1,625 +1,409 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle2,
-  ClipboardList,
-  FolderInput,
+  AlertCircle,
+  GripVertical,
   Loader2,
-  Rocket,
+  Pause,
+  Pencil,
+  Play,
+  RotateCcw,
   UploadCloud,
-  XCircle,
+  WifiOff,
+  X,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { FileUploadField } from "@/components/movies/FileUploadField";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useAsyncData } from "@/lib/hooks/use-async-data";
-import { useExternalUpload } from "@/lib/context/external-upload-context";
+  useBulkExternalUpload,
+  MAX_BULK_MOVIES,
+  totalBytes,
+  uploadedBytes,
+  type MovieUploadJob,
+  type MovieUploadStatus,
+} from "@/lib/context/bulk-upload-context";
+import { readDroppedFolders, foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { movieService } from "@/services/api/movieService";
-import { uploadService } from "@/services/api/uploadService";
-import { ApiError } from "@/services/api/apiClient";
+import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
 
-const GENRE_OPTIONS = [
-  "Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary",
-  "Drama", "Family", "Fantasy", "History", "Horror", "Musical",
-  "Mystery", "Romance", "Sci-Fi", "Thriller",
-];
-const LANGUAGES = ["English", "Burmese", "Korean", "Japanese", "Hindi", "Chinese", "Spanish", "French"];
+const STATUS_META: Record<MovieUploadStatus, { label: string; tone: StatusTone }> = {
+  waiting: { label: "Waiting", tone: "neutral" },
+  uploading: { label: "Uploading", tone: "info" },
+  paused: { label: "Paused", tone: "warning" },
+  offline: { label: "Waiting for internet connection", tone: "info" },
+  failed: { label: "Failed", tone: "danger" },
+  completed: { label: "Completed", tone: "info" },
+  ready_to_publish: { label: "Ready to publish", tone: "warning" },
+};
 
-// The fixed folder-structure contract for the movie folder the other PC
-// hands off — must match backend UploadsService.parseBundleStructure().
-const KNOWN_RENDITIONS = ["240p", "360p", "480p", "720p", "1080p"];
-
-// One accent color per step so the wizard is easy to scan at a glance —
-// literal class strings throughout (not composed from a variable) so
-// Tailwind's static scanner can actually find and generate them.
-const STEPS = [
-  {
-    id: 1 as const,
-    label: "Movie folder",
-    hint: "Upload the prepared bundle",
-    icon: FolderInput,
-    text: "text-sky-400",
-    bg: "bg-sky-400/15",
-    border: "border-sky-400/30",
-    ring: "ring-sky-400/30",
-    dropzone: "border-sky-400/30 bg-sky-400/[0.06] hover:border-sky-400/50 hover:bg-sky-400/10",
-  },
-  {
-    id: 2 as const,
-    label: "Movie info",
-    hint: "Title, images, and details",
-    icon: ClipboardList,
-    text: "text-amber-400",
-    bg: "bg-amber-400/15",
-    border: "border-amber-400/30",
-    ring: "ring-amber-400/30",
-    dropzone: "border-amber-400/30 bg-amber-400/[0.06] hover:border-amber-400/50 hover:bg-amber-400/10",
-  },
-  {
-    id: 3 as const,
-    label: "Validate & publish",
-    hint: "Confirm and go live",
-    icon: Rocket,
-    text: "text-emerald-400",
-    bg: "bg-emerald-400/15",
-    border: "border-emerald-400/30",
-    ring: "ring-emerald-400/30",
-    dropzone: "border-emerald-400/30 bg-emerald-400/[0.06] hover:border-emerald-400/50 hover:bg-emerald-400/10",
-  },
-];
-type StepId = (typeof STEPS)[number]["id"];
-
-/** Maps a path relative to the selected movie-folder root onto the storage relativePath the backend expects (see StorageService's hls/ key convention). */
-function mapLocalPathToRelativePath(localPath: string): string {
-  if (localPath === "original.mp4") return "original.mp4";
-  if (localPath === "master.m3u8") return "hls/master.m3u8";
-  if (localPath.startsWith("subtitles/")) return localPath;
-  return `hls/${localPath}`;
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${Math.max(0, Math.round(bytes))} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unitIndex = -1;
+  do {
+    value /= 1024;
+    unitIndex++;
+  } while (value >= 1024 && unitIndex < units.length - 1);
+  return `${value.toFixed(value < 10 ? 1 : 0)} ${units[unitIndex]}`;
 }
 
-/** Groups a storage relativePath back into a human-readable bucket for the upload checklist. */
-function groupLabelForRelativePath(relativePath: string): string {
-  if (relativePath === "original.mp4") return "original.mp4";
-  if (relativePath === "hls/master.m3u8") return "master.m3u8";
-  if (relativePath.startsWith("subtitles/")) return "subtitles/";
-  const match = /^hls\/([^/]+)\//.exec(relativePath);
-  return match ? `${match[1]}/` : relativePath;
+function formatSpeed(bytesPerSecond: number): string {
+  return bytesPerSecond > 0 ? `${formatBytes(bytesPerSecond)}/s` : "—";
 }
 
-function useObjectUrl(file: File | null) {
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-  useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [url]);
-  return url;
+function formatEta(seconds: number | null): string {
+  if (seconds === null) return "Estimating...";
+  if (seconds < 60) return `${Math.round(seconds)}s remaining`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m < 60) return `${m}m ${s}s remaining`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m remaining`;
 }
 
-/** A folder selected via webkitdirectory keeps its own root folder name as the first path segment — irrelevant to storage, only the structure beneath it matters. */
-function stripDirectoryRoot(relativePath: string): string {
-  const parts = relativePath.split("/");
-  return parts.slice(1).join("/");
-}
+export default function BulkUploadExternalPage() {
+  const {
+    jobs,
+    restoring,
+    isOnline,
+    addFolders,
+    pause,
+    resume,
+    retry,
+    cancel,
+    remove,
+    reattachFolder,
+    moveWaitingToIndex,
+    markPublished,
+    patchJobTitle,
+  } = useBulkExternalUpload();
 
-export default function UploadExternalVideoPage() {
-  const { data: categories } = useAsyncData(movieService.getCategories, []);
-  const bundle = useExternalUpload();
+  const [isDragging, setIsDragging] = useState(false);
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+  const [editMovie, setEditMovie] = useState<Movie | null>(null);
+  const [reattachTarget, setReattachTarget] = useState<string | null>(null);
+  const reattachInputRef = useRef<HTMLInputElement>(null);
 
-  const [movieId, setMovieId] = useState<string | null>(null);
-  const [creatingDraft, setCreatingDraft] = useState(true);
-  const [activeStep, setActiveStep] = useState<StepId>(1);
+  const remainingSlots = MAX_BULK_MOVIES - jobs.length;
+  const canAddMore = remainingSlots > 0;
 
-  // Step 1: the technical bundle — one root folder, opaque output from the
-  // other machine, recursively uploaded exactly as it was handed off.
+  const waitingPosition = useMemo(() => {
+    const waiting = jobs.filter((j) => j.status === "waiting").sort((a, b) => a.queueOrder - b.queueOrder);
+    return new Map(waiting.map((j, i) => [j.key, i + 1]));
+  }, [jobs]);
 
-  // Step 2: curatorial metadata + promotional images — a normal picker, same as the classic upload page.
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [genre, setGenre] = useState("");
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
-  const [language, setLanguage] = useState("English");
-  const [releaseYear, setReleaseYear] = useState(String(new Date().getFullYear()));
-  const [durationMinutes, setDurationMinutes] = useState("120");
-  const [price, setPrice] = useState("6990");
-  const [isPremium, setIsPremium] = useState(true);
-  const [posterFile, setPosterFile] = useState<File | null>(null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [uploadingImages, setUploadingImages] = useState(false);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-
-  const posterPreview = useObjectUrl(posterFile);
-  const coverPreview = useObjectUrl(coverFile);
-  const thumbnailPreview = useObjectUrl(thumbnailFile);
-
-  const [validation, setValidation] = useState<{ missing: string[]; structureErrors: string[]; checked: boolean }>({
-    missing: [],
-    structureErrors: [],
-    checked: false,
-  });
-  const [validating, setValidating] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-
-  // A draft Movie exists before any file is picked — initUpload() needs a
-  // real movieId to attach sessions to, and this satisfies the requested
-  // "upload files first" order without inventing upload-without-a-movie.
-  useEffect(() => {
-    let cancelled = false;
-    movieService
-      .createMovie({
-        title: "Untitled Draft",
-        description: "Draft — pending details",
-        genre: "Unknown",
-        categoryIds: [],
-        language: "English",
-        releaseYear: new Date().getFullYear(),
-        duration: 1,
-        price: 0,
-        isPremium: false,
-      })
-      .then((movie) => {
-        if (!cancelled) {
-          setMovieId(movie.id);
-          setTitle(movie.title);
-        }
-      })
-      .catch(() => toast.error("Couldn't start a new upload — please refresh and try again."))
-      .finally(() => {
-        if (!cancelled) setCreatingDraft(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleFolderChange = (fileList: FileList | null) => {
-    const files = fileList ? Array.from(fileList) : [];
-    const assets = files.map((file) => {
-      const localPath = stripDirectoryRoot((file as File & { webkitRelativePath: string }).webkitRelativePath);
-      return { relativePath: mapLocalPathToRelativePath(localPath), file };
+  const sortedJobs = useMemo(() => {
+    const rank = (j: MovieUploadJob) => (j.status === "uploading" ? 0 : j.status === "waiting" ? 1 : 2);
+    return [...jobs].sort((a, b) => {
+      const r = rank(a) - rank(b);
+      if (r !== 0) return r;
+      if (a.status === "waiting" && b.status === "waiting") return a.queueOrder - b.queueOrder;
+      return a.addedAt - b.addedAt;
     });
-    bundle.setAssetList(assets);
-    setValidation({ missing: [], structureErrors: [], checked: false });
-  };
+  }, [jobs]);
 
-  const bundleGroups = useMemo(() => {
-    const groups = new Map<string, { total: number; done: number }>();
-    for (const asset of bundle.assets) {
-      const label = groupLabelForRelativePath(asset.relativePath);
-      const entry = groups.get(label) ?? { total: 0, done: 0 };
-      entry.total += 1;
-      if (asset.status === "done") entry.done += 1;
-      groups.set(label, entry);
-    }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [bundle.assets]);
-
-  const canUploadBundle = bundle.assets.length > 0;
-
-  const handleUploadBundle = async () => {
-    if (!movieId || !canUploadBundle) return;
-    try {
-      await bundle.uploadAll(movieId);
-      toast.success("Bundle uploaded", { description: "All files uploaded — validate before publishing." });
-      setActiveStep(2);
-    } catch (err) {
-      toast.error("Some files failed to upload", {
-        description: err instanceof Error ? err.message : "Check the checklist below and try again.",
-      });
-    }
-  };
-
-  const handleUploadImages = async () => {
-    if (!posterFile || !coverFile || !thumbnailFile) {
-      toast.error("Poster, banner, and thumbnail images are all required.");
+  const addDroppedFolders = async (folders: DroppedFolder[]) => {
+    const toAdd = folders.filter((f) => f.files.length > 0).slice(0, remainingSlots);
+    if (toAdd.length === 0) {
+      toast.error(canAddMore ? "That folder appears to be empty." : `You can only queue up to ${MAX_BULK_MOVIES} movies at once.`);
       return;
     }
-    setUploadingImages(true);
-    try {
-      const [poster, cover, thumb] = await Promise.all([
-        uploadService.uploadImage(posterFile),
-        uploadService.uploadImage(coverFile),
-        uploadService.uploadImage(thumbnailFile),
-      ]);
-      setPosterUrl(poster.url);
-      setCoverUrl(cover.url);
-      setThumbnailUrl(thumb.url);
-      toast.success("Images uploaded");
-    } catch (err) {
-      toast.error("Couldn't upload images", { description: err instanceof Error ? err.message : undefined });
-    } finally {
-      setUploadingImages(false);
+    if (folders.length > toAdd.length) {
+      toast.error(`Only added ${toAdd.length} of ${folders.length} folders — the ${MAX_BULK_MOVIES}-movie limit was reached.`);
     }
+    const added = await addFolders(toAdd);
+    if (added > 0) toast.success(`${added} movie${added === 1 ? "" : "s"} added to the queue`);
   };
 
-  const handleSaveInfo = async () => {
-    if (!movieId) return;
-    if (!title.trim() || !description.trim() || !genre) {
-      toast.error("Title, description, and genre are required.");
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!canAddMore) {
+      toast.error(`You can only queue up to ${MAX_BULK_MOVIES} movies at once.`);
       return;
     }
     try {
-      await movieService.updateMovie(movieId, {
-        title,
-        description,
-        genre,
-        categoryIds,
-        language,
-        releaseYear: Number(releaseYear),
-        duration: Number(durationMinutes),
-        price: Number(price),
-        isPremium,
-        posterUrl: posterUrl ?? undefined,
-        coverUrl: coverUrl ?? undefined,
-        thumbnailUrl: thumbnailUrl ?? undefined,
-      });
-      toast.success("Movie information saved");
-      setActiveStep(3);
-    } catch (err) {
-      toast.error("Couldn't save movie information", { description: err instanceof Error ? err.message : undefined });
-    }
-  };
-
-  const handleValidate = async () => {
-    if (!movieId) return;
-    setValidating(true);
-    try {
-      const relativePaths = bundle.assets.map((a) => a.relativePath);
-      const result = await uploadService.validateExternalBundle(movieId, relativePaths);
-      setValidation({ missing: result.missing, structureErrors: result.structureErrors, checked: true });
-      if (result.valid) {
-        toast.success("Bundle validated — ready to publish.");
-      } else if (result.structureErrors.length > 0) {
-        toast.error("Folder structure is incomplete", { description: result.structureErrors.join("; ") });
-      } else {
-        toast.error(`${result.missing.length} file(s) missing`, {
-          description: "Every uploaded file must be confirmed by the server before publishing.",
-        });
+      const folders = await readDroppedFolders(e.dataTransfer);
+      if (folders.length === 0) {
+        toast.error("Drop one or more movie folders — individual files aren't supported here.");
+        return;
       }
-    } catch (err) {
-      toast.error("Validation failed", { description: err instanceof Error ? err.message : undefined });
-    } finally {
-      setValidating(false);
+      await addDroppedFolders(folders);
+    } catch {
+      toast.error("Couldn't read the dropped folders", { description: "Try again, or use “Add folder” instead." });
     }
   };
 
-  const imagesReady = Boolean(posterUrl && coverUrl && thumbnailUrl);
-  const readyToPublish =
-    validation.checked &&
-    validation.missing.length === 0 &&
-    validation.structureErrors.length === 0 &&
-    imagesReady &&
-    title.trim().length > 0;
-
-  const stepDone: Record<StepId, boolean> = {
-    1: bundle.assets.length > 0 && bundle.allDone,
-    2: imagesReady && title.trim().length > 0 && description.trim().length > 0 && Boolean(genre),
-    3: readyToPublish,
+  const handlePickFolder = async (fileList: FileList | null) => {
+    if (!fileList) return;
+    const folders = foldersFromFileList(fileList);
+    if (folders.length === 0) return;
+    await addDroppedFolders(folders);
   };
-  const step = STEPS.find((s) => s.id === activeStep)!;
 
-  const handlePublish = async () => {
-    if (!movieId || !readyToPublish) return;
-    setPublishing(true);
+  const handleReattachClick = (key: string) => {
+    setReattachTarget(key);
+    reattachInputRef.current?.click();
+  };
+
+  const handleReattachChange = (fileList: FileList | null) => {
+    if (!fileList || !reattachTarget) return;
+    const [folder] = foldersFromFileList(fileList);
+    if (folder) {
+      reattachFolder(reattachTarget, folder);
+      toast.success("Folder re-attached — it'll resume shortly.");
+    }
+    setReattachTarget(null);
+  };
+
+  const handleEdit = async (job: MovieUploadJob) => {
     try {
-      const relativePaths = bundle.assets.map((a) => a.relativePath);
-      await uploadService.publishExternalVideo(movieId, relativePaths);
-      toast.success("Movie published", { description: `"${title}" is now live on MyanFlix.` });
-      window.location.href = "/movies";
-    } catch (err) {
-      toast.error("Couldn't publish", {
-        description: err instanceof ApiError ? err.message : "Please try again.",
-      });
-    } finally {
-      setPublishing(false);
+      const movie = await movieService.getMovieById(job.movieId);
+      setEditMovie(movie);
+    } catch {
+      toast.error("Couldn't load this movie's details");
     }
   };
-
-  if (creatingDraft) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
-        title="Upload Pre-Transcoded Movie"
-        description="For videos already transcoded on another machine — this system only stores and validates the prepared files, it never runs ffmpeg for this flow."
+        title="Bulk Upload (Pre-Transcoded)"
+        description="Drop up to 10 movie folders — they upload one at a time in order, the rest wait in queue. This system never runs ffmpeg for this flow, and never publishes a movie automatically."
       />
 
-      <div className="flex items-center gap-2 rounded-2xl border border-white/[0.08] bg-secondary/10 p-2.5">
-        {STEPS.map((s, idx) => {
-          const isActive = s.id === activeStep;
-          const isDone = stepDone[s.id];
-          const Icon = s.icon;
-          return (
-            <div key={s.id} className="flex flex-1 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveStep(s.id)}
-                className={`flex flex-1 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all ${
-                  isActive
-                    ? `${s.border} ${s.bg} ring-1 ${s.ring}`
-                    : isDone
-                      ? "border-success/30 bg-success/10 hover:bg-success/15"
-                      : "border-transparent bg-transparent hover:bg-secondary/30"
-                }`}
-              >
-                <span
-                  className={`flex size-8 shrink-0 items-center justify-center rounded-full ${
-                    isDone ? "bg-success/20 text-success" : isActive ? `${s.bg} ${s.text}` : "bg-secondary text-muted-foreground"
-                  }`}
-                >
-                  {isDone ? <CheckCircle2 className="size-4" /> : <Icon className="size-4" />}
-                </span>
-                <span className="hidden flex-col sm:flex">
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Step {s.id}
-                  </span>
-                  <span className={`text-sm font-semibold ${isActive ? s.text : "text-foreground"}`}>{s.label}</span>
-                </span>
-              </button>
-              {idx < STEPS.length - 1 && (
-                <div className={`h-px w-3 shrink-0 sm:w-6 ${isDone ? "bg-success/40" : "bg-white/10"}`} />
-              )}
-            </div>
-          );
-        })}
-      </div>
+      {!isOnline && (
+        <div className="flex items-center gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3">
+          <WifiOff className="size-5 shrink-0 text-sky-400" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-sky-300">Waiting for internet connection...</p>
+            <p className="text-xs text-muted-foreground">
+              Uploads are paused and will resume automatically from where they left off — nothing is lost.
+            </p>
+          </div>
+        </div>
+      )}
 
-      {activeStep === 1 && (
-        <Card className={`glass-card border ${step.border}`}>
-          <CardHeader className="flex-row items-center gap-3 space-y-0">
-            <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${step.bg} ${step.text}`}>
-              <FolderInput className="size-4.5" />
+      <Card className="glass-card border-white/[0.08]">
+        <CardContent className="flex flex-col gap-4">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (canAddMore) setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/10"
+                : canAddMore
+                  ? "border-white/15 hover:border-primary/40 hover:bg-secondary/20"
+                  : "border-white/10 opacity-60"
+            }`}
+          >
+            <UploadCloud className="size-7 text-muted-foreground" />
+            <span className="text-sm font-semibold">
+              {canAddMore ? "Drop up to 10 movie folders here" : `Limit reached (${MAX_BULK_MOVIES}/${MAX_BULK_MOVIES})`}
             </span>
-            <div>
-              <CardTitle>Movie folder</CardTitle>
-              <p className="text-xs text-muted-foreground">One folder, uploaded recursively — nothing else to pick.</p>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <label
-              className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-10 text-center transition-colors ${step.dropzone}`}
-            >
-              <UploadCloud className={`size-7 ${step.text}`} />
-              <span className="text-sm font-semibold">
-                {bundle.assets.length > 0 ? `${bundle.assets.length} files selected` : "Click to select the movie folder"}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                original.mp4 · master.m3u8 · 240p–1080p · subtitles/
+            <span className="text-xs text-muted-foreground">
+              Each folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/
+            </span>
+
+            <label className={`mt-2 ${canAddMore ? "cursor-pointer" : "pointer-events-none opacity-50"}`}>
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-secondary/40 px-3 py-1.5 text-xs font-medium hover:bg-secondary/60">
+                <UploadCloud className="size-3.5" />
+                Add folder
               </span>
               <input
                 type="file"
                 // @ts-expect-error -- webkitdirectory is a real, supported, non-standard attribute for folder selection.
                 webkitdirectory=""
                 multiple
+                disabled={!canAddMore}
                 className="hidden"
-                onChange={(e) => handleFolderChange(e.target.files)}
+                onChange={(e) => {
+                  void handlePickFolder(e.target.files);
+                  e.target.value = "";
+                }}
               />
             </label>
-            <p className="text-xs text-muted-foreground">
-              Select the root folder containing <code>original.mp4</code>, <code>master.m3u8</code>, every
-              rendition folder (240p/360p/480p/720p/1080p), and an optional <code>subtitles/</code> folder.
-            </p>
+          </div>
 
-            {bundleGroups.length > 0 && (
-              <div className="flex flex-col gap-2 rounded-lg border border-white/[0.08] bg-secondary/20 p-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{bundle.assets.length} files total</span>
-                  <span className={step.text}>{bundle.overallProgress}%</span>
-                </div>
-                <Progress value={bundle.overallProgress} className="h-1.5" />
-                <div className="flex flex-col gap-1 text-xs">
-                  {bundleGroups.map(([label, { total, done }]) => (
-                    <div key={label} className="flex items-center justify-between gap-2 py-0.5">
-                      <span className="truncate text-muted-foreground">{label}</span>
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <span className="tabular-nums text-muted-foreground">
-                          {done}/{total}
+          <p className="text-xs text-muted-foreground">
+            {jobs.length}/{MAX_BULK_MOVIES} movies queued
+            {restoring && " · restoring your last session..."}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Shared hidden picker for re-attaching a folder after a refresh — one input, retargeted per row via reattachTarget. */}
+      <input
+        ref={reattachInputRef}
+        type="file"
+        // @ts-expect-error -- webkitdirectory is a real, supported, non-standard attribute for folder selection.
+        webkitdirectory=""
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          handleReattachChange(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {!restoring && jobs.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
+          No movies queued yet — drop or add a folder above to get started.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {sortedJobs.map((job) => {
+            const meta = STATUS_META[job.status];
+            const isActive = job.status === "uploading" || job.status === "completed";
+            const showProgress = isActive || job.status === "paused" || job.status === "offline";
+            const total = totalBytes(job);
+            const uploaded = uploadedBytes(job);
+            const percent = total > 0 ? Math.round((uploaded / total) * 100) : 0;
+            const position = waitingPosition.get(job.key);
+            const isDraggable = job.status === "waiting";
+
+            return (
+              <Card
+                key={job.key}
+                draggable={isDraggable}
+                onDragStart={() => isDraggable && setDraggingKey(job.key)}
+                onDragOver={(e) => {
+                  if (isDraggable) e.preventDefault();
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (!draggingKey || draggingKey === job.key || !isDraggable) return;
+                  moveWaitingToIndex(draggingKey, (position ?? 1) - 1);
+                  setDraggingKey(null);
+                }}
+                onDragEnd={() => setDraggingKey(null)}
+                className={`glass-card border-white/[0.08] transition-colors ${
+                  job.status === "uploading" ? "border-sky-500/30 bg-sky-500/[0.03]" : ""
+                } ${draggingKey === job.key ? "opacity-50" : ""}`}
+              >
+                <CardContent className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    {isDraggable && (
+                      <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{job.title}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {job.assets.length} files · {formatBytes(total)}
+                        {position && ` · Queue position #${position}`}
+                      </p>
+                    </div>
+                    <StatusBadge label={meta.label} tone={meta.tone} />
+                  </div>
+
+                  {showProgress && (
+                    <div className="flex flex-col gap-1.5">
+                      <Progress value={job.status === "completed" ? 100 : percent} className="h-1.5" />
+                      <div className="flex items-center justify-between text-xs text-muted-foreground">
+                        <span>
+                          {job.status === "completed"
+                            ? "Validating bundle..."
+                            : job.status === "offline"
+                              ? "Waiting for internet connection..."
+                              : job.status === "paused"
+                                ? `Paused at ${percent}%`
+                                : formatSpeed(job.speedBps)}
                         </span>
-                        {done === total ? (
-                          <CheckCircle2 className="size-3.5 text-success" />
-                        ) : bundle.assets.some((a) => groupLabelForRelativePath(a.relativePath) === label && a.status === "error") ? (
-                          <XCircle className="size-3.5 text-destructive" />
-                        ) : null}
+                        <span className="tabular-nums">
+                          {job.status === "uploading" ? formatEta(job.etaSeconds) : `${percent}%`}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  )}
 
-            <div className="flex items-center justify-between gap-3">
-              <Button onClick={handleUploadBundle} disabled={!canUploadBundle || bundle.isUploading} className="flex-1">
-                {bundle.isUploading && <Loader2 className="size-4 animate-spin" />}
-                {bundle.allDone ? "Re-upload remaining files" : "Upload bundle"}
-              </Button>
-              <Button variant="outline" onClick={() => setActiveStep(2)} disabled={!stepDone[1]}>
-                Next <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  {job.status === "failed" && (
+                    <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+                      <AlertCircle className="size-3.5 shrink-0 translate-y-0.5" />
+                      <span>{job.error ?? "Upload failed."}</span>
+                    </div>
+                  )}
 
-      {activeStep === 2 && (
-        <Card className={`glass-card border ${step.border}`}>
-          <CardHeader className="flex-row items-center gap-3 space-y-0">
-            <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${step.bg} ${step.text}`}>
-              <ClipboardList className="size-4.5" />
-            </span>
-            <div>
-              <CardTitle>Movie information</CardTitle>
-              <p className="text-xs text-muted-foreground">Title, description, categories, and promotional images.</p>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="title">Title</Label>
-              <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label>Genre</Label>
-                <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Select genre" /></SelectTrigger>
-                  <SelectContent>
-                    {GENRE_OPTIONS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Language</Label>
-                <Select value={language} onValueChange={(v) => v && setLanguage(v)}>
-                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="releaseYear">Release year</Label>
-                <Input id="releaseYear" type="number" value={releaseYear} onChange={(e) => setReleaseYear(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="duration">Duration (min)</Label>
-                <Input id="duration" type="number" value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="price">Price (Ks)</Label>
-                <Input id="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Categories</Label>
-              <div className="flex flex-wrap gap-2">
-                {categories?.map((c) => {
-                  const active = categoryIds.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() =>
-                        setCategoryIds((prev) => (active ? prev.filter((id) => id !== c.id) : [...prev, c.id]))
-                      }
-                      className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                        active ? `${step.border} ${step.bg} ${step.text}` : "border-white/10 text-muted-foreground hover:bg-secondary"
-                      }`}
+                  {job.needsReattach && (
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-2.5 text-xs">
+                      <span className="text-sky-300">
+                        This queue was restored after a refresh — re-select this movie&rsquo;s folder to resume.
+                      </span>
+                      <Button size="sm" variant="outline" onClick={() => handleReattachClick(job.key)}>
+                        Attach folder
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2">
+                    {job.status === "uploading" && (
+                      <Button variant="outline" size="sm" onClick={() => pause(job.key)}>
+                        <Pause className="size-3.5" />
+                        Pause
+                      </Button>
+                    )}
+                    {job.status === "paused" && (
+                      <Button variant="outline" size="sm" onClick={() => resume(job.key)}>
+                        <Play className="size-3.5" />
+                        Resume
+                      </Button>
+                    )}
+                    {job.status === "failed" && (
+                      <Button variant="outline" size="sm" onClick={() => retry(job.key)}>
+                        <RotateCcw className="size-3.5" />
+                        Retry
+                      </Button>
+                    )}
+                    {(job.status === "uploading" ||
+                      job.status === "waiting" ||
+                      job.status === "paused" ||
+                      job.status === "offline") && (
+                      <Button variant="outline" size="sm" onClick={() => cancel(job.key)}>
+                        <X className="size-3.5" />
+                        Cancel
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => handleEdit(job)}>
+                      <Pencil className="size-3.5" />
+                      Details
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => remove(job.key)}
                     >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-white/[0.08] px-3 py-2.5">
-              <Label htmlFor="isPremium">Premium (requires purchase)</Label>
-              <Switch id="isPremium" checked={isPremium} onCheckedChange={setIsPremium} />
-            </div>
-
-            <div className={`flex flex-col gap-3 rounded-xl border ${step.border} ${step.bg} p-3`}>
-              <p className={`text-xs font-semibold ${step.text}`}>Promotional images</p>
-              <div className="grid grid-cols-3 gap-4">
-                <FileUploadField label="Poster" accept="image/*" variant="image" aspect="poster" file={posterFile} previewUrl={posterPreview} onChange={setPosterFile} />
-                <FileUploadField label="Banner" accept="image/*" variant="image" aspect="wide" file={coverFile} previewUrl={coverPreview} onChange={setCoverFile} />
-                <FileUploadField label="Thumbnail" accept="image/*" variant="image" aspect="wide" file={thumbnailFile} previewUrl={thumbnailPreview} onChange={setThumbnailFile} />
-              </div>
-              <Button variant="outline" onClick={handleUploadImages} disabled={uploadingImages}>
-                {uploadingImages && <Loader2 className="size-4 animate-spin" />}
-                Upload images
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <Button variant="outline" onClick={() => setActiveStep(1)}>
-                <ArrowLeft className="size-4" /> Back
-              </Button>
-              <Button onClick={handleSaveInfo} className="flex-1">
-                Save movie information
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                      Remove
+                    </Button>
+                    {job.status === "completed" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       )}
 
-      {activeStep === 3 && (
-        <Card className={`glass-card border ${step.border}`}>
-          <CardHeader className="flex-row items-center gap-3 space-y-0">
-            <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${step.bg} ${step.text}`}>
-              <Rocket className="size-4.5" />
-            </span>
-            <div>
-              <CardTitle>Validate &amp; publish</CardTitle>
-              <p className="text-xs text-muted-foreground">Confirm every file made it, then go live.</p>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <Button variant="outline" onClick={handleValidate} disabled={validating || bundle.assets.length === 0}>
-              {validating && <Loader2 className="size-4 animate-spin" />}
-              Validate uploaded files
-            </Button>
-
-            {validation.checked && validation.structureErrors.length > 0 && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                Folder structure incomplete: {validation.structureErrors.join("; ")}
-              </div>
-            )}
-            {validation.checked && validation.missing.length > 0 && (
-              <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                Missing: {validation.missing.join(", ")}
-              </div>
-            )}
-            {validation.checked && validation.missing.length === 0 && validation.structureErrors.length === 0 && (
-              <div className="flex items-center gap-2 text-sm text-success">
-                <CheckCircle2 className="size-4" /> All bundle files confirmed present.
-              </div>
-            )}
-            {!imagesReady && (
-              <p className="text-xs text-muted-foreground">Upload all three images in step 2 before publishing.</p>
-            )}
-
-            <div className="flex items-center justify-between gap-3">
-              <Button variant="outline" onClick={() => setActiveStep(2)}>
-                <ArrowLeft className="size-4" /> Back
-              </Button>
-              <Button onClick={handlePublish} disabled={!readyToPublish || publishing} className="flex-1">
-                {publishing && <Loader2 className="size-4 animate-spin" />}
-                Publish movie
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <EditMovieDialog
+        movie={editMovie}
+        open={!!editMovie}
+        onOpenChange={(o) => !o && setEditMovie(null)}
+        onSaved={(updated) => {
+          patchJobTitle(updated.id, updated.title);
+          if (updated.status === "PUBLISHED") markPublished(updated.id);
+          setEditMovie(updated);
+        }}
+      />
     </div>
   );
 }

@@ -20,7 +20,7 @@ export interface ValidateExternalBundleResponse {
   valid: boolean;
 }
 
-export interface PublishExternalVideoResponse {
+export interface FinalizeExternalUploadResponse {
   videoId: string;
   status: string;
 }
@@ -79,12 +79,14 @@ export const uploadService = {
   },
 
   /**
-   * Publishes a movie whose video was transcoded entirely externally — never
-   * runs ffmpeg. `relativePaths` is every file uploaded for the bundle; the
-   * backend derives which renditions and subtitles exist from it.
+   * Runs automatically once a bundle upload finishes — never runs ffmpeg.
+   * `relativePaths` is every file uploaded for the bundle; the backend
+   * derives which renditions and subtitles exist from it, then moves the
+   * movie to READY_TO_PUBLISH (or FAILED if the bundle is incomplete) — it
+   * never publishes the movie itself.
    */
-  publishExternalVideo(movieId: string, relativePaths: string[]) {
-    return apiClient.post<PublishExternalVideoResponse>(`/uploads/${movieId}/publish-external`, { relativePaths });
+  finalizeExternalUpload(movieId: string, relativePaths: string[]) {
+    return apiClient.post<FinalizeExternalUploadResponse>(`/uploads/${movieId}/finalize`, { relativePaths });
   },
 
   /** Uploads an image and resolves its backend-relative path into an absolute URL (movie DTOs require @IsUrl()). */

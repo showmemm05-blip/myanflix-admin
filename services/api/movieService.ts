@@ -59,6 +59,11 @@ export const movieService = {
     return apiClient.post<Movie>("/movies", values, { signal });
   },
 
+  /** Bootstraps a movie for the bulk pre-transcoded upload flow — title only, status UPLOADING. Everything else is filled in later via updateMovie(). */
+  createUploadPlaceholder(title: string, signal?: AbortSignal) {
+    return apiClient.post<Movie>("/movies/upload-placeholder", { title }, { signal });
+  },
+
   updateMovie(
     id: string,
     values: Partial<MovieUploadFormValues> & { status?: MovieStatus },

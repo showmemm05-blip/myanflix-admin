@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, MoreHorizontal, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, Loader2, MoreHorizontal, Pencil, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,11 +15,14 @@ import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import type { Movie, MovieStatus } from "@/types/movie";
 
-const STATUS_TONE: Record<MovieStatus, StatusTone> = {
+export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
   PUBLISHED: "success",
   PROCESSING: "info",
   DRAFT: "neutral",
   ARCHIVED: "warning",
+  UPLOADING: "info",
+  FAILED: "danger",
+  READY_TO_PUBLISH: "warning",
 };
 
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
@@ -38,6 +41,16 @@ interface GetMovieColumnsOptions {
   onReprocess: (movie: Movie) => void;
   /** Movie id currently reprocessing, if any — disables its own dropdown item to prevent a double-trigger. */
   reprocessingId: string | null;
+  /**
+   * Opt-in only — omitting this leaves the actions column exactly as it is
+   * on the main Movies page. When provided, a visible "Publish" button
+   * appears for any READY_TO_PUBLISH row (used by the dedicated Ready to
+   * Publish page) — publishing is always this explicit, admin-triggered
+   * action, never automatic.
+   */
+  onPublish?: (movie: Movie) => void;
+  /** Movie id currently publishing, if any — disables its own button to prevent a double-trigger. */
+  publishingId?: string | null;
 }
 
 export function getMovieColumns({
@@ -47,6 +60,8 @@ export function getMovieColumns({
   onDelete,
   onReprocess,
   reprocessingId,
+  onPublish,
+  publishingId,
 }: GetMovieColumnsOptions): ColumnDef<Movie>[] {
   const columns: ColumnDef<Movie>[] = [
     {
@@ -130,38 +145,50 @@ export function getMovieColumns({
     cell: ({ row }) => {
       const movie = row.original;
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onView(movie)}>
-              <Eye className="size-4" />
-              View
-            </DropdownMenuItem>
-            {canManage && (
-              <>
-                <DropdownMenuItem onClick={() => onEdit(movie)}>
-                  <Pencil className="size-4" />
-                  Edit
-                </DropdownMenuItem>
-                {movie.status === "DRAFT" && (
-                  <DropdownMenuItem
-                    disabled={reprocessingId === movie.id}
-                    onClick={() => onReprocess(movie)}
-                  >
-                    <RefreshCw className={reprocessingId === movie.id ? "size-4 animate-spin" : "size-4"} />
-                    Reprocess video
+        <div className="flex items-center justify-end gap-2">
+          {canManage && onPublish && movie.status === "READY_TO_PUBLISH" && (
+            <Button size="sm" disabled={publishingId === movie.id} onClick={() => onPublish(movie)}>
+              {publishingId === movie.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Rocket className="size-3.5" />
+              )}
+              Publish
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onView(movie)}>
+                <Eye className="size-4" />
+                View
+              </DropdownMenuItem>
+              {canManage && (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(movie)}>
+                    <Pencil className="size-4" />
+                    Edit
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
-                  <Trash2 className="size-4" />
-                  Delete
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                  {movie.status === "DRAFT" && (
+                    <DropdownMenuItem
+                      disabled={reprocessingId === movie.id}
+                      onClick={() => onReprocess(movie)}
+                    >
+                      <RefreshCw className={reprocessingId === movie.id ? "size-4 animate-spin" : "size-4"} />
+                      Reprocess video
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
+                    <Trash2 className="size-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       );
     },
   });
