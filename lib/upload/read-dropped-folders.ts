@@ -115,6 +115,17 @@ export function foldersFromFileList(fileList: FileList): DroppedFolder[] {
   return Array.from(groups.entries()).map(([folderName, files]) => ({ folderName, files }));
 }
 
+/** "Episode 3" / "S01E03" / "Ep_03" / "The Finale 12" -> 3/3/3/12; null when the name carries no usable number. */
+export function parseEpisodeNumber(folderName: string): number | null {
+  const sxe = /S\d+\s*[._ -]*E(\d{1,4})/i.exec(folderName);
+  if (sxe) return Number(sxe[1]);
+  const ep = /ep(?:isode)?[ ._-]*(\d{1,4})/i.exec(folderName);
+  if (ep) return Number(ep[1]);
+  const trailing = /(\d{1,4})\s*$/.exec(folderName.trim());
+  if (trailing) return Number(trailing[1]);
+  return null;
+}
+
 /** "the_great_escape" / "The-Great-Escape" -> "The Great Escape". */
 export function extractTitleFromFolderName(folderName: string): string {
   const cleaned = folderName.replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();

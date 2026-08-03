@@ -44,6 +44,9 @@ function EditMovieForm({
   const [price, setPrice] = useState(movie.price.toString());
   const [isPremium, setIsPremium] = useState(movie.isPremium);
   const [status, setStatus] = useState<Movie["status"]>(movie.status);
+  const isEpisode = movie.seriesId !== null;
+  const [seasonNumber, setSeasonNumber] = useState(String(movie.seasonNumber ?? 1));
+  const [episodeNumber, setEpisodeNumber] = useState(String(movie.episodeNumber ?? 1));
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
@@ -85,6 +88,12 @@ function EditMovieForm({
         posterUrl,
         coverUrl,
         thumbnailUrl,
+        ...(isEpisode
+          ? {
+              seasonNumber: Math.max(1, Number(seasonNumber) || 1),
+              episodeNumber: Math.max(1, Number(episodeNumber) || 1),
+            }
+          : {}),
       });
       onSaved(updated);
       toast.success("Movie updated", { description: `"${title}" has been saved.` });
@@ -122,6 +131,31 @@ function EditMovieForm({
           <Label htmlFor="edit-title">Title</Label>
           <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
+
+        {isEpisode && (
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-white/[0.08] bg-secondary/20 p-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-season">Season</Label>
+              <Input
+                id="edit-season"
+                type="number"
+                min="1"
+                value={seasonNumber}
+                onChange={(e) => setSeasonNumber(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-episode">Episode</Label>
+              <Input
+                id="edit-episode"
+                type="number"
+                min="1"
+                value={episodeNumber}
+                onChange={(e) => setEpisodeNumber(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="edit-description">Description</Label>
           <Textarea

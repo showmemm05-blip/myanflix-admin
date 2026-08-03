@@ -59,14 +59,27 @@ export const movieService = {
     return apiClient.post<Movie>("/movies", values, { signal });
   },
 
-  /** Bootstraps a movie for the bulk pre-transcoded upload flow — title only, status UPLOADING. Everything else is filled in later via updateMovie(). */
-  createUploadPlaceholder(title: string, signal?: AbortSignal) {
-    return apiClient.post<Movie>("/movies/upload-placeholder", { title }, { signal });
+  /**
+   * Bootstraps a movie (or, with `series` set, an episode of a series) for
+   * the bulk pre-transcoded upload flow — title only, status UPLOADING.
+   * Everything else is filled in later via updateMovie().
+   */
+  createUploadPlaceholder(
+    title: string,
+    series?: { seriesId: string; seasonNumber: number; episodeNumber: number },
+    signal?: AbortSignal,
+  ) {
+    return apiClient.post<Movie>("/movies/upload-placeholder", { title, ...series }, { signal });
   },
 
   updateMovie(
     id: string,
-    values: Partial<MovieUploadFormValues> & { status?: MovieStatus },
+    values: Partial<MovieUploadFormValues> & {
+      status?: MovieStatus;
+      /** Episode position (episodes only) — which series it belongs to is not editable. */
+      seasonNumber?: number;
+      episodeNumber?: number;
+    },
     signal?: AbortSignal,
   ) {
     return apiClient.put<Movie>(`/movies/${id}`, values, { signal });

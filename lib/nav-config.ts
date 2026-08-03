@@ -8,7 +8,7 @@ import {
   Rocket,
   Settings,
   ShieldCheck,
-  Upload,
+  Tv,
   Users,
   Wallet,
 } from "lucide-react";
@@ -43,12 +43,6 @@ export const navItems: NavItem[] = [
       },
       {
         label: "Upload Movie",
-        href: "/movies/upload",
-        icon: Upload,
-        roles: ["SUPER_ADMIN", "ADMIN"],
-      },
-      {
-        label: "Bulk Upload (Pre-transcoded)",
         href: "/movies/upload-external",
         icon: FolderInput,
         roles: ["SUPER_ADMIN", "ADMIN"],
@@ -66,6 +60,14 @@ export const navItems: NavItem[] = [
         roles: ["SUPER_ADMIN", "ADMIN"],
       },
     ],
+  },
+  {
+    // Everything series-related (details, seasons, episode uploads) lives on
+    // each show's own manage page — no separate upload page.
+    label: "Series",
+    href: "/series",
+    icon: Tv,
+    roles: ["SUPER_ADMIN", "ADMIN"],
   },
   {
     // Backend gates user management behind USER_MANAGE, granted to SUPER_ADMIN only.

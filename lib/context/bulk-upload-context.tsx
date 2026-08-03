@@ -12,7 +12,7 @@ import {
 
 const FILE_UPLOAD_CONCURRENCY = 4;
 const CHUNK_UPLOAD_CONCURRENCY = 6;
-const STORAGE_KEY = "myanflix-bulk-upload-queue-v1";
+const DEFAULT_STORAGE_KEY = "myanflix-bulk-upload-queue-v1";
 
 export const MAX_BULK_MOVIES = 10;
 
@@ -40,6 +40,8 @@ export interface MovieUploadJob {
   movieId: string;
   folderName: string;
   title: string;
+  /** Extra context line under the title — "Season 2 · Episode 3" for episode uploads, null for movies. */
+  subtitle: string | null;
   assets: BulkAsset[];
   status: MovieUploadStatus;
   queueOrder: number;
@@ -65,16 +67,16 @@ interface PersistedJob {
   addedAt: number;
 }
 
-function loadPersisted(): PersistedJob[] {
+function loadPersisted(storageKey: string): PersistedJob[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey);
     return raw ? (JSON.parse(raw) as PersistedJob[]) : [];
   } catch {
     return [];
   }
 }
 
-function persist(jobs: MovieUploadJob[]) {
+function persist(storageKey: string, jobs: MovieUploadJob[]) {
   const data: PersistedJob[] = jobs.map((j) => ({
     movieId: j.movieId,
     folderName: j.folderName,
@@ -89,7 +91,7 @@ function persist(jobs: MovieUploadJob[]) {
     })),
   }));
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(storageKey, JSON.stringify(data));
   } catch {
     // storage full/unavailable — the queue still works for this session, it just won't survive a refresh
   }
@@ -110,7 +112,7 @@ export function uploadedBytes(job: MovieUploadJob): number {
  * very first render, not just once it starts). Reuses the exact same
  * chunked-upload primitives as the rest of the pre-transcoded upload flow.
  */
-export function useBulkExternalUpload() {
+export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) {
   const [jobs, setJobs] = useState<MovieUploadJob[]>([]);
   const [restoring, setRestoring] = useState(true);
   const isOnline = useNetworkStatus();
@@ -134,7 +136,7 @@ export function useBulkExternalUpload() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const persisted = loadPersisted();
+      const persisted = loadPersisted(storageKey);
       if (persisted.length === 0) {
         setRestoring(false);
         return;
@@ -159,6 +161,11 @@ export function useBulkExternalUpload() {
             movieId: p.movieId,
             folderName: p.folderName,
             title: movie.title,
+            // Rebuilt from the server rather than persisted — the movie row is the authority on episode position.
+            subtitle:
+              movie.seasonNumber != null && movie.episodeNumber != null
+                ? `Season ${movie.seasonNumber} · Episode ${movie.episodeNumber}`
+                : null,
             assets,
             status,
             queueOrder: p.queueOrder,
@@ -180,12 +187,14 @@ export function useBulkExternalUpload() {
     return () => {
       cancelled = true;
     };
+    // storageKey is fixed for a hook instance's lifetime — each page passes its own constant.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (restoring) return;
-    persist(jobs);
-  }, [jobs, restoring]);
+    persist(storageKey, jobs);
+  }, [jobs, restoring, storageKey]);
 
   /** Updates one asset's bytes/status and recomputes the owning job's speed/ETA from the fresh aggregate — one atomic state transition instead of two separate updates racing each other. */
   const bumpAsset = useCallback(
@@ -371,12 +380,27 @@ export function useBulkExternalUpload() {
     });
   }, [isOnline]);
 
-  const addFolders = useCallback(async (folders: DroppedFolder[]): Promise<number> => {
+  /**
+   * With `series` set, each folder becomes an episode of that series —
+   * `series.episodeNumbers[i]` is folder i's episode number (the page
+   * derives these from folder names or sequential position before calling).
+   * Without it, folders become standalone movies, exactly as before.
+   */
+  const addFolders = useCallback(
+    async (
+      folders: DroppedFolder[],
+      series?: { seriesId: string; seasonNumber: number; episodeNumbers: number[] },
+    ): Promise<number> => {
     let added = 0;
-    for (const folder of folders) {
+    for (const [index, folder] of folders.entries()) {
       const title = extractTitleFromFolderName(folder.folderName);
       try {
-        const movie = await movieService.createUploadPlaceholder(title);
+        const movie = await movieService.createUploadPlaceholder(
+          title,
+          series
+            ? { seriesId: series.seriesId, seasonNumber: series.seasonNumber, episodeNumber: series.episodeNumbers[index] }
+            : undefined,
+        );
         const assets: BulkAsset[] = folder.files.map((f) => ({
           relativePath: mapLocalPathToRelativePath(f.relativePath),
           file: f.file,
@@ -389,6 +413,7 @@ export function useBulkExternalUpload() {
           movieId: movie.id,
           folderName: folder.folderName,
           title,
+          subtitle: series ? `Season ${series.seasonNumber} · Episode ${series.episodeNumbers[index]}` : null,
           assets,
           status: "waiting",
           queueOrder: nextQueueOrderRef.current++,
@@ -404,7 +429,9 @@ export function useBulkExternalUpload() {
       }
     }
     return added;
-  }, []);
+    },
+    [],
+  );
 
   const pause = useCallback((key: string) => {
     const controller = controllersRef.current.get(key);

@@ -27,6 +27,10 @@ export interface Movie {
   isPremium: boolean;
   status: MovieStatus;
   rating: number;
+  /** Set only for episodes — null means a standalone movie. */
+  seriesId: string | null;
+  seasonNumber: number | null;
+  episodeNumber: number | null;
   categories: MovieCategoryRef[];
   createdAt: string;
   updatedAt: string;
