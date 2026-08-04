@@ -146,6 +146,25 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * Runs `fn`, silently retrying with exponential backoff on a transient
+ * error (see `isTransient`) up to `CHUNK_RETRY_ATTEMPTS` times. Shared by
+ * every network call in the upload pipeline — `init()` included, since a
+ * blip on that very first call used to skip retry entirely and tip a job
+ * straight into "offline" before a single byte of the file was even sent.
+ */
+async function withTransientRetry<T>(fn: () => Promise<T>, signal: AbortSignal): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (signal.aborted || !isTransient(err) || attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
+      const backoff = Math.min(CHUNK_RETRY_BASE_MS * 2 ** (attempt - 1), CHUNK_RETRY_MAX_MS);
+      await sleep(backoff, signal);
+    }
+  }
+}
+
 interface AddFoldersSeries {
   seriesId: string;
   seasonNumber: number;
@@ -314,11 +333,9 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
       const file = asset.file;
       bumpAsset(key, asset.relativePath, { status: "uploading" });
 
-      const { uploadId, chunkSize, totalChunks, uploadedChunks } = await uploadService.init(
-        movieId,
-        file.name,
-        file.size,
-        asset.relativePath,
+      const { uploadId, chunkSize, totalChunks, uploadedChunks } = await withTransientRetry(
+        () => uploadService.init(movieId, file.name, file.size, asset.relativePath),
+        signal,
       );
 
       const done = new Set(uploadedChunks);
@@ -341,16 +358,7 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
           // surfaces to the job's status — it's retried in place, with the
           // job staying "uploading" throughout, so the admin never has to
           // notice or click anything.
-          for (let attempt = 1; ; attempt++) {
-            try {
-              await uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal);
-              break;
-            } catch (err) {
-              if (signal.aborted || !isTransient(err) || attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
-              const backoff = Math.min(CHUNK_RETRY_BASE_MS * 2 ** (attempt - 1), CHUNK_RETRY_MAX_MS);
-              await sleep(backoff, signal);
-            }
-          }
+          await withTransientRetry(() => uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal), signal);
           sent += bytes;
           bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
         }
@@ -422,6 +430,12 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
         } else if (explicitAction === "pause") {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
+        } else if (err instanceof ApiError && err.status === 404) {
+          // The movie itself is gone — e.g. deleted from the Movies list
+          // while this job was mid-retry. There's nothing left to upload to,
+          // and retrying can only ever 404 again, so drop it from the queue
+          // entirely instead of leaving a permanently-stuck "Failed" card.
+          setJobs((prev) => prev.filter((j) => j.key !== key));
         } else if (!onlineRef.current || isTransient(err)) {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "offline" } : j)));
         } else if (err instanceof DOMException && err.name === "AbortError") {
@@ -563,24 +577,51 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const cancel = useCallback((key: string) => {
-    const controller = controllersRef.current.get(key);
-    if (controller) {
-      pendingActionRef.current.set(key, "cancel");
-      controller.abort();
-    } else {
-      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
+  /**
+   * Cancelling or removing an unfinished job always means giving up on it —
+   * without deleting its placeholder movie row too, it's left behind
+   * forever as a zombie "Uploading" entry with no video, invisible to the
+   * queue but still sitting in the catalog. Worse, a stale retry (e.g. the
+   * auto-resume effect picking it back up from "offline") can then race a
+   * later manual cleanup and 404 against a movie that's already gone.
+   * Deleting it here closes that gap. Never applies to `ready_to_publish` —
+   * that's a real, fully-uploaded movie just waiting on a separate Publish
+   * action, not something to delete.
+   */
+  const deletePlaceholderIfUnfinished = useCallback((job: MovieUploadJob | undefined) => {
+    if (job && job.status !== "ready_to_publish") {
+      movieService.deleteMovie(job.movieId).catch(() => {});
     }
   }, []);
 
-  const remove = useCallback((key: string) => {
-    const controller = controllersRef.current.get(key);
-    if (controller) {
-      pendingActionRef.current.set(key, "cancel");
-      controller.abort();
-    }
-    setJobs((prev) => prev.filter((j) => j.key !== key));
-  }, []);
+  const cancel = useCallback(
+    (key: string) => {
+      const job = jobsRef.current.find((j) => j.key === key);
+      const controller = controllersRef.current.get(key);
+      if (controller) {
+        pendingActionRef.current.set(key, "cancel");
+        controller.abort();
+      } else {
+        setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
+      }
+      deletePlaceholderIfUnfinished(job);
+    },
+    [deletePlaceholderIfUnfinished],
+  );
+
+  const remove = useCallback(
+    (key: string) => {
+      const job = jobsRef.current.find((j) => j.key === key);
+      const controller = controllersRef.current.get(key);
+      if (controller) {
+        pendingActionRef.current.set(key, "cancel");
+        controller.abort();
+      }
+      setJobs((prev) => prev.filter((j) => j.key !== key));
+      deletePlaceholderIfUnfinished(job);
+    },
+    [deletePlaceholderIfUnfinished],
+  );
 
   /** Matches a re-selected folder's files back onto this job's assets by relativePath — the only way to resume/retry after a page refresh, since File handles never survive one. */
   const reattachFolder = useCallback((key: string, folder: DroppedFolder) => {
