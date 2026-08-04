@@ -53,19 +53,20 @@ export const uploadService = {
   // every chunk in an upload hits the exact same endpoint — letting the
   // browser reuse one cached CORS preflight for the whole upload instead of
   // repeating it per chunk.
+  // The backend returns 204 No Content — nothing to read back per chunk.
   uploadChunk(uploadId: string, chunkNumber: number, chunk: Blob, signal?: AbortSignal) {
     const formData = new FormData();
     formData.append("chunk", chunk, `chunk-${chunkNumber}`);
     formData.append("chunkNumber", String(chunkNumber));
-    return apiClient.post<UploadStatusResponse>(`/uploads/${uploadId}/chunk`, formData, { signal });
+    return apiClient.post<void>(`/uploads/${uploadId}/chunk`, formData, { signal });
   },
 
   getStatus(uploadId: string) {
     return apiClient.get<UploadStatusResponse>(`/uploads/${uploadId}/status`);
   },
 
-  complete(uploadId: string) {
-    return apiClient.post<CompleteUploadResponse>(`/uploads/${uploadId}/complete`);
+  complete(uploadId: string, signal?: AbortSignal) {
+    return apiClient.post<CompleteUploadResponse>(`/uploads/${uploadId}/complete`, undefined, { signal });
   },
 
   /** Retries transcoding for a movie whose video failed — no re-upload required. */

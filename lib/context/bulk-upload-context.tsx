@@ -26,6 +26,11 @@ const DEFAULT_QUEUE_KEY = "myanflix-bulk-upload-queue-v1";
 const CHUNK_RETRY_ATTEMPTS = 5;
 const CHUNK_RETRY_BASE_MS = 500;
 const CHUNK_RETRY_MAX_MS = 8000;
+// How often in-flight progress is pushed to React state, instead of on
+// every chunk — a state update (and the re-render it triggers) for each of
+// potentially thousands of chunks would itself compete with the browser's
+// work of actually sending bytes.
+const PROGRESS_FLUSH_INTERVAL_MS = 250;
 
 export const MAX_BULK_MOVIES = 10;
 
@@ -37,7 +42,8 @@ export type MovieUploadStatus =
   | "failed"
   | "completed"
   | "ready_to_publish";
-export type AssetStatus = "pending" | "uploading" | "done" | "error";
+/** "finalizing" = every chunk is on the backend, which is now merging them and pushing the result to storage — no bytes moving over HTTP, so it's tracked separately from "uploading" instead of just looking stuck at 100%. */
+export type AssetStatus = "pending" | "uploading" | "finalizing" | "done" | "error";
 
 export interface BulkAsset {
   relativePath: string;
@@ -343,29 +349,61 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
       for (const idx of done) sent += Math.min(chunkSize, file.size - idx * chunkSize);
       bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
 
-      const remaining = Array.from({ length: totalChunks }, (_, i) => i).filter((n) => !done.has(n));
-      let nextIndex = 0;
-      const worker = async () => {
-        for (;;) {
-          const idx = nextIndex++;
-          if (idx >= remaining.length) return;
-          const chunkNumber = remaining[idx];
-          const start = chunkNumber * chunkSize;
-          const bytes = Math.min(chunkSize, file.size - start);
-          const chunk = file.slice(start, start + bytes);
-
-          // A transient network blip or a backend mid-restart 5xx never
-          // surfaces to the job's status — it's retried in place, with the
-          // job staying "uploading" throughout, so the admin never has to
-          // notice or click anything.
-          await withTransientRetry(() => uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal), signal);
-          sent += bytes;
-          bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
-        }
+      // `sent` is a plain closure variable, mutated directly by whichever
+      // chunk worker below finishes next — safe with no locking since JS is
+      // single-threaded, even with several workers interleaved via await.
+      // React only finds out about it on a timer (see flush()), not on
+      // every chunk.
+      let lastFlushedSent = sent;
+      const flush = () => {
+        if (sent === lastFlushedSent) return;
+        lastFlushedSent = sent;
+        bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
       };
-      await Promise.all(Array.from({ length: Math.min(CHUNK_UPLOAD_CONCURRENCY, remaining.length) }, worker));
+      const flushTimer = setInterval(flush, PROGRESS_FLUSH_INTERVAL_MS);
 
-      await uploadService.complete(uploadId);
+      try {
+        const remaining = Array.from({ length: totalChunks }, (_, i) => i).filter((n) => !done.has(n));
+        let nextIndex = 0;
+        const worker = async () => {
+          for (;;) {
+            const idx = nextIndex++;
+            if (idx >= remaining.length) return;
+            const chunkNumber = remaining[idx];
+            const start = chunkNumber * chunkSize;
+            const bytes = Math.min(chunkSize, file.size - start);
+            const chunk = file.slice(start, start + bytes);
+
+            // A transient network blip or a backend mid-restart 5xx never
+            // surfaces to the job's status — it's retried in place, with the
+            // job staying "uploading" throughout, so the admin never has to
+            // notice or click anything.
+            await withTransientRetry(() => uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal), signal);
+            sent += bytes;
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(CHUNK_UPLOAD_CONCURRENCY, remaining.length) }, worker));
+      } finally {
+        clearInterval(flushTimer);
+      }
+      // Guarantees the true final byte count lands even if it arrived
+      // between the last timer tick and the loop finishing — otherwise the
+      // UI could sit at a stale sub-100% value right as the status flips.
+      flush();
+
+      // Every chunk has reached the backend, but the file isn't actually
+      // done yet — the server still has to merge the chunks and push the
+      // result to storage before this asset is truly complete. That can
+      // take real time for a large file, with zero HTTP traffic to show for
+      // it, so it gets its own status instead of just sitting at 100%
+      // "uploading" indefinitely.
+      bumpAsset(key, asset.relativePath, { status: "finalizing" });
+      // Same resilience as chunk uploads: a transient blip (or a backend
+      // that was still slow/retrying its own push to storage) is retried
+      // in place rather than surfacing as a failure. Passing `signal` here
+      // also means Pause/Cancel actually stops waiting on this step instead
+      // of being stuck until the request eventually resolves on its own.
+      await withTransientRetry(() => uploadService.complete(uploadId, signal), signal);
       bumpAsset(key, asset.relativePath, { status: "done" });
     },
     [bumpAsset],
@@ -661,22 +699,40 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     setJobs((prev) => prev.map((j) => (j.movieId === movieId ? { ...j, title } : j)));
   }, []);
 
-  const value: BulkUploadContextValue = {
-    jobs,
-    readyQueues,
-    isOnline,
-    ensureQueue,
-    addFolders,
-    pause,
-    resume,
-    retry,
-    cancel,
-    remove,
-    reattachFolder,
-    moveWaitingToIndex,
-    markPublished,
-    patchJobTitle,
-  };
+  const value = useMemo<BulkUploadContextValue>(
+    () => ({
+      jobs,
+      readyQueues,
+      isOnline,
+      ensureQueue,
+      addFolders,
+      pause,
+      resume,
+      retry,
+      cancel,
+      remove,
+      reattachFolder,
+      moveWaitingToIndex,
+      markPublished,
+      patchJobTitle,
+    }),
+    [
+      jobs,
+      readyQueues,
+      isOnline,
+      ensureQueue,
+      addFolders,
+      pause,
+      resume,
+      retry,
+      cancel,
+      remove,
+      reattachFolder,
+      moveWaitingToIndex,
+      markPublished,
+      patchJobTitle,
+    ],
+  );
 
   return <BulkUploadContext.Provider value={value}>{children}</BulkUploadContext.Provider>;
 }

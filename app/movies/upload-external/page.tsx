@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { UploadCloud, WifiOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequireRole } from "@/components/shared/RequireRole";
@@ -58,24 +58,30 @@ export default function BulkUploadExternalPage() {
     }
   };
 
-  const handleEdit = async (job: MovieUploadJob) => {
+  // Stable references — passed straight through to UploadQueueList's memoized
+  // job cards, so a new closure here on every render would defeat that
+  // memoization for every card, not just the one being edited/published.
+  const handleEdit = useCallback(async (job: MovieUploadJob) => {
     try {
       const movie = await movieService.getMovieById(job.movieId);
       setEditMovie(movie);
     } catch {
       toast.error("Couldn't load this movie's details");
     }
-  };
+  }, []);
 
-  const handlePublish = async (job: MovieUploadJob) => {
-    try {
-      await movieService.updateMovie(job.movieId, { status: "PUBLISHED" });
-      markPublished(job.movieId);
-      toast.success("Movie published", { description: `"${job.title}" is now live on MyanFlix.` });
-    } catch {
-      toast.error("Couldn't publish this movie", { description: "Please try again." });
-    }
-  };
+  const handlePublish = useCallback(
+    async (job: MovieUploadJob) => {
+      try {
+        await movieService.updateMovie(job.movieId, { status: "PUBLISHED" });
+        markPublished(job.movieId);
+        toast.success("Movie published", { description: `"${job.title}" is now live on MyanFlix.` });
+      } catch {
+        toast.error("Couldn't publish this movie", { description: "Please try again." });
+      }
+    },
+    [markPublished],
+  );
 
   return (
     <RequireRole
