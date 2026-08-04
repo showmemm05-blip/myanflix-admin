@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { RoleProvider } from "@/lib/context/role-context";
 import { SidebarProvider } from "@/lib/context/sidebar-context";
 import { UploadProvider } from "@/lib/context/upload-context";
+import { BulkUploadProvider } from "@/lib/context/bulk-upload-context";
 import { AppShell } from "@/components/layout/AppShell";
 import { GlobalUploadIndicator } from "@/components/uploads/GlobalUploadIndicator";
 import { AdminDepositNotifications } from "@/components/deposits/AdminDepositNotifications";
@@ -53,9 +54,11 @@ export default function RootLayout({
             <RoleProvider>
               <SidebarProvider>
                 <UploadProvider>
-                  <AppShell>{children}</AppShell>
-                  <GlobalUploadIndicator />
-                  <AdminDepositNotifications />
+                  <BulkUploadProvider>
+                    <AppShell>{children}</AppShell>
+                    <GlobalUploadIndicator />
+                    <AdminDepositNotifications />
+                  </BulkUploadProvider>
                 </UploadProvider>
               </SidebarProvider>
             </RoleProvider>

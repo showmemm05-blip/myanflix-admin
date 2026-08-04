@@ -2,6 +2,7 @@
 
 import { Lock, Receipt, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DashboardCard } from "@/components/cards/DashboardCard";
@@ -222,18 +223,24 @@ export default function FinancePage() {
   const { role } = useRole();
 
   return (
-    <div>
-      <PageHeader
-        title={role === "USER" ? "My Cash Flow" : "Finance"}
-        description={
-          role === "USER"
-            ? "Your balance, spending and transaction history."
-            : "Revenue, transactions and payment analytics."
-        }
-      />
-      {role === "SUPER_ADMIN" && <SuperAdminFinanceView />}
-      {role === "ADMIN" && <AdminFinanceView />}
-      {role === "USER" && <UserCashFlowView />}
-    </div>
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN", "USER"]}
+      title="Finance"
+      description="Revenue, transactions and payment analytics."
+    >
+      <div>
+        <PageHeader
+          title={role === "USER" ? "My Cash Flow" : "Finance"}
+          description={
+            role === "USER"
+              ? "Your balance, spending and transaction history."
+              : "Revenue, transactions and payment analytics."
+          }
+        />
+        {role === "SUPER_ADMIN" && <SuperAdminFinanceView />}
+        {role === "ADMIN" && <AdminFinanceView />}
+        {role === "USER" && <UserCashFlowView />}
+      </div>
+    </RequireRole>
   );
 }

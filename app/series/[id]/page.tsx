@@ -33,7 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
 import {
-  useBulkExternalUpload,
+  useBulkUploadQueue,
   MAX_BULK_MOVIES,
   totalBytes,
   uploadedBytes,
@@ -75,7 +75,7 @@ export default function SeriesManagePage() {
 
   // Each series gets its own persisted queue — navigating between shows
   // never mixes their uploads together.
-  const queue = useBulkExternalUpload(`myanflix-episode-queue-${seriesId}`);
+  const queue = useBulkUploadQueue(`myanflix-episode-queue-${seriesId}`);
 
   // ---- Series info form ----
   const [title, setTitle] = useState("");

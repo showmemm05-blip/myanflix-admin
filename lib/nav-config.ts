@@ -33,19 +33,19 @@ export const navItems: NavItem[] = [
     label: "Movies",
     href: "/movies",
     icon: Film,
-    roles: ["SUPER_ADMIN", "ADMIN", "USER"],
+    roles: ["SUPER_ADMIN", "ADMIN", "USER", "CONTENT_UPLOADER"],
     children: [
       {
         label: "All Movies",
         href: "/movies",
         icon: Film,
-        roles: ["SUPER_ADMIN", "ADMIN", "USER"],
+        roles: ["SUPER_ADMIN", "ADMIN", "USER", "CONTENT_UPLOADER"],
       },
       {
         label: "Upload Movie",
         href: "/movies/upload-external",
         icon: FolderInput,
-        roles: ["SUPER_ADMIN", "ADMIN"],
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"],
       },
       {
         label: "Ready to Publish",
@@ -67,7 +67,7 @@ export const navItems: NavItem[] = [
     label: "Series",
     href: "/series",
     icon: Tv,
-    roles: ["SUPER_ADMIN", "ADMIN"],
+    roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"],
   },
   {
     // Backend gates user management behind USER_MANAGE, granted to SUPER_ADMIN only.

@@ -5,7 +5,7 @@ import { ArrowDownToLine } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { AccessRestricted } from "@/components/shared/AccessRestricted";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
 import { getDepositColumns } from "@/components/deposits/columns";
@@ -77,15 +77,6 @@ export default function DepositsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, data]);
 
-  if (role === "USER") {
-    return (
-      <div>
-        <PageHeader title="Deposits" description="Review and approve balance top-up requests." />
-        <AccessRestricted role={role} />
-      </div>
-    );
-  }
-
   const handleApprove = async () => {
     if (!approveTarget) return;
     setApproving(true);
@@ -115,44 +106,50 @@ export default function DepositsPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader title="Deposits" description="Review and approve balance top-up requests." />
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN"]}
+      title="Deposits"
+      description="Review and approve balance top-up requests."
+    >
+      <div className="flex flex-col gap-6">
+        <PageHeader title="Deposits" description="Review and approve balance top-up requests." />
 
-      {isLoading ? (
-        <DataTable columns={columns} data={[]} isLoading pageSize={10} />
-      ) : error ? (
-        <ErrorState description="We couldn't load deposits." onRetry={refetch} />
-      ) : activeDeposits.length === 0 ? (
-        <EmptyState icon={ArrowDownToLine} title="No deposits yet" description="Submitted deposits will show up here." />
-      ) : (
-        <DataTable
-          columns={columns}
-          data={activeDeposits}
-          searchKey="userName"
-          searchPlaceholder="Search by user name..."
+        {isLoading ? (
+          <DataTable columns={columns} data={[]} isLoading pageSize={10} />
+        ) : error ? (
+          <ErrorState description="We couldn't load deposits." onRetry={refetch} />
+        ) : activeDeposits.length === 0 ? (
+          <EmptyState icon={ArrowDownToLine} title="No deposits yet" description="Submitted deposits will show up here." />
+        ) : (
+          <DataTable
+            columns={columns}
+            data={activeDeposits}
+            searchKey="userName"
+            searchPlaceholder="Search by user name..."
+          />
+        )}
+
+        <ConfirmDialog
+          open={approveTarget !== null}
+          onOpenChange={(open) => !open && setApproveTarget(null)}
+          title="Approve deposit"
+          description={
+            approveTarget
+              ? `Approve ${approveTarget.userName}'s deposit of ${formatKyat(approveTarget.amount)}? Their balance will be updated immediately.`
+              : ""
+          }
+          confirmLabel="Approve"
+          loading={approving}
+          onConfirm={handleApprove}
         />
-      )}
 
-      <ConfirmDialog
-        open={approveTarget !== null}
-        onOpenChange={(open) => !open && setApproveTarget(null)}
-        title="Approve deposit"
-        description={
-          approveTarget
-            ? `Approve ${approveTarget.userName}'s deposit of ${formatKyat(approveTarget.amount)}? Their balance will be updated immediately.`
-            : ""
-        }
-        confirmLabel="Approve"
-        loading={approving}
-        onConfirm={handleApprove}
-      />
-
-      <RejectDepositDialog
-        deposit={rejectTarget}
-        open={rejectTarget !== null}
-        onOpenChange={(open) => !open && setRejectTarget(null)}
-        onRejected={handleRejected}
-      />
-    </div>
+        <RejectDepositDialog
+          deposit={rejectTarget}
+          open={rejectTarget !== null}
+          onOpenChange={(open) => !open && setRejectTarget(null)}
+          onRejected={handleRejected}
+        />
+      </div>
+    </RequireRole>
   );
 }

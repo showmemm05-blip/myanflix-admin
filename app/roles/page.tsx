@@ -1,12 +1,11 @@
 "use client";
 
 import { PageHeader } from "@/components/shared/PageHeader";
-import { AccessRestricted } from "@/components/shared/AccessRestricted";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { RoleCard } from "@/components/roles/RoleCard";
 import { PermissionMatrix } from "@/components/roles/PermissionMatrix";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useRole } from "@/lib/context/role-context";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { rolesService } from "@/services/api/rolesService";
 import { userService } from "@/services/api/userService";
@@ -45,11 +44,16 @@ const ROLE_DEFINITIONS: RoleDefinition[] = [
       "View own transaction history",
     ],
   },
+  {
+    role: "CONTENT_UPLOADER",
+    title: "Content Uploader",
+    description: "Uploads and manages movies, series and episodes — no access to users, finance or platform settings.",
+    color: "oklch(0.7 0.15 145)",
+    capabilities: ["Create movies", "Edit movies", "Create series & episodes", "Upload videos", "Upload subtitles"],
+  },
 ];
 
 export default function RolesPage() {
-  const { role } = useRole();
-
   const { data, isLoading, error, refetch } = useAsyncData(async () => {
     const [matrix, users] = await Promise.all([
       rolesService.getRolePermissionMatrix(),
@@ -62,41 +66,38 @@ export default function RolesPage() {
     return { matrix, userCountByRole };
   }, []);
 
-  if (role !== "SUPER_ADMIN") {
-    return (
+  return (
+    <RequireRole
+      allow={["SUPER_ADMIN"]}
+      title="Roles & Permissions"
+      description="Manage platform-wide access control."
+    >
       <div>
         <PageHeader title="Roles & Permissions" description="Manage platform-wide access control." />
-        <AccessRestricted role={role} />
+
+        {isLoading ? (
+          <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 rounded-xl" />
+              ))}
+            </div>
+            <Skeleton className="h-72 rounded-xl" />
+          </div>
+        ) : error || !data ? (
+          <ErrorState description="We couldn't load role data." onRetry={refetch} />
+        ) : (
+          <>
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">
+              {ROLE_DEFINITIONS.map((r) => (
+                <RoleCard key={r.role} role={r} userCount={data.userCountByRole[r.role] ?? 0} />
+              ))}
+            </div>
+
+            <PermissionMatrix matrix={data.matrix} />
+          </>
+        )}
       </div>
-    );
-  }
-
-  return (
-    <div>
-      <PageHeader title="Roles & Permissions" description="Manage platform-wide access control." />
-
-      {isLoading ? (
-        <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-48 rounded-xl" />
-            ))}
-          </div>
-          <Skeleton className="h-72 rounded-xl" />
-        </div>
-      ) : error || !data ? (
-        <ErrorState description="We couldn't load role data." onRetry={refetch} />
-      ) : (
-        <>
-          <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            {ROLE_DEFINITIONS.map((r) => (
-              <RoleCard key={r.role} role={r} userCount={data.userCountByRole[r.role] ?? 0} />
-            ))}
-          </div>
-
-          <PermissionMatrix matrix={data.matrix} />
-        </>
-      )}
-    </div>
+    </RequireRole>
   );
 }

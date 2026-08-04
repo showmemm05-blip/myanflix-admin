@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Moon, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,12 @@ export default function SettingsPage() {
   };
 
   return (
-    <div>
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN", "USER"]}
+      title="Settings"
+      description="Manage your account and platform preferences."
+    >
+      <div>
       <PageHeader title="Settings" description="Manage your account and platform preferences." />
 
       <Tabs defaultValue="profile">
@@ -196,6 +202,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </RequireRole>
   );
 }

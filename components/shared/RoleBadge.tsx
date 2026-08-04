@@ -6,6 +6,7 @@ const ROLE_STYLES: Record<UserRole, string> = {
   SUPER_ADMIN: "bg-primary/15 text-primary border-primary/30",
   ADMIN: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   USER: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  CONTENT_UPLOADER: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
 };
 
 export function RoleBadge({ role, className }: { role: UserRole; className?: string }) {

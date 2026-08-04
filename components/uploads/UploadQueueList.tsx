@@ -30,11 +30,11 @@ import { toast } from "sonner";
 const STATUS_META: Record<MovieUploadStatus, { label: string; tone: StatusTone }> = {
   waiting: { label: "Waiting", tone: "neutral" },
   uploading: { label: "Uploading", tone: "info" },
-  paused: { label: "Paused", tone: "warning" },
-  offline: { label: "Waiting for internet connection", tone: "info" },
+  paused: { label: "Waiting", tone: "warning" },
+  offline: { label: "Waiting", tone: "info" },
   failed: { label: "Failed", tone: "danger" },
-  completed: { label: "Completed", tone: "info" },
-  ready_to_publish: { label: "Ready to publish", tone: "warning" },
+  completed: { label: "Processing", tone: "info" },
+  ready_to_publish: { label: "Completed", tone: "success" },
 };
 
 interface UploadQueueListProps {

@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { UploadCloud, WifiOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { UploadQueueList } from "@/components/uploads/UploadQueueList";
 import { Card, CardContent } from "@/components/ui/card";
-import { useBulkExternalUpload, type MovieUploadJob } from "@/lib/context/bulk-upload-context";
+import { useBulkUploadQueue, type MovieUploadJob } from "@/lib/context/bulk-upload-context";
 import { readDroppedFolders, foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { movieService } from "@/services/api/movieService";
 import type { Movie } from "@/types/movie";
@@ -27,7 +28,7 @@ export default function BulkUploadExternalPage() {
     moveWaitingToIndex,
     markPublished,
     patchJobTitle,
-  } = useBulkExternalUpload();
+  } = useBulkUploadQueue();
 
   const [isDragging, setIsDragging] = useState(false);
   const [editMovie, setEditMovie] = useState<Movie | null>(null);
@@ -77,6 +78,11 @@ export default function BulkUploadExternalPage() {
   };
 
   return (
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"]}
+      title="Upload Movie"
+      description="Drop movie folders — they upload one at a time in order, the rest wait in queue."
+    >
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
         title="Upload Movie"
@@ -167,5 +173,6 @@ export default function BulkUploadExternalPage() {
         }}
       />
     </div>
+    </RequireRole>
   );
 }

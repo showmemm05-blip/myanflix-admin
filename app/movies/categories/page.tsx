@@ -5,6 +5,7 @@ import { Loader2, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-reac
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,16 +99,18 @@ export default function CategoriesPage() {
     }
   };
 
-  if (error) {
-    return (
-      <div>
-        <PageHeader title="Categories" description="Organize movies into browsable genres." />
-        <ErrorState description="We couldn't load categories." onRetry={refetch} />
-      </div>
-    );
-  }
-
   return (
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN"]}
+      title="Categories"
+      description="Organize movies into browsable genres."
+    >
+      {error ? (
+        <div>
+          <PageHeader title="Categories" description="Organize movies into browsable genres." />
+          <ErrorState description="We couldn't load categories." onRetry={refetch} />
+        </div>
+      ) : (
     <div>
       <PageHeader
         title="Categories"
@@ -233,5 +236,7 @@ export default function CategoriesPage() {
         onConfirm={handleDelete}
       />
     </div>
+      )}
+    </RequireRole>
   );
 }

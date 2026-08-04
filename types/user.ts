@@ -1,4 +1,4 @@
-export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER";
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER" | "CONTENT_UPLOADER";
 
 export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED";
 
@@ -39,6 +39,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
   USER: "User",
+  CONTENT_UPLOADER: "Content Uploader",
 };
 
 export const STATUS_LABELS: Record<UserStatus, string> = {

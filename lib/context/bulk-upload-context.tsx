@@ -1,8 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
+import { ApiError } from "@/services/api/apiClient";
 import { useNetworkStatus } from "@/lib/hooks/use-network-status";
 import {
   extractTitleFromFolderName,
@@ -12,7 +22,10 @@ import {
 
 const FILE_UPLOAD_CONCURRENCY = 4;
 const CHUNK_UPLOAD_CONCURRENCY = 6;
-const DEFAULT_STORAGE_KEY = "myanflix-bulk-upload-queue-v1";
+const DEFAULT_QUEUE_KEY = "myanflix-bulk-upload-queue-v1";
+const CHUNK_RETRY_ATTEMPTS = 5;
+const CHUNK_RETRY_BASE_MS = 500;
+const CHUNK_RETRY_MAX_MS = 8000;
 
 export const MAX_BULK_MOVIES = 10;
 
@@ -37,6 +50,8 @@ export interface BulkAsset {
 
 export interface MovieUploadJob {
   key: string; // === movieId — assigned immediately, so the whole queue is identifiable even before any bytes move
+  /** Which queue this job belongs to (e.g. the movie bulk-upload queue, or one series' episode queue) — jobs from every queue live in one flat array at the provider level. */
+  queueKey: string;
   movieId: string;
   folderName: string;
   title: string;
@@ -67,16 +82,16 @@ interface PersistedJob {
   addedAt: number;
 }
 
-function loadPersisted(storageKey: string): PersistedJob[] {
+function loadPersisted(queueKey: string): PersistedJob[] {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = localStorage.getItem(queueKey);
     return raw ? (JSON.parse(raw) as PersistedJob[]) : [];
   } catch {
     return [];
   }
 }
 
-function persist(storageKey: string, jobs: MovieUploadJob[]) {
+function persist(queueKey: string, jobs: MovieUploadJob[]) {
   const data: PersistedJob[] = jobs.map((j) => ({
     movieId: j.movieId,
     folderName: j.folderName,
@@ -91,7 +106,7 @@ function persist(storageKey: string, jobs: MovieUploadJob[]) {
     })),
   }));
   try {
-    localStorage.setItem(storageKey, JSON.stringify(data));
+    localStorage.setItem(queueKey, JSON.stringify(data));
   } catch {
     // storage full/unavailable — the queue still works for this session, it just won't survive a refresh
   }
@@ -105,16 +120,69 @@ export function uploadedBytes(job: MovieUploadJob): number {
 }
 
 /**
- * Drives the sequential bulk-upload queue: up to 10 movie folders, exactly
- * one uploading its files at a time, the rest waiting (reorderable). Every
- * movie gets its placeholder created immediately on selection (so the whole
- * queue — including ones still waiting — is durable and restorable from the
- * very first render, not just once it starts). Reuses the exact same
- * chunked-upload primitives as the rest of the pre-transcoded upload flow.
+ * Classifies an upload error as worth silently retrying vs. a genuine
+ * failure. AbortError is a user's own Pause/Cancel (or the offline-abort
+ * effect below) — never retried, always handled by the caller. A bare
+ * TypeError is what `fetch` throws for a network-level failure (DNS, CORS,
+ * connection reset). A 5xx/408/429 ApiError means the backend itself
+ * hiccuped (e.g. mid-restart) — also worth retrying. Any other ApiError
+ * (4xx) is a real rejection that retrying won't fix.
  */
-export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) {
+function isTransient(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return false;
+  if (err instanceof ApiError) return err.status >= 500 || err.status === 408 || err.status === 429;
+  if (err instanceof TypeError) return true;
+  return false;
+}
+
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) return reject(signal.reason);
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    }, { once: true });
+  });
+}
+
+interface AddFoldersSeries {
+  seriesId: string;
+  seasonNumber: number;
+  episodeNumbers: number[];
+}
+
+interface BulkUploadContextValue {
+  jobs: MovieUploadJob[];
+  /** Queue keys that have finished their initial restore-from-localStorage pass (or had nothing to restore). Anything not in here is still "restoring". */
+  readyQueues: Set<string>;
+  isOnline: boolean;
+  ensureQueue: (queueKey: string) => void;
+  addFolders: (queueKey: string, folders: DroppedFolder[], series?: AddFoldersSeries) => Promise<number>;
+  pause: (key: string) => void;
+  resume: (key: string) => void;
+  retry: (key: string) => void;
+  cancel: (key: string) => void;
+  remove: (key: string) => void;
+  reattachFolder: (key: string, folder: DroppedFolder) => void;
+  moveWaitingToIndex: (queueKey: string, key: string, targetIndex: number) => void;
+  markPublished: (movieId: string) => void;
+  patchJobTitle: (movieId: string, title: string) => void;
+}
+
+const BulkUploadContext = createContext<BulkUploadContextValue | undefined>(undefined);
+
+/**
+ * Owns every bulk/episode upload queue in the app as one flat `jobs` array
+ * (each job tagged with its `queueKey`), mounted once at the root so the
+ * queue processor, chunk workers, and connectivity effects keep running
+ * across route changes instead of being torn down when a page unmounts.
+ * Reuses the exact same chunked-upload primitives as the rest of the
+ * pre-transcoded upload flow.
+ */
+export function BulkUploadProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<MovieUploadJob[]>([]);
-  const [restoring, setRestoring] = useState(true);
+  const [readyQueues, setReadyQueues] = useState<Set<string>>(new Set());
   const isOnline = useNetworkStatus();
 
   const jobsRef = useRef<MovieUploadJob[]>([]);
@@ -126,19 +194,28 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
   const pendingActionRef = useRef<Map<string, "pause" | "cancel">>(new Map());
   const speedSamplesRef = useRef<Map<string, { time: number; bytes: number }>>(new Map());
   const startingRef = useRef<Set<string>>(new Set());
-  const nextQueueOrderRef = useRef(0);
+  const nextQueueOrderRef = useRef<Map<string, number>>(new Map());
+  // Guards against a duplicate restore/reconciliation pass for the same
+  // queueKey — checked-and-set synchronously (before any await) so a page
+  // remounting after a client-side route change reconnects to whatever's
+  // already live instead of re-running restore and creating a second set of
+  // in-flight requests for the same movie.
+  const initializedQueuesRef = useRef<Set<string>>(new Set());
 
   // Restore whatever survives a refresh: the queue's identity and per-file
   // progress (both durable — movieId is a real backend row, sizes/statuses
   // are plain data) reconciled against each movie's authoritative current
   // status. What can never survive is the actual File bytes/handles, so
-  // anything not fully uploaded comes back flagged needsReattach.
-  useEffect(() => {
-    let cancelled = false;
+  // anything not fully uploaded comes back flagged needsReattach. Runs at
+  // most once per queueKey for the provider's lifetime.
+  const ensureQueue = useCallback((queueKey: string) => {
+    if (initializedQueuesRef.current.has(queueKey)) return;
+    initializedQueuesRef.current.add(queueKey);
+
     (async () => {
-      const persisted = loadPersisted(storageKey);
+      const persisted = loadPersisted(queueKey);
       if (persisted.length === 0) {
-        setRestoring(false);
+        setReadyQueues((prev) => new Set(prev).add(queueKey));
         return;
       }
 
@@ -158,6 +235,7 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
 
           restored.push({
             key: p.movieId,
+            queueKey,
             movieId: p.movieId,
             folderName: p.folderName,
             title: movie.title,
@@ -179,22 +257,24 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
         }
       }
 
-      if (cancelled) return;
-      nextQueueOrderRef.current = restored.reduce((max, j) => Math.max(max, j.queueOrder + 1), 0);
-      setJobs(restored);
-      setRestoring(false);
+      const maxOrder = restored.reduce((max, j) => Math.max(max, j.queueOrder + 1), 0);
+      const existingOrder = nextQueueOrderRef.current.get(queueKey) ?? 0;
+      nextQueueOrderRef.current.set(queueKey, Math.max(existingOrder, maxOrder));
+      setJobs((prev) => [...prev, ...restored]);
+      setReadyQueues((prev) => new Set(prev).add(queueKey));
     })();
-    return () => {
-      cancelled = true;
-    };
-    // storageKey is fixed for a hook instance's lifetime — each page passes its own constant.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (restoring) return;
-    persist(storageKey, jobs);
-  }, [jobs, restoring, storageKey]);
+    const byQueue = new Map<string, MovieUploadJob[]>();
+    for (const job of jobs) {
+      if (!byQueue.has(job.queueKey)) byQueue.set(job.queueKey, []);
+      byQueue.get(job.queueKey)!.push(job);
+    }
+    for (const queueKey of readyQueues) {
+      persist(queueKey, byQueue.get(queueKey) ?? []);
+    }
+  }, [jobs, readyQueues]);
 
   /** Updates one asset's bytes/status and recomputes the owning job's speed/ETA from the fresh aggregate — one atomic state transition instead of two separate updates racing each other. */
   const bumpAsset = useCallback(
@@ -256,7 +336,21 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
           const start = chunkNumber * chunkSize;
           const bytes = Math.min(chunkSize, file.size - start);
           const chunk = file.slice(start, start + bytes);
-          await uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal);
+
+          // A transient network blip or a backend mid-restart 5xx never
+          // surfaces to the job's status — it's retried in place, with the
+          // job staying "uploading" throughout, so the admin never has to
+          // notice or click anything.
+          for (let attempt = 1; ; attempt++) {
+            try {
+              await uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal);
+              break;
+            } catch (err) {
+              if (signal.aborted || !isTransient(err) || attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
+              const backoff = Math.min(CHUNK_RETRY_BASE_MS * 2 ** (attempt - 1), CHUNK_RETRY_MAX_MS);
+              await sleep(backoff, signal);
+            }
+          }
           sent += bytes;
           bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
         }
@@ -316,9 +410,11 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
         // An explicit user action (Pause/Cancel button) always wins, even if
         // it happens to race with a connectivity drop. Absent one, blame
         // connectivity whenever we know we're offline right now, or when the
-        // browser's own network-failure error shape says so — either way
-        // this is what routes an interrupted upload to "offline" instead of
-        // "failed" so it auto-resumes later instead of needing a manual retry.
+        // error itself looks transient (network failure, or a 5xx/408/429
+        // that survived every chunk-level retry attempt) — either way this
+        // is what routes an interrupted upload to "offline" instead of
+        // "failed" so it auto-resumes later instead of needing a manual
+        // retry click.
         const explicitAction = pendingActionRef.current.get(key);
         pendingActionRef.current.delete(key);
 
@@ -326,7 +422,7 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
         } else if (explicitAction === "pause") {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
-        } else if (!onlineRef.current || err instanceof TypeError) {
+        } else if (!onlineRef.current || isTransient(err)) {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "offline" } : j)));
         } else if (err instanceof DOMException && err.name === "AbortError") {
           setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
@@ -342,18 +438,27 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
     [uploadOneAsset, bumpAsset],
   );
 
-  // The queue processor: whenever nothing is actively uploading, start the
-  // next eligible waiting job. Re-runs on every jobs change, so pausing,
-  // failing, completing, or removing the active job all naturally advance
-  // it. Gated on isOnline — no new upload starts while there's no real
+  // The queue processor: for every queue that's finished restoring and has
+  // nothing actively uploading, start its next eligible waiting job. Each
+  // queue advances independently — a series' episode queue and the movie
+  // bulk-upload queue can both be uploading at once, one file at a time
+  // within themselves. Re-runs on every jobs change, so pausing, failing,
+  // completing, or removing a queue's active job all naturally advance it.
+  // Gated on isOnline — no new upload starts while there's no real
   // connection, so a "waiting" job just stays waiting rather than starting
   // only to immediately fail.
   useEffect(() => {
-    if (restoring || !isOnline) return;
-    if (jobs.some((j) => j.status === "uploading")) return;
-    const next = [...jobs].filter((j) => j.status === "waiting" && !j.needsReattach).sort((a, b) => a.queueOrder - b.queueOrder)[0];
-    if (next) void startUpload(next.key);
-  }, [jobs, restoring, isOnline, startUpload]);
+    if (!isOnline) return;
+    const queueKeys = new Set(jobs.filter((j) => readyQueues.has(j.queueKey)).map((j) => j.queueKey));
+    for (const queueKey of queueKeys) {
+      const queueJobs = jobs.filter((j) => j.queueKey === queueKey);
+      if (queueJobs.some((j) => j.status === "uploading")) continue;
+      const next = queueJobs
+        .filter((j) => j.status === "waiting" && !j.needsReattach)
+        .sort((a, b) => a.queueOrder - b.queueOrder)[0];
+      if (next) void startUpload(next.key);
+    }
+  }, [jobs, isOnline, readyQueues, startUpload]);
 
   // The moment connectivity drops, proactively abort whatever's actively
   // uploading rather than waiting for its in-flight request to eventually
@@ -361,24 +466,28 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
   // pauses automatically") instead of a stall the admin has to notice.
   useEffect(() => {
     if (isOnline) return;
-    const active = jobs.find((j) => j.status === "uploading");
-    if (!active) return;
-    controllersRef.current.get(active.key)?.abort();
+    for (const job of jobs) {
+      if (job.status === "uploading") controllersRef.current.get(job.key)?.abort();
+    }
   }, [isOnline, jobs]);
 
-  // The moment connectivity returns, every job that was auto-paused for it
-  // (never one the admin explicitly paused themselves) goes back to
-  // "waiting" — the queue processor above then picks it up on its own, no
-  // admin interaction required. It resumes via the exact same startUpload()
-  // path as everything else, which always re-checks uploadedChunks first —
-  // so it only ever sends whatever chunks are still actually missing.
+  // Every job parked in "offline" — whether from a real connectivity drop or
+  // from a chunk retry loop exhausting its attempts while the browser still
+  // thinks it's online (e.g. the backend itself restarting) — goes back to
+  // "waiting" once we're online. The queue processor above then picks it up
+  // on its own, no admin interaction required. It resumes via the exact same
+  // startUpload() path as everything else, which always re-checks
+  // uploadedChunks first — so it only ever sends whatever chunks are still
+  // actually missing. Re-checking on every `jobs` change (not just when
+  // isOnline itself flips) is what catches the second case, since isOnline
+  // may never have gone false at all.
   useEffect(() => {
     if (!isOnline) return;
     setJobs((prev) => {
       if (!prev.some((j) => j.status === "offline")) return prev;
       return prev.map((j) => (j.status === "offline" ? { ...j, status: "waiting" } : j));
     });
-  }, [isOnline]);
+  }, [isOnline, jobs]);
 
   /**
    * With `series` set, each folder becomes an episode of that series —
@@ -387,48 +496,48 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
    * Without it, folders become standalone movies, exactly as before.
    */
   const addFolders = useCallback(
-    async (
-      folders: DroppedFolder[],
-      series?: { seriesId: string; seasonNumber: number; episodeNumbers: number[] },
-    ): Promise<number> => {
-    let added = 0;
-    for (const [index, folder] of folders.entries()) {
-      const title = extractTitleFromFolderName(folder.folderName);
-      try {
-        const movie = await movieService.createUploadPlaceholder(
-          title,
-          series
-            ? { seriesId: series.seriesId, seasonNumber: series.seasonNumber, episodeNumber: series.episodeNumbers[index] }
-            : undefined,
-        );
-        const assets: BulkAsset[] = folder.files.map((f) => ({
-          relativePath: mapLocalPathToRelativePath(f.relativePath),
-          file: f.file,
-          size: f.file.size,
-          status: "pending",
-          uploadedBytes: 0,
-        }));
-        const job: MovieUploadJob = {
-          key: movie.id,
-          movieId: movie.id,
-          folderName: folder.folderName,
-          title,
-          subtitle: series ? `Season ${series.seasonNumber} · Episode ${series.episodeNumbers[index]}` : null,
-          assets,
-          status: "waiting",
-          queueOrder: nextQueueOrderRef.current++,
-          addedAt: Date.now(),
-          needsReattach: false,
-          speedBps: 0,
-          etaSeconds: null,
-        };
-        setJobs((prev) => [...prev, job]);
-        added++;
-      } catch {
-        // this one folder's placeholder failed to create — keep going with the rest
+    async (queueKey: string, folders: DroppedFolder[], series?: AddFoldersSeries): Promise<number> => {
+      let added = 0;
+      for (const [index, folder] of folders.entries()) {
+        const title = extractTitleFromFolderName(folder.folderName);
+        try {
+          const movie = await movieService.createUploadPlaceholder(
+            title,
+            series
+              ? { seriesId: series.seriesId, seasonNumber: series.seasonNumber, episodeNumber: series.episodeNumbers[index] }
+              : undefined,
+          );
+          const assets: BulkAsset[] = folder.files.map((f) => ({
+            relativePath: mapLocalPathToRelativePath(f.relativePath),
+            file: f.file,
+            size: f.file.size,
+            status: "pending",
+            uploadedBytes: 0,
+          }));
+          const queueOrder = nextQueueOrderRef.current.get(queueKey) ?? 0;
+          nextQueueOrderRef.current.set(queueKey, queueOrder + 1);
+          const job: MovieUploadJob = {
+            key: movie.id,
+            queueKey,
+            movieId: movie.id,
+            folderName: folder.folderName,
+            title,
+            subtitle: series ? `Season ${series.seasonNumber} · Episode ${series.episodeNumbers[index]}` : null,
+            assets,
+            status: "waiting",
+            queueOrder,
+            addedAt: Date.now(),
+            needsReattach: false,
+            speedBps: 0,
+            etaSeconds: null,
+          };
+          setJobs((prev) => [...prev, job]);
+          added++;
+        } catch {
+          // this one folder's placeholder failed to create — keep going with the rest
+        }
       }
-    }
-    return added;
+      return added;
     },
     [],
   );
@@ -486,10 +595,12 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
     );
   }, []);
 
-  /** Drag-to-reorder for the waiting queue — moves one job to an arbitrary position among the other waiting jobs. */
-  const moveWaitingToIndex = useCallback((key: string, targetIndex: number) => {
+  /** Drag-to-reorder for the waiting queue — moves one job to an arbitrary position among the OTHER WAITING JOBS OF THE SAME QUEUE (never mixing e.g. two different series' episode queues together). */
+  const moveWaitingToIndex = useCallback((queueKey: string, key: string, targetIndex: number) => {
     setJobs((prev) => {
-      const waiting = prev.filter((j) => j.status === "waiting").sort((a, b) => a.queueOrder - b.queueOrder);
+      const waiting = prev
+        .filter((j) => j.queueKey === queueKey && j.status === "waiting")
+        .sort((a, b) => a.queueOrder - b.queueOrder);
       const fromIndex = waiting.findIndex((j) => j.key === key);
       if (fromIndex === -1) return prev;
       const reordered = [...waiting];
@@ -509,10 +620,11 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
     setJobs((prev) => prev.map((j) => (j.movieId === movieId ? { ...j, title } : j)));
   }, []);
 
-  return {
+  const value: BulkUploadContextValue = {
     jobs,
-    restoring,
+    readyQueues,
     isOnline,
+    ensureQueue,
     addFolders,
     pause,
     resume,
@@ -523,5 +635,53 @@ export function useBulkExternalUpload(storageKey: string = DEFAULT_STORAGE_KEY) 
     moveWaitingToIndex,
     markPublished,
     patchJobTitle,
+  };
+
+  return <BulkUploadContext.Provider value={value}>{children}</BulkUploadContext.Provider>;
+}
+
+/**
+ * Consumes one named queue (e.g. `myanflix-episode-queue-<seriesId>`) out of
+ * the shared `BulkUploadProvider` — same call-site shape as the old
+ * page-scoped hook it replaces, so callers don't change beyond the import.
+ * The underlying jobs/effects live at the provider (mounted once at the
+ * root), so they keep running across route changes; this hook just
+ * registers interest in `queueKey` (via `ensureQueue`, safe to call
+ * repeatedly — it's a once-per-queueKey no-op after the first mount) and
+ * returns a filtered, queue-scoped view.
+ */
+export function useBulkUploadQueue(queueKey: string = DEFAULT_QUEUE_KEY) {
+  const ctx = useContext(BulkUploadContext);
+  if (!ctx) throw new Error("useBulkUploadQueue must be used within a BulkUploadProvider");
+
+  useEffect(() => {
+    ctx.ensureQueue(queueKey);
+  }, [ctx, queueKey]);
+
+  const jobs = useMemo(() => ctx.jobs.filter((j) => j.queueKey === queueKey), [ctx.jobs, queueKey]);
+
+  const addFolders = useCallback(
+    (folders: DroppedFolder[], series?: AddFoldersSeries) => ctx.addFolders(queueKey, folders, series),
+    [ctx, queueKey],
+  );
+  const moveWaitingToIndex = useCallback(
+    (key: string, targetIndex: number) => ctx.moveWaitingToIndex(queueKey, key, targetIndex),
+    [ctx, queueKey],
+  );
+
+  return {
+    jobs,
+    restoring: !ctx.readyQueues.has(queueKey),
+    isOnline: ctx.isOnline,
+    addFolders,
+    pause: ctx.pause,
+    resume: ctx.resume,
+    retry: ctx.retry,
+    cancel: ctx.cancel,
+    remove: ctx.remove,
+    reattachFolder: ctx.reattachFolder,
+    moveWaitingToIndex,
+    markPublished: ctx.markPublished,
+    patchJobTitle: ctx.patchJobTitle,
   };
 }

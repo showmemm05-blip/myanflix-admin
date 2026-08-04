@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequireRole } from "@/components/shared/RequireRole";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -98,66 +99,70 @@ export default function ReadyToPublishPage() {
     publishingId,
   });
 
-  if (error) {
-    return (
-      <div>
-        <PageHeader title="Ready to Publish" description="Review completed uploads before they go live." />
-        <ErrorState description="We couldn't load the review queue." onRetry={refetch} />
-      </div>
-    );
-  }
-
   return (
-    <div>
-      <PageHeader
-        title="Ready to Publish"
-        description="Uploads that finished and passed validation, waiting on your review. They stay hidden from users until you publish them."
-      />
-
-      {!isLoading && activeMovies.length === 0 ? (
-        <EmptyState
-          icon={Rocket}
-          title="Nothing waiting to publish"
-          description="Movies show up here once a bulk or pre-transcoded upload finishes and passes validation."
-        />
+    <RequireRole
+      allow={["SUPER_ADMIN", "ADMIN"]}
+      title="Ready to Publish"
+      description="Review completed uploads before they go live."
+    >
+      {error ? (
+        <div>
+          <PageHeader title="Ready to Publish" description="Review completed uploads before they go live." />
+          <ErrorState description="We couldn't load the review queue." onRetry={refetch} />
+        </div>
       ) : (
-        <DataTable
-          columns={columns}
-          data={activeMovies}
-          isLoading={isLoading}
-          searchKey="title"
-          searchPlaceholder="Search movies by title..."
-        />
+        <div>
+          <PageHeader
+            title="Ready to Publish"
+            description="Uploads that finished and passed validation, waiting on your review. They stay hidden from users until you publish them."
+          />
+
+          {!isLoading && activeMovies.length === 0 ? (
+            <EmptyState
+              icon={Rocket}
+              title="Nothing waiting to publish"
+              description="Movies show up here once a bulk or pre-transcoded upload finishes and passes validation."
+            />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={activeMovies}
+              isLoading={isLoading}
+              searchKey="title"
+              searchPlaceholder="Search movies by title..."
+            />
+          )}
+
+          <MovieDetailsSheet movie={viewMovie} open={!!viewMovie} onOpenChange={(o) => !o && setViewMovie(null)} />
+
+          <EditMovieDialog
+            movie={editMovie}
+            open={!!editMovie}
+            onOpenChange={(o) => !o && setEditMovie(null)}
+            onSaved={(updated) => {
+              // Editing (or publishing from inside the dialog) can move the
+              // movie out of READY_TO_PUBLISH — either way it no longer belongs
+              // on this page's list once its status has changed.
+              if (updated.status === "READY_TO_PUBLISH") {
+                setMovies(activeMovies.map((m) => (m.id === updated.id ? updated : m)));
+              } else {
+                setMovies(activeMovies.filter((m) => m.id !== updated.id));
+              }
+            }}
+          />
+
+          <ConfirmDialog
+            open={!!deleteMovie}
+            onOpenChange={(o) => !o && setDeleteMovie(null)}
+            title="Delete this movie?"
+            description={`"${deleteMovie?.title}" will be permanently removed from the catalog. This action cannot be undone.`}
+            confirmLabel="Delete"
+            variant="destructive"
+            loading={deleting}
+            onConfirm={handleDelete}
+          />
+        </div>
       )}
-
-      <MovieDetailsSheet movie={viewMovie} open={!!viewMovie} onOpenChange={(o) => !o && setViewMovie(null)} />
-
-      <EditMovieDialog
-        movie={editMovie}
-        open={!!editMovie}
-        onOpenChange={(o) => !o && setEditMovie(null)}
-        onSaved={(updated) => {
-          // Editing (or publishing from inside the dialog) can move the
-          // movie out of READY_TO_PUBLISH — either way it no longer belongs
-          // on this page's list once its status has changed.
-          if (updated.status === "READY_TO_PUBLISH") {
-            setMovies(activeMovies.map((m) => (m.id === updated.id ? updated : m)));
-          } else {
-            setMovies(activeMovies.filter((m) => m.id !== updated.id));
-          }
-        }}
-      />
-
-      <ConfirmDialog
-        open={!!deleteMovie}
-        onOpenChange={(o) => !o && setDeleteMovie(null)}
-        title="Delete this movie?"
-        description={`"${deleteMovie?.title}" will be permanently removed from the catalog. This action cannot be undone.`}
-        confirmLabel="Delete"
-        variant="destructive"
-        loading={deleting}
-        onConfirm={handleDelete}
-      />
-    </div>
+    </RequireRole>
   );
 }
