@@ -14,6 +14,8 @@ import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { ApiError } from "@/services/api/apiClient";
 import { useNetworkStatus } from "@/lib/hooks/use-network-status";
+import { putToMinio } from "@/lib/upload/minio-put";
+import { PresignedPartUrlPool } from "@/lib/upload/presigned-part-pool";
 import {
   extractTitleFromFolderName,
   mapLocalPathToRelativePath,
@@ -31,6 +33,43 @@ const CHUNK_RETRY_MAX_MS = 8000;
 // potentially thousands of chunks would itself compete with the browser's
 // work of actually sending bytes.
 const PROGRESS_FLUSH_INTERVAL_MS = 250;
+
+// Feature flag — no hard cutover to direct-to-MinIO uploads. Default off
+// until validated in production; rollback is flipping this back to false
+// and redeploying the admin app only (the backend's chunked-relay endpoints
+// stay live either way, see uploads.controller.ts/uploads.service.ts,
+// completely unedited by this migration). See the upload migration plan
+// for the full rationale.
+const USE_DIRECT_MINIO_UPLOAD = process.env.NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD === "true";
+// Below this, a file goes through one presigned single PUT; at/above it,
+// through real S3/MinIO multipart. Matches the backend's own
+// MultipartUploadService.MULTIPART_PART_SIZE — kept in sync manually since
+// nothing here can import a backend constant across the client/server
+// boundary; the backend is the actual source of truth for `partSize` at
+// upload time (returned by multipartInit), this only decides which
+// endpoint to call in the first place.
+const MULTIPART_THRESHOLD_BYTES = 32 * 1024 * 1024;
+// Real multipart parts are bandwidth-bound (large, few), so concurrency
+// stays at the same level the old chunked flow used.
+const PART_UPLOAD_CONCURRENCY = 6;
+// Small files (HLS playlists, subtitles, segments — often thousands per
+// bundle) are latency-bound, not bandwidth-bound: each pays close to a full
+// round trip regardless of its own size, so a much higher concurrency
+// actually helps here in a way it wouldn't for the one large file. Requires
+// the write-side proxy to serve HTTP/2 to be real concurrency rather than
+// getting capped to ~6 by the browser's HTTP/1.1 per-origin connection
+// limit — see the upload migration plan's throughput analysis.
+const SMALL_FILE_CONCURRENCY = 16;
+// Presign requests are paginated at this size rather than one request per
+// bundle (a multi-thousand-file payload) or one request per file (thousands
+// of round trips) — see MultipartUploadService.PresignBatchDto's own
+// ArrayMaxSize(500) backstop on the backend.
+const PRESIGN_BATCH_SIZE = 250;
+// Only "movie" exists as a resourceType today (episodes are Movie rows too
+// — see schema.prisma's Movie doc comment) — a future content type would
+// need its own resourceType/resourceId threaded through from wherever it's
+// uploaded, not a change here.
+const RESOURCE_TYPE = "movie";
 
 export const MAX_BULK_MOVIES = 10;
 
@@ -52,6 +91,8 @@ export interface BulkAsset {
   size: number;
   status: AssetStatus;
   uploadedBytes: number;
+  /** Direct-to-MinIO flow only (USE_DIRECT_MINIO_UPLOAD): the active MultipartUploadSession id, set once multipartInit() resolves — needed so Cancel can abort it on the backend/MinIO. Never persisted to localStorage; a resumed upload always re-inits and gets a fresh one. */
+  sessionId?: string;
 }
 
 export interface MovieUploadJob {
@@ -409,6 +450,39 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     [bumpAsset],
   );
 
+  /**
+   * Shared by startUpload() and startUploadDirect() — an explicit user
+   * action (Pause/Cancel) always wins, even racing a connectivity drop.
+   * Absent one, blame connectivity whenever we know we're offline right
+   * now, or when the error itself looks transient (network failure, or a
+   * 5xx/408/429 that survived every retry attempt) — either way this is
+   * what routes an interrupted upload to "offline" instead of "failed" so
+   * it auto-resumes later instead of needing a manual retry click.
+   */
+  const applyFailureOutcome = useCallback((key: string, err: unknown) => {
+    const explicitAction = pendingActionRef.current.get(key);
+    pendingActionRef.current.delete(key);
+
+    if (explicitAction === "cancel") {
+      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
+    } else if (explicitAction === "pause") {
+      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
+    } else if (err instanceof ApiError && err.status === 404) {
+      // The movie itself is gone — e.g. deleted from the Movies list while
+      // this job was mid-retry. There's nothing left to upload to, and
+      // retrying can only ever 404 again, so drop it from the queue
+      // entirely instead of leaving a permanently-stuck "Failed" card.
+      setJobs((prev) => prev.filter((j) => j.key !== key));
+    } else if (!onlineRef.current || isTransient(err)) {
+      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "offline" } : j)));
+    } else if (err instanceof DOMException && err.name === "AbortError") {
+      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
+    } else {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: message } : j)));
+    }
+  }, []);
+
   const startUpload = useCallback(
     async (key: string) => {
       if (startingRef.current.has(key)) return;
@@ -453,41 +527,205 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
         await uploadService.finalizeExternalUpload(job.movieId, relativePaths);
         setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "ready_to_publish" } : j)));
       } catch (err) {
-        // An explicit user action (Pause/Cancel button) always wins, even if
-        // it happens to race with a connectivity drop. Absent one, blame
-        // connectivity whenever we know we're offline right now, or when the
-        // error itself looks transient (network failure, or a 5xx/408/429
-        // that survived every chunk-level retry attempt) — either way this
-        // is what routes an interrupted upload to "offline" instead of
-        // "failed" so it auto-resumes later instead of needing a manual
-        // retry click.
-        const explicitAction = pendingActionRef.current.get(key);
-        pendingActionRef.current.delete(key);
-
-        if (explicitAction === "cancel") {
-          setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
-        } else if (explicitAction === "pause") {
-          setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
-        } else if (err instanceof ApiError && err.status === 404) {
-          // The movie itself is gone — e.g. deleted from the Movies list
-          // while this job was mid-retry. There's nothing left to upload to,
-          // and retrying can only ever 404 again, so drop it from the queue
-          // entirely instead of leaving a permanently-stuck "Failed" card.
-          setJobs((prev) => prev.filter((j) => j.key !== key));
-        } else if (!onlineRef.current || isTransient(err)) {
-          setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "offline" } : j)));
-        } else if (err instanceof DOMException && err.name === "AbortError") {
-          setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "paused" } : j)));
-        } else {
-          const message = err instanceof Error ? err.message : "Upload failed";
-          setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: message } : j)));
-        }
+        applyFailureOutcome(key, err);
       } finally {
         controllersRef.current.delete(key);
         startingRef.current.delete(key);
       }
     },
-    [uploadOneAsset, bumpAsset],
+    [uploadOneAsset, bumpAsset, applyFailureOutcome],
+  );
+
+  // --- Direct browser->MinIO upload path (USE_DIRECT_MINIO_UPLOAD) ---
+
+  /** The one (typically) large file in a bundle — original.mp4 — via real S3/MinIO multipart, straight to MinIO. */
+  const uploadLargeAssetDirect = useCallback(
+    async (resourceId: string, key: string, asset: BulkAsset, signal: AbortSignal) => {
+      if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
+      const file = asset.file;
+      bumpAsset(key, asset.relativePath, { status: "uploading" });
+
+      const { sessionId, partSize, totalParts, uploadedParts } = await withTransientRetry(
+        () => uploadService.multipartInit(RESOURCE_TYPE, resourceId, file.name, file.size, asset.relativePath, signal),
+        signal,
+      );
+      bumpAsset(key, asset.relativePath, { sessionId });
+
+      const doneParts = new Map(uploadedParts.map((p) => [p.partNumber, p.etag]));
+      let sent = 0;
+      for (const partNumber of doneParts.keys()) {
+        const start = (partNumber - 1) * partSize;
+        sent += Math.min(partSize, file.size - start);
+      }
+      bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
+
+      let lastFlushedSent = sent;
+      const flush = () => {
+        if (sent === lastFlushedSent) return;
+        lastFlushedSent = sent;
+        bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
+      };
+      const flushTimer = setInterval(flush, PROGRESS_FLUSH_INTERVAL_MS);
+
+      const pool = new PresignedPartUrlPool(sessionId, PART_UPLOAD_CONCURRENCY);
+      const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter((n) => !doneParts.has(n));
+
+      try {
+        let nextIndex = 0;
+        const worker = async () => {
+          for (;;) {
+            const idx = nextIndex++;
+            if (idx >= remaining.length) return;
+            const partNumber = remaining[idx];
+            const start = (partNumber - 1) * partSize;
+            const bytes = Math.min(partSize, file.size - start);
+            const blob = file.slice(start, start + bytes);
+
+            const etag = await withTransientRetry(async () => {
+              const url = await pool.getUrl(partNumber, remaining.slice(idx + 1));
+              try {
+                const { etag: putEtag } = await putToMinio(url, blob, signal);
+                if (!putEtag) {
+                  throw new Error(`MinIO returned no ETag for part ${partNumber} of ${asset.relativePath} — check bucket CORS ExposeHeaders`);
+                }
+                return putEtag;
+              } catch (err) {
+                // The presigned URL's own 1-hour expiry ran out (e.g. this
+                // part sat behind a long pause) — a plain retry would just
+                // hit the same dead URL forever; force the pool to fetch a
+                // fresh one instead.
+                if (err instanceof ApiError && err.status === 403) pool.invalidate(partNumber);
+                throw err;
+              }
+            }, signal);
+
+            doneParts.set(partNumber, etag);
+            sent += bytes;
+          }
+        };
+        await Promise.all(Array.from({ length: Math.min(PART_UPLOAD_CONCURRENCY, remaining.length) }, worker));
+      } finally {
+        clearInterval(flushTimer);
+      }
+      flush();
+
+      bumpAsset(key, asset.relativePath, { status: "finalizing" });
+      const parts = Array.from(doneParts.entries()).map(([partNumber, etag]) => ({ partNumber, etag }));
+      await withTransientRetry(() => uploadService.multipartComplete(sessionId, parts, signal), signal);
+      bumpAsset(key, asset.relativePath, { status: "done" });
+    },
+    [bumpAsset],
+  );
+
+  /**
+   * Every small file in a bundle (playlists, subtitles, segments — often
+   * thousands per bundle) shares ONE flat worker pool at
+   * SMALL_FILE_CONCURRENCY, rather than each getting its own worker slot
+   * the way FILE_UPLOAD_CONCURRENCY does for the classic/large-file path —
+   * each request here is cheap and latency-bound, so a much higher shared
+   * concurrency is what actually helps (see the upload migration plan).
+   * Progress per file is coarse (0% or 100%) since a single PUT is atomic —
+   * no per-byte tracking needed the way the large-file path needs per-part.
+   */
+  const uploadSmallAssetsDirect = useCallback(
+    async (resourceId: string, key: string, assets: BulkAsset[], signal: AbortSignal) => {
+      if (assets.length === 0) return;
+      for (const asset of assets) bumpAsset(key, asset.relativePath, { status: "uploading" });
+
+      const urlByPath = new Map<string, string>();
+      for (let i = 0; i < assets.length; i += PRESIGN_BATCH_SIZE) {
+        const batch = assets.slice(i, i + PRESIGN_BATCH_SIZE);
+        const { files } = await withTransientRetry(
+          () =>
+            uploadService.presignBatch(
+              RESOURCE_TYPE,
+              resourceId,
+              batch.map((a) => ({ relativePath: a.relativePath, filesize: a.size })),
+              signal,
+            ),
+          signal,
+        );
+        for (const f of files) urlByPath.set(f.relativePath, f.url);
+      }
+
+      let nextIndex = 0;
+      let firstError: unknown = null;
+      const worker = async () => {
+        for (;;) {
+          const idx = nextIndex++;
+          if (idx >= assets.length) return;
+          const asset = assets[idx];
+          try {
+            const url = urlByPath.get(asset.relativePath);
+            if (!url) throw new Error(`No presigned URL was issued for ${asset.relativePath}`);
+            if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
+            await withTransientRetry(() => putToMinio(url, asset.file!, signal), signal);
+            bumpAsset(key, asset.relativePath, { uploadedBytes: asset.size, status: "done" });
+          } catch (err) {
+            if (signal.aborted) throw err;
+            firstError ??= err;
+            bumpAsset(key, asset.relativePath, { status: "error" });
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(SMALL_FILE_CONCURRENCY, assets.length) }, worker));
+      if (firstError) throw firstError;
+    },
+    [bumpAsset],
+  );
+
+  const startUploadDirect = useCallback(
+    async (key: string) => {
+      if (startingRef.current.has(key)) return;
+      const job = jobsRef.current.find((j) => j.key === key);
+      if (!job) return;
+
+      if (job.assets.some((a) => a.status !== "done" && !a.file)) {
+        setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, needsReattach: true } : j)));
+        return;
+      }
+
+      startingRef.current.add(key);
+      const controller = new AbortController();
+      controllersRef.current.set(key, controller);
+      speedSamplesRef.current.delete(key);
+      setJobs((prev) =>
+        prev.map((j) => (j.key === key ? { ...j, status: "uploading", error: undefined, needsReattach: false } : j)),
+      );
+
+      try {
+        const pending = job.assets.filter((a) => a.status !== "done");
+        const largeAssets = pending.filter((a) => a.size >= MULTIPART_THRESHOLD_BYTES);
+        const smallAssets = pending.filter((a) => a.size < MULTIPART_THRESHOLD_BYTES);
+
+        let firstError: unknown = null;
+        await Promise.all([
+          ...largeAssets.map((asset) =>
+            uploadLargeAssetDirect(job.movieId, key, asset, controller.signal).catch((err) => {
+              if (controller.signal.aborted) throw err;
+              firstError ??= err;
+              bumpAsset(key, asset.relativePath, { status: "error" });
+            }),
+          ),
+          uploadSmallAssetsDirect(job.movieId, key, smallAssets, controller.signal).catch((err) => {
+            if (controller.signal.aborted) throw err;
+            firstError ??= err;
+          }),
+        ]);
+        if (firstError) throw firstError;
+
+        setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "completed" } : j)));
+        const relativePaths = job.assets.map((a) => a.relativePath);
+        await uploadService.finalizeExternalUpload(job.movieId, relativePaths);
+        setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "ready_to_publish" } : j)));
+      } catch (err) {
+        applyFailureOutcome(key, err);
+      } finally {
+        controllersRef.current.delete(key);
+        startingRef.current.delete(key);
+      }
+    },
+    [uploadLargeAssetDirect, uploadSmallAssetsDirect, bumpAsset, applyFailureOutcome],
   );
 
   // The queue processor: for every queue that's finished restoring and has
@@ -508,9 +746,9 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
       const next = queueJobs
         .filter((j) => j.status === "waiting" && !j.needsReattach)
         .sort((a, b) => a.queueOrder - b.queueOrder)[0];
-      if (next) void startUpload(next.key);
+      if (next) void (USE_DIRECT_MINIO_UPLOAD ? startUploadDirect(next.key) : startUpload(next.key));
     }
-  }, [jobs, isOnline, readyQueues, startUpload]);
+  }, [jobs, isOnline, readyQueues, startUpload, startUploadDirect]);
 
   // The moment connectivity drops, proactively abort whatever's actively
   // uploading rather than waiting for its in-flight request to eventually
@@ -632,6 +870,22 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /**
+   * Direct-to-MinIO flow only: a multipart upload creates real server-side
+   * state at multipartInit() time (a live MinIO UploadId), unlike the
+   * classic/small-file paths where there's nothing to clean up beyond
+   * abandoning the request — so cancelling must also tell the backend to
+   * abort it, not just stop sending. Best-effort/fire-and-forget: a tab
+   * closing outright can't call this at all, which is exactly what
+   * UploadCleanupService's cron backstop on the backend exists for.
+   */
+  const abortActiveMultipartSessions = useCallback((job: MovieUploadJob | undefined) => {
+    if (!job) return;
+    for (const asset of job.assets) {
+      if (asset.sessionId) uploadService.multipartAbort(asset.sessionId).catch(() => {});
+    }
+  }, []);
+
   const cancel = useCallback(
     (key: string) => {
       const job = jobsRef.current.find((j) => j.key === key);
@@ -642,9 +896,10 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
       } else {
         setJobs((prev) => prev.map((j) => (j.key === key ? { ...j, status: "failed", error: "Cancelled by admin" } : j)));
       }
+      if (USE_DIRECT_MINIO_UPLOAD) abortActiveMultipartSessions(job);
       deletePlaceholderIfUnfinished(job);
     },
-    [deletePlaceholderIfUnfinished],
+    [deletePlaceholderIfUnfinished, abortActiveMultipartSessions],
   );
 
   const remove = useCallback(
@@ -656,9 +911,10 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
         controller.abort();
       }
       setJobs((prev) => prev.filter((j) => j.key !== key));
+      if (USE_DIRECT_MINIO_UPLOAD) abortActiveMultipartSessions(job);
       deletePlaceholderIfUnfinished(job);
     },
-    [deletePlaceholderIfUnfinished],
+    [deletePlaceholderIfUnfinished, abortActiveMultipartSessions],
   );
 
   /** Matches a re-selected folder's files back onto this job's assets by relativePath — the only way to resume/retry after a page refresh, since File handles never survive one. */

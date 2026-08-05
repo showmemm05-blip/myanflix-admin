@@ -16,6 +16,14 @@ COPY . .
 ARG NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
+# Feature flag for direct browser->MinIO uploads (see
+# lib/context/bulk-upload-context.tsx) — defaults off. Flip via
+# NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD=true at build time, then rebuild +
+# redeploy this image; that's the entire rollback/roll-forward mechanism,
+# no backend change needed either way.
+ARG NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD
+ENV NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD=$NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD
+
 RUN npm run build
 
 # ---- runner stage -----------------------------------------------------------

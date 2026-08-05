@@ -8,5 +8,8 @@ services:
         # hostname like "backend:3001"). Point this at the real API domain
         # once deployed.
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:3001/api}
+        # Defaults off — flip to true only once the direct-to-MinIO flow has
+        # been validated (see the upload migration plan's rollout phase).
+        NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD: ${NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD:-false}
     ports:
       - "${PORT:-3002}:3002"

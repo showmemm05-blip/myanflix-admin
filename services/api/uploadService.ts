@@ -37,6 +37,46 @@ export interface CompleteUploadResponse {
   status: string;
 }
 
+/** A file below the multipart size threshold — one presigned PUT, no server-side session. */
+export interface PresignedFile {
+  relativePath: string;
+  key: string;
+  url: string;
+}
+
+export interface PresignBatchResponse {
+  files: PresignedFile[];
+}
+
+export interface MultipartUploadedPart {
+  partNumber: number;
+  etag: string;
+  size: number;
+}
+
+export interface MultipartInitResponse {
+  sessionId: string;
+  key: string;
+  partSize: number;
+  totalParts: number;
+  /** Parts MinIO has already durably received for this exact resource/key/size — never a client-side cache, always fresh from MinIO's own ListPartsCommand. */
+  uploadedParts: MultipartUploadedPart[];
+}
+
+export interface MultipartPartUrl {
+  partNumber: number;
+  url: string;
+}
+
+export interface MultipartGetPartUrlsResponse {
+  parts: MultipartPartUrl[];
+}
+
+export interface MultipartCompleteResponse {
+  relativePath: string;
+  status: string;
+}
+
 export const uploadService = {
   /**
    * `relativePath` (e.g. "original.mp4", "hls/720p/index.m3u8") switches this
@@ -98,5 +138,68 @@ export const uploadService = {
       return formData;
     })(), { signal });
     return { url: url.startsWith("http") ? url : `${API_ORIGIN}${url}` };
+  },
+
+  // --- Direct browser->MinIO upload (feature-flagged, see bulk-upload-context.tsx) ---
+  // Everything below only ever issues presigned URLs / tracks minimal
+  // session metadata through the backend — the actual bytes never pass
+  // through it. The returned URLs point at MinIO's write-side proxy, not
+  // this backend, and must be PUT to directly (see lib/upload/minio-put.ts),
+  // bypassing apiClient entirely for that step (no JWT, no {success,data}
+  // envelope — MinIO's own response shape).
+
+  /** Presigned single-PUT URLs for files below the multipart threshold (playlists, subtitles, segments) — paginate `files` client-side rather than sending an entire bundle at once. */
+  presignBatch(
+    resourceType: string,
+    resourceId: string,
+    files: { relativePath: string; filesize: number }[],
+    signal?: AbortSignal,
+  ) {
+    return apiClient.post<PresignBatchResponse>(
+      "/uploads/presign-batch",
+      { resourceType, resourceId, files },
+      { signal },
+    );
+  },
+
+  /** Resume-aware: an in-progress session for the exact same resource/key/size is reused, with `uploadedParts` (from MinIO, never a Postgres cache) telling the caller what to skip. */
+  multipartInit(
+    resourceType: string,
+    resourceId: string,
+    filename: string,
+    filesize: number,
+    relativePath: string,
+    signal?: AbortSignal,
+  ) {
+    return apiClient.post<MultipartInitResponse>(
+      "/uploads/multipart/init",
+      { resourceType, resourceId, filename, filesize, relativePath },
+      { signal },
+    );
+  },
+
+  multipartGetPartUrls(sessionId: string, partNumbers: number[], signal?: AbortSignal) {
+    return apiClient.post<MultipartGetPartUrlsResponse>(
+      `/uploads/multipart/${sessionId}/parts`,
+      { partNumbers },
+      { signal },
+    );
+  },
+
+  multipartComplete(
+    sessionId: string,
+    parts: { partNumber: number; etag: string }[],
+    signal?: AbortSignal,
+  ) {
+    return apiClient.post<MultipartCompleteResponse>(
+      `/uploads/multipart/${sessionId}/complete`,
+      { parts },
+      { signal },
+    );
+  },
+
+  /** Fire-and-forget from the caller's perspective on Cancel — the backend aborts the MinIO-side upload and marks the session FAILED either way. */
+  multipartAbort(sessionId: string) {
+    return apiClient.post<void>(`/uploads/multipart/${sessionId}/abort`);
   },
 };
