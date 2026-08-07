@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowDownToLine,
+  CreditCard,
   Film,
   FolderInput,
   LayoutDashboard,
@@ -9,6 +10,7 @@ import {
   Settings,
   ShieldCheck,
   Tv,
+  UserCog,
   Users,
   Wallet,
 } from "lucide-react";
@@ -62,12 +64,26 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    // Everything series-related (details, seasons, episode uploads) lives on
-    // each show's own manage page — no separate upload page.
     label: "Series",
     href: "/series",
     icon: Tv,
     roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"],
+    children: [
+      {
+        // Everything series-related (details, seasons, episode uploads)
+        // lives on each show's own manage page — no separate upload page.
+        label: "All Series",
+        href: "/series",
+        icon: Tv,
+        roles: ["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"],
+      },
+      {
+        label: "Ready to Publish",
+        href: "/series/ready-to-publish",
+        icon: Rocket,
+        roles: ["SUPER_ADMIN", "ADMIN"],
+      },
+    ],
   },
   {
     // Backend gates user management behind USER_MANAGE, granted to SUPER_ADMIN only.
@@ -88,6 +104,20 @@ export const navItems: NavItem[] = [
     href: "/deposits",
     icon: ArrowDownToLine,
     roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    // Backend gates plan create/edit behind SUBSCRIPTION_MANAGE, granted to Admin/Super Admin only.
+    label: "Subscriptions",
+    href: "/subscriptions",
+    icon: CreditCard,
+    roles: ["SUPER_ADMIN", "ADMIN"],
+  },
+  {
+    // Backend gates staff management behind STAFF_MANAGE, granted to Super Admin only.
+    label: "Staff",
+    href: "/staff",
+    icon: UserCog,
+    roles: ["SUPER_ADMIN"],
   },
   {
     label: "Roles & Permissions",

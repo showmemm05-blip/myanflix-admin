@@ -1,10 +1,11 @@
 import { apiClient } from "./apiClient";
-import type { Movie, MovieCategory, MovieStatus, MovieUploadFormValues } from "@/types/movie";
+import type { AccessType, Movie, MovieCategory, MovieStatus, MovieUploadFormValues } from "@/types/movie";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { PurchaseEntry } from "@/types/user";
 
 export interface MovieQuery extends PaginationParams {
   status?: MovieStatus;
+  accessType?: AccessType;
   genre?: string;
   categoryId?: string;
   search?: string;

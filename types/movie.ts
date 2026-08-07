@@ -7,6 +7,8 @@ export type MovieStatus =
   | "FAILED"
   | "READY_TO_PUBLISH";
 
+export type AccessType = "FREE" | "SUBSCRIPTION";
+
 export interface MovieCategoryRef {
   id: string;
   name: string;
@@ -23,8 +25,7 @@ export interface Movie {
   language: string;
   releaseYear: number;
   duration: number;
-  price: number;
-  isPremium: boolean;
+  accessType: AccessType;
   status: MovieStatus;
   rating: number;
   /** Set only for episodes — null means a standalone movie. */
@@ -51,8 +52,7 @@ export interface MovieUploadFormValues {
   language: string;
   releaseYear: number;
   duration: number;
-  price: number;
-  isPremium: boolean;
+  accessType: AccessType;
   posterUrl?: string;
   coverUrl?: string;
   thumbnailUrl?: string;

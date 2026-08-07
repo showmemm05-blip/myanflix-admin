@@ -12,25 +12,45 @@ import { getMovieColumns } from "@/components/movies/columns";
 import { MovieDetailsSheet } from "@/components/movies/MovieDetailsSheet";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { ApiError } from "@/services/api/apiClient";
-import type { Movie } from "@/types/movie";
+import type { AccessType, Movie } from "@/types/movie";
 import { toast } from "sonner";
+
+const ALL = "all";
 
 export default function MoviesPage() {
   const { role } = useRole();
   const canManage = role !== "USER";
 
+  const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
+
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => movieService.getMovies({ limit: 100 }),
-    []
+    () =>
+      movieService.getMovies({
+        limit: 100,
+        accessType: accessTypeFilter !== ALL ? (accessTypeFilter as AccessType) : undefined,
+      }),
+    [accessTypeFilter],
   );
   const [movies, setMovies] = useState<Movie[] | null>(null);
 
   const activeMovies = movies ?? data?.items ?? [];
+
+  const handleAccessTypeFilterChange = (value: string) => {
+    setAccessTypeFilter(value);
+    setMovies(null);
+  };
 
   const [viewMovie, setViewMovie] = useState<Movie | null>(null);
   const [editMovie, setEditMovie] = useState<Movie | null>(null);
@@ -68,6 +88,17 @@ export default function MoviesPage() {
     }
   };
 
+  const filters = (
+    <Select value={accessTypeFilter} onValueChange={(v) => v && handleAccessTypeFilterChange(v)}>
+      <SelectTrigger className="w-40"><SelectValue placeholder="Access type" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL}>All access types</SelectItem>
+        <SelectItem value="FREE">Free</SelectItem>
+        <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
   const columns = getMovieColumns({
     canManage,
     onView: setViewMovie,
@@ -101,7 +132,7 @@ export default function MoviesPage() {
         }
       />
 
-      {!isLoading && activeMovies.length === 0 ? (
+      {!isLoading && activeMovies.length === 0 && accessTypeFilter === ALL ? (
         <EmptyState
           icon={Film}
           title="No movies yet"
@@ -122,6 +153,7 @@ export default function MoviesPage() {
           isLoading={isLoading}
           searchKey="title"
           searchPlaceholder="Search movies by title..."
+          toolbar={filters}
         />
       )}
 

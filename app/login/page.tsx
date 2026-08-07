@@ -12,7 +12,7 @@ import { ApiError } from "@/services/api/apiClient";
 
 export default function LoginPage() {
   const { login } = useRole();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -22,7 +22,7 @@ export default function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login(email, password);
+      await login(username, password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
@@ -53,15 +53,15 @@ export default function LoginPage() {
                 </Alert>
               )}
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="username">Username</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
+                  id="username"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@myanflix.com"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="staff.username"
                 />
               </div>
               <div className="flex flex-col gap-1.5">

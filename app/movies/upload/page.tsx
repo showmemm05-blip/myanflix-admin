@@ -17,7 +17,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import {
   Select,
@@ -93,8 +92,7 @@ export default function UploadMoviePage() {
     String(new Date().getFullYear()),
   );
   const [durationMinutes, setDurationMinutes] = useState("120");
-  const [price, setPrice] = useState("6990");
-  const [isPremium, setIsPremium] = useState(true);
+  const [accessType, setAccessType] = useState<"FREE" | "SUBSCRIPTION">("SUBSCRIPTION");
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -127,8 +125,7 @@ export default function UploadMoviePage() {
     setLanguage("English");
     setReleaseYear(String(new Date().getFullYear()));
     setDurationMinutes("120");
-    setPrice("6990");
-    setIsPremium(true);
+    setAccessType("SUBSCRIPTION");
     setPosterFile(null);
     setCoverFile(null);
     setVideoFile(null);
@@ -158,8 +155,7 @@ export default function UploadMoviePage() {
       language,
       releaseYear: Number(releaseYear),
       duration: Number(durationMinutes),
-      price: Number(price),
-      isPremium,
+      accessType,
       posterFile,
       coverFile,
       videoFile,
@@ -198,8 +194,7 @@ export default function UploadMoviePage() {
         language,
         releaseYear: Number(releaseYear),
         duration: Number(durationMinutes),
-        price: Number(price),
-        isPremium,
+        accessType,
         posterUrl,
         coverUrl,
       });
@@ -390,37 +385,35 @@ export default function UploadMoviePage() {
 
           <Card className="glass-card border-white/[0.08]">
             <CardHeader>
-              <CardTitle>Pricing</CardTitle>
+              <CardTitle>Access</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex flex-col gap-1.5 sm:max-w-40">
-                <Label htmlFor="price">Price (Ks)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={price}
-                  disabled={isBusy || !isPremium}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
+              <div className="flex flex-col gap-1.5 sm:max-w-52">
+                <Label>Access type</Label>
+                <Select
+                  value={accessType}
+                  onValueChange={(v) => v && setAccessType(v as "FREE" | "SUBSCRIPTION")}
+                >
+                  <SelectTrigger className="w-full" disabled={isBusy}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FREE">Free</SelectItem>
+                    <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium">
-                    {isPremium ? "Premium" : "Free"}
+                    {accessType === "SUBSCRIPTION" ? "Subscription" : "Free"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {isPremium
-                      ? "Requires purchase to watch"
+                    {accessType === "SUBSCRIPTION"
+                      ? "Requires an active subscription to watch"
                       : "Available to all users"}
                   </p>
                 </div>
-                <Switch
-                  checked={isPremium}
-                  onCheckedChange={setIsPremium}
-                  disabled={isBusy}
-                />
               </div>
             </CardContent>
           </Card>

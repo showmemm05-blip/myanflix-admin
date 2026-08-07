@@ -12,6 +12,8 @@ const PERMISSION_LABELS: Record<string, { label: string; description: string }> 
   VIDEO_UPLOAD: { label: "Video Upload", description: "Upload and process video files" },
   USER_MANAGE: { label: "Manage Users", description: "View users, change roles, suspend accounts" },
   FINANCE_VIEW: { label: "View Finance", description: "See platform-wide revenue and transactions" },
+  SUBSCRIPTION_MANAGE: { label: "Manage Subscriptions", description: "Create, edit, and enable or disable subscription plans" },
+  STAFF_MANAGE: { label: "Manage Staff", description: "Create, edit, and deactivate staff accounts" },
 };
 
 export function PermissionMatrix({ matrix }: { matrix: RolePermissions[] }) {

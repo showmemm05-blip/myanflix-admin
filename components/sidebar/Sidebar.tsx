@@ -30,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -158,6 +159,58 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
               );
             }
 
+            if (item.children && item.children.length > 0 && isCollapsed) {
+              const iconLink = (
+                <Link
+                  href={item.href}
+                  onClick={handleNavClick}
+                  className={cn(
+                    "flex items-center justify-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-primary/15 text-primary"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-foreground"
+                  )}
+                >
+                  <Icon className="size-4.5 shrink-0" />
+                </Link>
+              );
+              return (
+                <li key={item.label}>
+                  <Popover>
+                    <PopoverTrigger render={iconLink} openOnHover delay={100} closeDelay={150} />
+                    <PopoverContent side="right" align="start" sideOffset={8} className="w-48 p-1.5">
+                      <p className="truncate px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        {item.label}
+                      </p>
+                      <ul className="flex flex-col gap-0.5">
+                        {item.children.map((child) => {
+                          const childActive = isChildActive(pathname, child.href);
+                          const ChildIcon = child.icon;
+                          return (
+                            <li key={child.href}>
+                              <Link
+                                href={child.href}
+                                onClick={handleNavClick}
+                                className={cn(
+                                  "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+                                  childActive
+                                    ? "bg-primary/15 text-primary font-medium"
+                                    : "text-popover-foreground/80 hover:bg-sidebar-accent hover:text-foreground"
+                                )}
+                              >
+                                <ChildIcon className="size-4 shrink-0" />
+                                {child.label}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
+                </li>
+              );
+            }
+
             const linkContent = (
               <Link
                 href={item.href}
@@ -179,9 +232,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
               <li key={item.href}>
                 {isCollapsed ? (
                   <Tooltip>
-                    <TooltipTrigger render={<span className="contents" />}>
-                      {linkContent}
-                    </TooltipTrigger>
+                    <TooltipTrigger render={linkContent} />
                     <TooltipContent side="right">{item.label}</TooltipContent>
                   </Tooltip>
                 ) : (

@@ -16,8 +16,8 @@ export interface AuthTokens {
 export type LoginResponse = { user: AuthUser } & AuthTokens;
 
 export const authService = {
-  login(email: string, password: string) {
-    return apiClient.post<LoginResponse>("/auth/login", { email, password }, { skipAuth: true });
+  login(username: string, password: string) {
+    return apiClient.post<LoginResponse>("/auth/login", { username, password }, { skipAuth: true });
   },
 
   register(username: string, email: string, password: string) {

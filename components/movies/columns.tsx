@@ -12,8 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
-import { formatKyat } from "@/lib/currency";
-import type { Movie, MovieStatus } from "@/types/movie";
+import type { AccessType, Movie, MovieStatus } from "@/types/movie";
 
 export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
   PUBLISHED: "success",
@@ -23,6 +22,16 @@ export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
   UPLOADING: "info",
   FAILED: "danger",
   READY_TO_PUBLISH: "warning",
+};
+
+export const ACCESS_TYPE_TONE: Record<AccessType, StatusTone> = {
+  FREE: "neutral",
+  SUBSCRIPTION: "info",
+};
+
+export const ACCESS_TYPE_LABEL: Record<AccessType, string> = {
+  FREE: "Free",
+  SUBSCRIPTION: "Subscription",
 };
 
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
@@ -112,14 +121,14 @@ export function getMovieColumns({
       ),
     },
     {
-      accessorKey: "price",
-      header: "Price",
-      cell: ({ row }) =>
-        row.original.isPremium ? (
-          <span className="font-medium tabular-nums">{formatKyat(row.original.price)}</span>
-        ) : (
-          <Badge variant="outline">Free</Badge>
-        ),
+      accessorKey: "accessType",
+      header: "Access",
+      cell: ({ row }) => (
+        <StatusBadge
+          label={ACCESS_TYPE_LABEL[row.original.accessType]}
+          tone={ACCESS_TYPE_TONE[row.original.accessType]}
+        />
+      ),
     },
     {
       accessorKey: "rating",

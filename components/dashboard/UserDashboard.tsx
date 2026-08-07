@@ -64,8 +64,8 @@ export function UserDashboard() {
         />
         <DashboardCard title="Total Spent" value={formatKyat(currentUser.totalSpent)} icon={History} />
         <DashboardCard
-          title="Movies Purchased"
-          value={currentUser.moviesPurchased.toString()}
+          title="Subscription"
+          value={currentUser.isSubscribed ? "Active" : "Not subscribed"}
           icon={Clapperboard}
         />
       </div>

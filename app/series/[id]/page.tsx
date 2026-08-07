@@ -27,7 +27,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
@@ -46,6 +45,7 @@ import { movieService } from "@/services/api/movieService";
 import { seriesService } from "@/services/api/seriesService";
 import { uploadService } from "@/services/api/uploadService";
 import type { Movie } from "@/types/movie";
+import type { Series } from "@/types/series";
 import { toast } from "sonner";
 
 /** One row of a season's list — a server episode, possibly overlaid with its live upload job. */
@@ -83,8 +83,7 @@ export default function SeriesManagePage() {
   const [genre, setGenre] = useState("");
   const [language, setLanguage] = useState("English");
   const [releaseYear, setReleaseYear] = useState("");
-  const [price, setPrice] = useState("0");
-  const [isPremium, setIsPremium] = useState(true);
+  const [accessType, setAccessType] = useState<Series["accessType"]>("SUBSCRIPTION");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -101,8 +100,7 @@ export default function SeriesManagePage() {
     setGenre(series.genre);
     setLanguage(series.language);
     setReleaseYear(String(series.releaseYear));
-    setPrice(String(series.price));
-    setIsPremium(series.isPremium);
+    setAccessType(series.accessType);
     setCategoryIds(series.categories.map((c) => c.id));
   }, [series]);
 
@@ -123,8 +121,7 @@ export default function SeriesManagePage() {
         genre,
         language,
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
-        price: Number(price) || 0,
-        isPremium,
+        accessType,
         categoryIds,
         posterUrl,
         coverUrl,
@@ -391,21 +388,15 @@ export default function SeriesManagePage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="series-price">Series price (Ks)</Label>
-              <Input
-                id="series-price"
-                type="number"
-                min="0"
-                step="1"
-                value={price}
-                disabled={!isPremium}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">One purchase unlocks every season and episode.</p>
-            </div>
-            <div className="flex items-center justify-between self-start rounded-lg border border-white/[0.08] px-3 py-2.5">
-              <Label htmlFor="series-premium">Premium (requires purchase)</Label>
-              <Switch id="series-premium" checked={isPremium} onCheckedChange={setIsPremium} />
+              <Label>Access type</Label>
+              <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Series["accessType"])}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FREE">Free</SelectItem>
+                  <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Governs every season and episode, including ones added later.</p>
             </div>
           </div>
           <div className="flex flex-col gap-1.5">

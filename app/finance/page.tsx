@@ -178,8 +178,8 @@ function UserCashFlowView() {
         />
         <DashboardCard title="Total Spent" value={formatKyat(currentUser.totalSpent)} icon={Receipt} />
         <DashboardCard
-          title="Movies Purchased"
-          value={`${currentUser.moviesPurchased}`}
+          title="Subscription"
+          value={currentUser.isSubscribed ? "Active" : "Not subscribed"}
           icon={Receipt}
         />
       </div>

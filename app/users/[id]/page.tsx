@@ -191,8 +191,12 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
           />
           <DashboardCard title="Total Spent" value={formatKyat(user.totalSpent)} icon={History} />
           <DashboardCard
-            title="Movies Purchased"
-            value={user.moviesPurchased.toString()}
+            title="Subscription"
+            value={
+              user.isSubscribed && user.subscriptionExpiresAt
+                ? `Active · exp. ${format(new Date(user.subscriptionExpiresAt), "MMM d, yyyy")}`
+                : "Not subscribed"
+            }
             icon={Clapperboard}
           />
         </div>

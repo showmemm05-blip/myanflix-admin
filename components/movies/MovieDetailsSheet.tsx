@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { format } from "date-fns";
-import { Clock, Globe, Star, Wallet } from "lucide-react";
+import { Clock, Crown, Globe, Star } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,8 +10,12 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { formatDuration, STATUS_TONE } from "@/components/movies/columns";
-import { formatKyat } from "@/lib/currency";
+import {
+  ACCESS_TYPE_LABEL,
+  ACCESS_TYPE_TONE,
+  formatDuration,
+  STATUS_TONE,
+} from "@/components/movies/columns";
 import type { Movie } from "@/types/movie";
 
 const FALLBACK_COVER = "https://picsum.photos/seed/myanflix-cover/1280/720";
@@ -50,7 +54,10 @@ export function MovieDetailsSheet({
 
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge label={movie.status} tone={STATUS_TONE[movie.status]} />
-                <Badge variant="outline">{movie.isPremium ? "Premium" : "Free"}</Badge>
+                <StatusBadge
+                  label={ACCESS_TYPE_LABEL[movie.accessType]}
+                  tone={ACCESS_TYPE_TONE[movie.accessType]}
+                />
                 <Badge variant="secondary" className="font-normal">
                   {movie.genre}
                 </Badge>
@@ -66,11 +73,11 @@ export function MovieDetailsSheet({
               <div className="grid grid-cols-2 gap-3">
                 <div className="glass-card rounded-lg border-white/[0.08] p-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Wallet className="size-3.5" />
-                    Price
+                    <Crown className="size-3.5" />
+                    Access
                   </div>
                   <p className="mt-1 text-lg font-semibold">
-                    {movie.isPremium ? formatKyat(movie.price) : "Free"}
+                    {ACCESS_TYPE_LABEL[movie.accessType]}
                   </p>
                 </div>
                 <div className="glass-card rounded-lg border-white/[0.08] p-3">

@@ -37,7 +37,8 @@ const EMPTY_USER: AppUser = {
   balance: 0,
   totalDeposited: 0,
   totalSpent: 0,
-  moviesPurchased: 0,
+  isSubscribed: false,
+  subscriptionExpiresAt: null,
   joinDate: "",
 };
 
@@ -50,7 +51,7 @@ interface RoleContextValue {
   isAdminOrAbove: boolean;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -85,8 +86,8 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { user, accessToken, refreshToken } = await authService.login(email, password);
+  const login = useCallback(async (username: string, password: string) => {
+    const { user, accessToken, refreshToken } = await authService.login(username, password);
     tokenStore.setSession(accessToken, refreshToken, user);
     connectSocket(accessToken);
     const profile = await userService.getMe();

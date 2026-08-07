@@ -34,6 +34,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
   const [genre, setGenre] = useState(series?.genre ?? "");
   const [language, setLanguage] = useState(series?.language ?? "English");
   const [releaseYear, setReleaseYear] = useState(String(series?.releaseYear ?? new Date().getFullYear()));
+  const [accessType, setAccessType] = useState<Series["accessType"]>(series?.accessType ?? "SUBSCRIPTION");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -49,6 +50,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
         genre,
         language,
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
+        accessType,
       };
       const saved = series
         ? await seriesService.updateSeries(series.id, values)
@@ -104,6 +106,17 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
             <Label htmlFor="series-year">Release year</Label>
             <Input id="series-year" type="number" value={releaseYear} onChange={(e) => setReleaseYear(e.target.value)} />
           </div>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label>Access type</Label>
+          <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Series["accessType"])}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="FREE">Free</SelectItem>
+              <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Governs every season and episode, including ones added later.</p>
         </div>
       </div>
 

@@ -12,7 +12,8 @@ export interface AppUser {
   balance: number;
   totalDeposited: number;
   totalSpent: number;
-  moviesPurchased: number;
+  isSubscribed: boolean;
+  subscriptionExpiresAt: string | null;
   joinDate: string;
 }
 

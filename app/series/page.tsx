@@ -1,43 +1,59 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Plus, Settings2, Trash2, Tv } from "lucide-react";
+import { Plus, Tv } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { DataTable } from "@/components/tables/DataTable";
+import { getSeriesColumns } from "@/components/series/columns";
 import { SeriesFormDialog } from "@/components/series/SeriesFormDialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { seriesService } from "@/services/api/seriesService";
+import type { AccessType } from "@/types/movie";
 import type { Series, SeriesListItem } from "@/types/series";
 import { toast } from "sonner";
 
+const ALL = "all";
+
 export default function SeriesPage() {
+  const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
+
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => seriesService.getSeries({ limit: 100 }),
-    []
+    () =>
+      seriesService.getSeries({
+        limit: 100,
+        accessType: accessTypeFilter !== ALL ? (accessTypeFilter as AccessType) : undefined,
+      }),
+    [accessTypeFilter],
   );
+  const [items, setItems] = useState<SeriesListItem[] | null>(null);
+
+  const activeItems = items ?? data?.items ?? [];
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editSeries, setEditSeries] = useState<Series | null>(null);
+  const [editSeries] = useState<Series | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SeriesListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const items = data?.items ?? [];
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await seriesService.deleteSeries(deleteTarget.id);
+      setItems(activeItems.filter((s) => s.id !== deleteTarget.id));
       toast.success("Series deleted", {
         description: `"${deleteTarget.title}" was removed. Its episodes are kept and remain manageable from the Movies table.`,
       });
-      refetch();
     } catch {
       toast.error("Couldn't delete the series", { description: "Please try again." });
     } finally {
@@ -45,6 +61,19 @@ export default function SeriesPage() {
       setDeleteTarget(null);
     }
   };
+
+  const filters = (
+    <Select value={accessTypeFilter} onValueChange={(v) => v && setAccessTypeFilter(v)}>
+      <SelectTrigger className="w-40"><SelectValue placeholder="Access type" /></SelectTrigger>
+      <SelectContent>
+        <SelectItem value={ALL}>All access types</SelectItem>
+        <SelectItem value="FREE">Free</SelectItem>
+        <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+      </SelectContent>
+    </Select>
+  );
+
+  const columns = getSeriesColumns({ onDelete: setDeleteTarget });
 
   if (error) {
     return (
@@ -61,61 +90,34 @@ export default function SeriesPage() {
         title="All Series"
         description="Manage shows and their episodes."
         actions={
-          <Button onClick={() => { setEditSeries(null); setFormOpen(true); }}>
+          <Button onClick={() => setFormOpen(true)}>
             <Plus className="size-4" />
             Create Series
           </Button>
         }
       />
 
-      {!isLoading && items.length === 0 ? (
+      {!isLoading && activeItems.length === 0 && accessTypeFilter === ALL ? (
         <EmptyState
           icon={Tv}
           title="No series yet"
           description="Create your first show, then add episodes with Bulk Upload Episodes."
           action={
-            <Button onClick={() => { setEditSeries(null); setFormOpen(true); }}>
+            <Button onClick={() => setFormOpen(true)}>
               <Plus className="size-4" />
               Create Series
             </Button>
           }
         />
       ) : (
-        <div className="flex flex-col gap-3">
-          {items.map((series) => (
-            <Card key={series.id} className="glass-card border-white/[0.08]">
-              <CardContent className="flex items-center gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{series.title}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {series.genre} · {series.language} · {series.releaseYear}
-                  </p>
-                </div>
-                <Badge variant="secondary" className="shrink-0 font-normal">
-                  {series.episodeCount} episode{series.episodeCount === 1 ? "" : "s"}
-                </Badge>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Button
-                    size="sm"
-                    render={<Link href={`/series/${series.id}`} />}
-                    nativeButton={false}
-                  >
-                    <Settings2 className="size-3.5" />
-                    Manage
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setDeleteTarget(series)}
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DataTable
+          columns={columns}
+          data={activeItems}
+          isLoading={isLoading}
+          searchKey="title"
+          searchPlaceholder="Search series by title..."
+          toolbar={filters}
+        />
       )}
 
       <SeriesFormDialog

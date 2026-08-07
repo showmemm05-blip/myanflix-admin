@@ -1,11 +1,21 @@
 import { apiClient } from "./apiClient";
-import type { SeasonSummary, Series, SeriesFormValues, SeriesListItem } from "@/types/series";
-import type { Movie } from "@/types/movie";
+import type { AdminEpisode, SeasonSummary, Series, SeriesFormValues, SeriesListItem } from "@/types/series";
+import type { AccessType, Movie, MovieStatus } from "@/types/movie";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 
+export interface EpisodeQuery extends PaginationParams {
+  seriesId?: string;
+  seasonNumber?: number;
+  status?: MovieStatus;
+}
+
+export interface SeriesQuery extends PaginationParams {
+  accessType?: AccessType;
+}
+
 export const seriesService = {
-  getSeries(pagination: PaginationParams = {}) {
-    return apiClient.get<PaginatedResponse<SeriesListItem>>("/series", { params: pagination });
+  getSeries(query: SeriesQuery = {}) {
+    return apiClient.get<PaginatedResponse<SeriesListItem>>("/series", { params: query });
   },
 
   getSeriesById(id: string) {
@@ -22,6 +32,11 @@ export const seriesService = {
     return apiClient.get<Movie[]>(`/series/${id}/episodes`, {
       params: seasonNumber !== undefined ? { seasonNumber } : {},
     });
+  },
+
+  /** Cross-series episode listing for the Series > Ready to Publish tab — staff only. */
+  getEpisodesForAdmin(query: EpisodeQuery = {}) {
+    return apiClient.get<PaginatedResponse<AdminEpisode>>("/series/episodes", { params: query });
   },
 
   createSeries(values: SeriesFormValues) {

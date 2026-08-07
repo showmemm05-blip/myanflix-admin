@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { FileUploadField } from "./FileUploadField";
 import { movieService } from "@/services/api/movieService";
 import { videoService } from "@/services/api/videoService";
@@ -41,8 +40,7 @@ function EditMovieForm({
   const [genre, setGenre] = useState(movie.genre);
   const [categoryIds, setCategoryIds] = useState<string[]>(movie.categories.map((c) => c.id));
   const [releaseYear, setReleaseYear] = useState(String(movie.releaseYear));
-  const [price, setPrice] = useState(movie.price.toString());
-  const [isPremium, setIsPremium] = useState(movie.isPremium);
+  const [accessType, setAccessType] = useState<Movie["accessType"]>(movie.accessType);
   const [status, setStatus] = useState<Movie["status"]>(movie.status);
   const isEpisode = movie.seriesId !== null;
   const [seasonNumber, setSeasonNumber] = useState(String(movie.seasonNumber ?? 1));
@@ -82,8 +80,7 @@ function EditMovieForm({
         genre,
         categoryIds,
         releaseYear: Number(releaseYear) || movie.releaseYear,
-        price: Number(price) || 0,
-        isPremium,
+        accessType,
         status,
         posterUrl,
         coverUrl,
@@ -209,16 +206,16 @@ function EditMovieForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-price">Price (Ks)</Label>
-            <Input
-              id="edit-price"
-              type="number"
-              min="0"
-              step="1"
-              value={price}
-              disabled={!isPremium}
-              onChange={(e) => setPrice(e.target.value)}
-            />
+            <Label>Access type</Label>
+            <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Movie["accessType"])}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FREE">Free</SelectItem>
+                <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>Status</Label>
@@ -237,13 +234,6 @@ function EditMovieForm({
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <div className="flex items-center justify-between rounded-lg border border-border p-3">
-          <div>
-            <p className="text-sm font-medium">Premium content</p>
-            <p className="text-xs text-muted-foreground">Requires purchase to watch</p>
-          </div>
-          <Switch checked={isPremium} onCheckedChange={setIsPremium} />
         </div>
 
         <div className="flex flex-col gap-1.5">

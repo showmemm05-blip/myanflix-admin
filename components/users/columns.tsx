@@ -69,9 +69,14 @@ export function getUserColumns({
       cell: ({ row }) => <span className="tabular-nums">{formatKyat(row.original.balance)}</span>,
     },
     {
-      accessorKey: "moviesPurchased",
-      header: "Purchased",
-      cell: ({ row }) => <span className="tabular-nums">{row.original.moviesPurchased}</span>,
+      accessorKey: "isSubscribed",
+      header: "Subscription",
+      cell: ({ row }) =>
+        row.original.isSubscribed ? (
+          <StatusBadge label="Active" tone="success" />
+        ) : (
+          <StatusBadge label="Not subscribed" tone="neutral" />
+        ),
     },
     {
       accessorKey: "totalSpent",
