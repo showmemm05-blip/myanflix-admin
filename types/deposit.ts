@@ -4,9 +4,10 @@ export interface Deposit {
   id: string;
   userId: string;
   userName: string;
-  userEmail: string;
+  userPhone: string | null;
   amount: number;
   paymentMethod: string;
+  accountName: string | null;
   reference: string;
   status: DepositStatus;
   rejectionReason: string | null;

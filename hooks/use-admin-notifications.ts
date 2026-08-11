@@ -14,6 +14,7 @@ interface DepositCreatedEvent {
   username: string;
   amount: number;
   paymentMethod: string;
+  accountName: string | null;
   reference: string;
   status: string;
   createdAt: string;
@@ -61,9 +62,10 @@ export function useAdminNotifications() {
             id: event.id,
             userId: event.userId,
             userName: event.username,
-            userEmail: "",
+            userPhone: null,
             amount: event.amount,
             paymentMethod: event.paymentMethod,
+            accountName: event.accountName,
             reference: event.reference,
             status: "PENDING" as const,
             rejectionReason: null,

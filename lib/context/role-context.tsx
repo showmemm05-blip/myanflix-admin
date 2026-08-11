@@ -31,6 +31,7 @@ const EMPTY_USER: AppUser = {
   id: "",
   name: "",
   email: "",
+  phone: null,
   avatarUrl: "",
   role: "USER",
   status: "ACTIVE",

@@ -3,6 +3,7 @@ import { UserRoundPlus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { formatLocalPhone } from "@/lib/phone";
 import type { AppUser } from "@/types/user";
 
 export function RecentUsersTable({ users }: { users: AppUser[] }) {
@@ -21,7 +22,7 @@ export function RecentUsersTable({ users }: { users: AppUser[] }) {
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead>Name</TableHead>
-          <TableHead>Email</TableHead>
+          <TableHead>Phone</TableHead>
           <TableHead>Joined</TableHead>
         </TableRow>
       </TableHeader>
@@ -37,7 +38,9 @@ export function RecentUsersTable({ users }: { users: AppUser[] }) {
                 <span className="truncate text-sm font-medium">{user.name}</span>
               </div>
             </TableCell>
-            <TableCell className="truncate text-sm text-muted-foreground">{user.email}</TableCell>
+            <TableCell className="truncate text-sm text-muted-foreground">
+              {formatLocalPhone(user.phone) ?? "—"}
+            </TableCell>
             <TableCell className="text-sm text-muted-foreground">
               {format(new Date(user.joinDate), "MMM d, yyyy")}
             </TableCell>

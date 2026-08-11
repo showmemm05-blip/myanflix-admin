@@ -30,7 +30,7 @@ export const transactionColumns: ColumnDef<Transaction>[] = [
   },
   {
     accessorKey: "userName",
-    header: "User",
+    header: "Customer",
     cell: ({ row }) => {
       const txn = row.original;
       return (
@@ -59,7 +59,7 @@ export const transactionColumns: ColumnDef<Transaction>[] = [
     cell: ({ row }) => {
       const amount = row.original.amount;
       return (
-        <span className={`font-medium tabular-nums ${amount < 0 ? "text-destructive" : ""}`}>
+        <span className={`text-base font-semibold tabular-nums ${amount < 0 ? "text-destructive" : ""}`}>
           {formatKyat(amount)}
         </span>
       );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownToLine, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { ArrowUpFromLine, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -9,42 +9,46 @@ import { RequireRole } from "@/components/shared/RequireRole";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
-import { getDepositColumns } from "@/components/deposits/columns";
-import { RejectDepositDialog } from "@/components/deposits/RejectDepositDialog";
+import { getWithdrawalColumns } from "@/components/withdrawals/columns";
+import { RejectWithdrawalDialog } from "@/components/withdrawals/RejectWithdrawalDialog";
+import { EditTransferAccountDialog } from "@/components/withdrawals/EditTransferAccountDialog";
+import { ViewWithdrawalDialog } from "@/components/withdrawals/ViewWithdrawalDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { getSocket } from "@/lib/socket";
-import { depositService } from "@/services/api/depositService";
+import { withdrawalService } from "@/services/api/withdrawalService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
-import type { Deposit } from "@/types/deposit";
+import type { Withdrawal } from "@/types/withdrawal";
 import { toast } from "sonner";
 
-interface DepositCreatedEvent {
+interface WithdrawalCreatedEvent {
   id: string;
   userId: string;
   username: string;
   amount: number;
-  paymentMethod: string;
-  accountName: string | null;
-  reference: string;
-  status: Deposit["status"];
+  accountType: string;
+  accountName: string;
+  accountNumber: string;
+  status: Withdrawal["status"];
   createdAt: string;
 }
 
-export default function DepositsPage() {
+export default function WithdrawalsPage() {
   const { role } = useRole();
 
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => depositService.getAll({ limit: 100 }),
+    () => withdrawalService.getAll({ limit: 100 }),
     []
   );
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
-  const [deposits, setDeposits] = useState<Deposit[] | null>(null);
-  const activeDeposits = useMemo(() => deposits ?? data?.items ?? [], [deposits, data]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[] | null>(null);
+  const activeWithdrawals = useMemo(() => withdrawals ?? data?.items ?? [], [withdrawals, data]);
 
+  const [viewTarget, setViewTarget] = useState<Withdrawal | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<Deposit | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<Withdrawal | null>(null);
+  const [editTarget, setEditTarget] = useState<Withdrawal | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
 
   const stats = useMemo(() => {
@@ -53,23 +57,23 @@ export default function DepositsPage() {
     let rejectedCount = 0;
     let pendingCount = 0;
     let approvedCount = 0;
-    for (const d of activeDeposits) {
-      if (d.status === "PENDING") {
-        pendingAmount += d.amount;
+    for (const w of activeWithdrawals) {
+      if (w.status === "PENDING") {
+        pendingAmount += w.amount;
         pendingCount++;
-      } else if (d.status === "APPROVED") {
-        approvedAmount += d.amount;
+      } else if (w.status === "APPROVED") {
+        approvedAmount += w.amount;
         approvedCount++;
-      } else if (d.status === "REJECTED") {
+      } else if (w.status === "REJECTED") {
         rejectedCount++;
       }
     }
-    return { pendingAmount, approvedAmount, rejectedCount, pendingCount, approvedCount, total: activeDeposits.length };
-  }, [activeDeposits]);
+    return { pendingAmount, approvedAmount, rejectedCount, pendingCount, approvedCount, total: activeWithdrawals.length };
+  }, [activeWithdrawals]);
 
-  const filteredDeposits = useMemo(
-    () => (statusFilter === "ALL" ? activeDeposits : activeDeposits.filter((d) => d.status === statusFilter)),
-    [activeDeposits, statusFilter]
+  const filteredWithdrawals = useMemo(
+    () => (statusFilter === "ALL" ? activeWithdrawals : activeWithdrawals.filter((w) => w.status === statusFilter)),
+    [activeWithdrawals, statusFilter]
   );
 
   useEffect(() => {
@@ -77,46 +81,48 @@ export default function DepositsPage() {
     const socket = getSocket();
     if (!socket) return;
 
-    const handleCreated = (event: DepositCreatedEvent) => {
-      const incoming: Deposit = {
+    const handleCreated = (event: WithdrawalCreatedEvent) => {
+      const incoming: Withdrawal = {
         id: event.id,
         userId: event.userId,
         userName: event.username,
         userPhone: null,
         amount: event.amount,
-        paymentMethod: event.paymentMethod,
+        accountType: event.accountType,
         accountName: event.accountName,
-        reference: event.reference,
+        accountNumber: event.accountNumber,
         status: event.status,
         rejectionReason: null,
         approvedByUserId: null,
         approvedAt: null,
+        transferAccountType: null,
+        transferAccountName: null,
+        transferAccountNumber: null,
         createdAt: event.createdAt,
         updatedAt: event.createdAt,
       };
-      // Toasting here too would double up with AdminDepositNotifications,
-      // mounted app-wide in app/layout.tsx — this listener only keeps the
-      // visible table current in real time while this page is open.
-      setDeposits((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
+      // New requests are always PENDING, so prepending keeps the pending-
+      // first ordering the initial fetch already established.
+      setWithdrawals((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
     };
 
-    socket.on("deposit.created", handleCreated);
+    socket.on("withdrawal.created", handleCreated);
     return () => {
-      socket.off("deposit.created", handleCreated);
+      socket.off("withdrawal.created", handleCreated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, data]);
 
-  const handleApprove = async (deposit: Deposit) => {
-    setApprovingId(deposit.id);
+  const handleApprove = async (withdrawal: Withdrawal) => {
+    setApprovingId(withdrawal.id);
     try {
-      const updated = await depositService.approve(deposit.id);
-      setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
-      toast.success("Deposit approved", {
-        description: `${deposit.userName}'s balance has been updated.`,
+      const updated = await withdrawalService.approve(withdrawal.id);
+      setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
+      toast.success("Withdrawal approved", {
+        description: `${withdrawal.userName}'s balance has been debited.`,
       });
     } catch (err) {
-      toast.error("Failed to approve deposit", {
+      toast.error("Failed to approve withdrawal", {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
@@ -124,32 +130,38 @@ export default function DepositsPage() {
     }
   };
 
-  const handleRejected = (updated: Deposit) => {
-    setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+  const handleRejected = (updated: Withdrawal) => {
+    setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
   };
 
-  const columns = getDepositColumns({
+  const handleAccountEdited = (updated: Withdrawal) => {
+    setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
+  };
+
+  const columns = getWithdrawalColumns({
     types: types ?? [],
+    onView: setViewTarget,
     onApprove: handleApprove,
     onReject: setRejectTarget,
+    onEdit: setEditTarget,
     approvingId,
   });
 
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Deposits"
-      description="Review and approve balance top-up requests."
+      title="Withdrawals"
+      description="Review and approve wallet withdrawal requests."
     >
       <div className="flex flex-col gap-6">
-        <PageHeader title="Deposits" description="Review and approve balance top-up requests." />
+        <PageHeader title="Withdrawals" description="Review and approve wallet withdrawal requests. Pending requests are shown first." />
 
         {isLoading ? (
           <DataTable columns={columns} data={[]} isLoading pageSize={10} />
         ) : error ? (
-          <ErrorState description="We couldn't load deposits." onRetry={refetch} />
-        ) : activeDeposits.length === 0 ? (
-          <EmptyState icon={ArrowDownToLine} title="No deposits yet" description="Submitted deposits will show up here." />
+          <ErrorState description="We couldn't load withdrawals." onRetry={refetch} />
+        ) : activeWithdrawals.length === 0 ? (
+          <EmptyState icon={ArrowUpFromLine} title="No withdrawals yet" description="Submitted withdrawal requests will show up here." />
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,16 +184,16 @@ export default function DepositsPage() {
                 iconClassName="bg-destructive/15 text-destructive"
               />
               <DashboardCard
-                title="Total Deposits"
+                title="Total Withdrawals"
                 value={stats.total.toLocaleString()}
-                icon={ArrowDownToLine}
-                iconClassName="bg-sky-500/15 text-sky-400"
+                icon={ArrowUpFromLine}
+                iconClassName="bg-violet-500/15 text-violet-400"
               />
             </div>
 
             <DataTable
               columns={columns}
-              data={filteredDeposits}
+              data={filteredWithdrawals}
               searchKey="userName"
               searchPlaceholder="Search by customer name..."
               toolbar={
@@ -200,11 +212,25 @@ export default function DepositsPage() {
           </>
         )}
 
-        <RejectDepositDialog
-          deposit={rejectTarget}
+        <ViewWithdrawalDialog
+          withdrawal={viewTarget}
+          open={viewTarget !== null}
+          onOpenChange={(open) => !open && setViewTarget(null)}
+        />
+
+        <RejectWithdrawalDialog
+          withdrawal={rejectTarget}
           open={rejectTarget !== null}
           onOpenChange={(open) => !open && setRejectTarget(null)}
           onRejected={handleRejected}
+        />
+
+        <EditTransferAccountDialog
+          withdrawal={editTarget}
+          types={types ?? []}
+          open={editTarget !== null}
+          onOpenChange={(open) => !open && setEditTarget(null)}
+          onSaved={handleAccountEdited}
         />
       </div>
     </RequireRole>

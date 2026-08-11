@@ -15,6 +15,7 @@ import {
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
+import { formatLocalPhone } from "@/lib/phone";
 import type { AppUser, UserStatus } from "@/types/user";
 
 const STATUS_TONE: Record<UserStatus, StatusTone> = {
@@ -52,10 +53,12 @@ export function getUserColumns({
       },
     },
     {
-      accessorKey: "email",
-      header: "Email",
+      accessorKey: "phone",
+      header: "Phone",
       cell: ({ row }) => (
-        <span className="max-w-48 truncate text-sm text-muted-foreground">{row.original.email}</span>
+        <span className="text-sm text-muted-foreground">
+          {formatLocalPhone(row.original.phone) ?? "—"}
+        </span>
       ),
     },
     {

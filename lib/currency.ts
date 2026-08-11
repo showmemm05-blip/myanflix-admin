@@ -12,3 +12,15 @@ export function formatKyat(amount: number, decimals = 0): string {
     maximumFractionDigits: decimals,
   })} Ks`;
 }
+
+/**
+ * Deposit/Withdrawal amounts are always positive from the backend — direction
+ * isn't encoded in the sign. This prefixes a +/- based on which page/column
+ * is rendering it (a known constant, e.g. Deposits is always inbound), so
+ * "money in" vs "money out" is legible at a glance without touching the
+ * underlying value.
+ */
+export function formatSignedKyat(amount: number, direction: "in" | "out", decimals = 0): string {
+  const prefix = direction === "in" ? "+" : "-";
+  return `${prefix}${formatKyat(Math.abs(amount), decimals)}`;
+}

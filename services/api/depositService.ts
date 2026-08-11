@@ -7,6 +7,7 @@ interface BackendDeposit {
   userId: string;
   amount: number;
   paymentMethod: string;
+  accountName: string | null;
   reference: string;
   status: DepositStatus;
   rejectionReason: string | null;
@@ -14,7 +15,7 @@ interface BackendDeposit {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  user?: { id: string; username: string; email: string } | null;
+  user?: { id: string; username: string; email: string; phone: string | null } | null;
 }
 
 function mapDeposit(d: BackendDeposit): Deposit {
@@ -22,9 +23,10 @@ function mapDeposit(d: BackendDeposit): Deposit {
     id: d.id,
     userId: d.userId,
     userName: d.user?.username ?? "Unknown user",
-    userEmail: d.user?.email ?? "",
+    userPhone: d.user?.phone ?? null,
     amount: d.amount,
     paymentMethod: d.paymentMethod,
+    accountName: d.accountName,
     reference: d.reference,
     status: d.status,
     rejectionReason: d.rejectionReason,

@@ -9,6 +9,7 @@ interface BackendUser {
   id: string;
   username: string;
   email: string;
+  phone: string | null;
   avatar: string | null;
   role: UserRole;
   status: UserStatus;
@@ -26,6 +27,7 @@ function mapUser(u: BackendUser): AppUser {
     id: u.id,
     name: u.username,
     email: u.email,
+    phone: u.phone,
     avatarUrl: u.avatar ?? `https://i.pravatar.cc/150?u=${encodeURIComponent(u.username)}`,
     role: u.role,
     status: u.status,
