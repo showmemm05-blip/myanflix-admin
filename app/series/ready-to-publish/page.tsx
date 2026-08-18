@@ -13,20 +13,22 @@ import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { seriesService } from "@/services/api/seriesService";
 import { movieService } from "@/services/api/movieService";
+import { getStatusLabel } from "@/components/movies/columns";
 import type { AdminEpisode } from "@/types/series";
 import type { MovieStatus } from "@/types/movie";
 import { toast } from "sonner";
 
-const STATUS_OPTIONS: { value: MovieStatus; label: string }[] = [
-  { value: "READY_TO_PUBLISH", label: "Ready to publish" },
-  { value: "PUBLISHED", label: "Published" },
-  { value: "PROCESSING", label: "Processing" },
-  { value: "UPLOADING", label: "Uploading" },
-  { value: "FAILED", label: "Failed" },
-  { value: "DRAFT", label: "Draft" },
-  { value: "ARCHIVED", label: "Archived" },
+const STATUS_OPTIONS: MovieStatus[] = [
+  "READY_TO_PUBLISH",
+  "PUBLISHED",
+  "PROCESSING",
+  "UPLOADING",
+  "FAILED",
+  "DRAFT",
+  "ARCHIVED",
 ];
 
 const ALL = "all";
@@ -38,6 +40,7 @@ const ALL = "all";
  * EditMovieDialog the movie workflow uses; nothing here touches it.
  */
 export default function SeriesReadyToPublishPage() {
+  const { t } = useLanguage();
   const { role } = useRole();
   const canManage = role !== "USER";
 
@@ -76,7 +79,7 @@ export default function SeriesReadyToPublishPage() {
     await movieService.deleteMovie(deleteEpisode.id);
     setEpisodes(activeEpisodes.filter((e) => e.id !== deleteEpisode.id));
     setDeleting(false);
-    toast.success("Episode deleted", { description: `"${deleteEpisode.title}" was removed from the catalog.` });
+    toast.success(t.series.episodeDeletedToast, { description: t.movies.page.deletedDescription(deleteEpisode.title) });
     setDeleteEpisode(null);
   };
 
@@ -85,9 +88,9 @@ export default function SeriesReadyToPublishPage() {
     try {
       await movieService.updateMovie(episode.id, { status: "PUBLISHED" });
       setEpisodes(activeEpisodes.filter((e) => e.id !== episode.id));
-      toast.success("Episode published", { description: `"${episode.title}" is now live on MyanFlix.` });
+      toast.success(t.series.episodePublishedToast, { description: t.movies.publishedDescription(episode.title) });
     } catch {
-      toast.error("Couldn't publish this episode", { description: "Please try again." });
+      toast.error(t.series.publishFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setPublishingId(null);
     }
@@ -103,6 +106,7 @@ export default function SeriesReadyToPublishPage() {
   };
 
   const columns = getEpisodeColumns({
+    t,
     canManage,
     onEdit: setEditEpisode,
     onDelete: setDeleteEpisode,
@@ -113,9 +117,9 @@ export default function SeriesReadyToPublishPage() {
   const filters = (
     <>
       <Select value={seriesFilter} onValueChange={(v) => { if (v) { setSeriesFilter(v); setSeasonFilter(ALL); } }}>
-        <SelectTrigger className="w-40"><SelectValue placeholder="Series" /></SelectTrigger>
+        <SelectTrigger className="w-40"><SelectValue placeholder={t.series.readyToPublish.seriesFilterPlaceholder} /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All series</SelectItem>
+          <SelectItem value={ALL}>{t.series.readyToPublish.allSeries}</SelectItem>
           {seriesOptions?.items.map((s) => (
             <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
           ))}
@@ -123,23 +127,23 @@ export default function SeriesReadyToPublishPage() {
       </Select>
       <Select value={seasonFilter} onValueChange={(v) => v && setSeasonFilter(v)}>
         <SelectTrigger className="w-32" disabled={seriesFilter === ALL}>
-          <SelectValue placeholder="Season" />
+          <SelectValue placeholder={t.series.readyToPublish.seasonFilterPlaceholder} />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All seasons</SelectItem>
+          <SelectItem value={ALL}>{t.series.readyToPublish.allSeasons}</SelectItem>
           {seasonOptions?.map((s) => (
             <SelectItem key={s.seasonNumber} value={String(s.seasonNumber)}>
-              Season {s.seasonNumber}
+              {t.series.readyToPublish.seasonOption(s.seasonNumber)}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
-        <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger className="w-44"><SelectValue placeholder={t.series.readyToPublish.statusFilterPlaceholder} /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All statuses</SelectItem>
+          <SelectItem value={ALL}>{t.series.readyToPublish.allStatuses}</SelectItem>
           {STATUS_OPTIONS.map((s) => (
-            <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+            <SelectItem key={s} value={s}>{getStatusLabel(t, s)}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -149,26 +153,26 @@ export default function SeriesReadyToPublishPage() {
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Ready to Publish"
-      description="Review completed episode uploads before they go live."
+      title={t.nav.readyToPublish}
+      description={t.series.readyToPublish.description}
     >
       {error ? (
         <div>
-          <PageHeader title="Ready to Publish" description="Review completed episode uploads before they go live." />
-          <ErrorState description="We couldn't load the review queue." onRetry={refetch} />
+          <PageHeader title={t.nav.readyToPublish} description={t.series.readyToPublish.description} />
+          <ErrorState description={t.movies.readyToPublish.loadError} onRetry={refetch} />
         </div>
       ) : (
         <div>
           <PageHeader
-            title="Ready to Publish"
-            description="Episodes that finished uploading, waiting on your review. They stay hidden from users until you publish them."
+            title={t.nav.readyToPublish}
+            description={t.series.readyToPublish.pageDescription}
           />
 
           {!isLoading && activeEpisodes.length === 0 ? (
             <EmptyState
               icon={Rocket}
-              title="Nothing waiting to publish"
-              description="Episodes show up here once a bulk upload finishes, or adjust the filters above."
+              title={t.movies.readyToPublish.emptyTitle}
+              description={t.series.readyToPublish.emptyDescription}
             />
           ) : (
             <DataTable
@@ -176,7 +180,7 @@ export default function SeriesReadyToPublishPage() {
               data={activeEpisodes}
               isLoading={isLoading}
               searchKey="title"
-              searchPlaceholder="Search episodes by title..."
+              searchPlaceholder={t.series.readyToPublish.searchPlaceholder}
               toolbar={filters}
             />
           )}
@@ -191,9 +195,9 @@ export default function SeriesReadyToPublishPage() {
           <ConfirmDialog
             open={!!deleteEpisode}
             onOpenChange={(o) => !o && setDeleteEpisode(null)}
-            title="Delete this episode?"
-            description={`"${deleteEpisode?.title}" will be permanently removed from the catalog. This action cannot be undone.`}
-            confirmLabel="Delete"
+            title={t.series.deleteEpisodeTitle}
+            description={deleteEpisode ? t.movies.page.deleteDescription(deleteEpisode.title) : ""}
+            confirmLabel={t.common.delete}
             variant="destructive"
             loading={deleting}
             onConfirm={handleDelete}

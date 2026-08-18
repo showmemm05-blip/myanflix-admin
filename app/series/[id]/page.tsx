@@ -19,7 +19,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { STATUS_TONE } from "@/components/movies/columns";
+import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { FileUploadField } from "@/components/movies/FileUploadField";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
+import { useLanguage } from "@/lib/context/language-context";
 import {
   useBulkUploadQueue,
   MAX_BULK_MOVIES,
@@ -57,6 +58,7 @@ interface EpisodeRow {
 const ACTIVE_JOB_STATUSES = new Set(["waiting", "uploading", "paused", "offline", "completed", "failed"]);
 
 export default function SeriesManagePage() {
+  const { t } = useLanguage();
   const params = useParams<{ id: string }>();
   const seriesId = params.id;
 
@@ -106,7 +108,7 @@ export default function SeriesManagePage() {
 
   const handleSaveInfo = async () => {
     if (!title.trim() || !description.trim() || !genre) {
-      toast.error("Title, description, and genre are required.");
+      toast.error(t.series.missingFieldsToast);
       return;
     }
     setSavingInfo(true);
@@ -126,10 +128,10 @@ export default function SeriesManagePage() {
         posterUrl,
         coverUrl,
       });
-      toast.success("Series saved");
+      toast.success(t.series.manage.savedToast);
       refetchSeries();
     } catch {
-      toast.error("Couldn't save the series", { description: "Please try again." });
+      toast.error(t.series.saveFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setSavingInfo(false);
     }
@@ -187,11 +189,11 @@ export default function SeriesManagePage() {
     const remainingSlots = MAX_BULK_MOVIES - queue.jobs.length;
     const toAdd = folders.slice(0, Math.max(0, remainingSlots));
     if (toAdd.length === 0) {
-      toast.error(`You can only queue up to ${MAX_BULK_MOVIES} episodes at once.`);
+      toast.error(t.series.manage.tooManyEpisodesToast(MAX_BULK_MOVIES));
       return;
     }
     if (toAdd.length < folders.length) {
-      toast.error(`Only added ${toAdd.length} of ${folders.length} folders — the ${MAX_BULK_MOVIES}-episode limit was reached.`);
+      toast.error(t.series.manage.partialAddToast(toAdd.length, folders.length, MAX_BULK_MOVIES));
     }
 
     setAddingToSeason(seasonNumber);
@@ -218,13 +220,13 @@ export default function SeriesManagePage() {
 
       const added = await queue.addFolders(toAdd, { seriesId, seasonNumber, episodeNumbers });
       if (added > 0) {
-        toast.success(`${added} episode${added === 1 ? "" : "s"} added to Season ${seasonNumber}`);
+        toast.success(t.series.manage.episodesAddedToast(added, seasonNumber));
         // Placeholders exist server-side already — refetch so the new rows
         // appear in the season immediately, alongside the existing ones.
         refetchEpisodes();
       }
     } catch {
-      toast.error("Couldn't queue those folders", { description: "Please try again." });
+      toast.error(t.series.manage.queueFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setAddingToSeason(null);
     }
@@ -256,7 +258,7 @@ export default function SeriesManagePage() {
       }
       await refetchEpisodes();
     } catch {
-      toast.error("Couldn't save the new order", { description: "Please try again." });
+      toast.error(t.series.manage.reorderFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setOrderOverride((prev) => {
         const next = { ...prev };
@@ -277,9 +279,9 @@ export default function SeriesManagePage() {
       await movieService.updateMovie(episode.id, { status: "PUBLISHED" });
       queue.markPublished(episode.id);
       refetchEpisodes();
-      toast.success("Episode published", { description: `"${episode.title}" is now live on MyanFlix.` });
+      toast.success(t.series.episodePublishedToast, { description: t.movies.publishedDescription(episode.title) });
     } catch {
-      toast.error("Couldn't publish this episode", { description: "Please try again." });
+      toast.error(t.series.publishFailedToast, { description: t.movies.pleaseTryAgain });
     }
   };
 
@@ -302,9 +304,9 @@ export default function SeriesManagePage() {
       await movieService.deleteMovie(deleteTarget.id);
       queue.remove(deleteTarget.id);
       refetchEpisodes();
-      toast.success("Episode deleted", { description: `"${deleteTarget.title}" was removed.` });
+      toast.success(t.series.episodeDeletedToast, { description: t.series.manage.episodeDeletedDescription(deleteTarget.title) });
     } catch {
-      toast.error("Couldn't delete this episode", { description: "Please try again." });
+      toast.error(t.series.manage.deleteFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setDeleting(false);
       setDeleteTarget(null);
@@ -319,8 +321,8 @@ export default function SeriesManagePage() {
   if (seriesError) {
     return (
       <div>
-        <PageHeader title="Series" description="Manage this show." />
-        <ErrorState description="We couldn't load this series." onRetry={refetchSeries} />
+        <PageHeader title={t.series.manage.errorTitle} description={t.series.manage.errorDescription} />
+        <ErrorState description={t.series.manage.loadError} onRetry={refetchSeries} />
       </div>
     );
   }
@@ -335,45 +337,45 @@ export default function SeriesManagePage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <PageHeader title={series.title} description="Everything about this show — details, seasons, and episode uploads — in one place." />
+      <PageHeader title={series.title} description={t.series.manage.description} />
 
       {!queue.isOnline && (
-        <div className="flex items-center gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3">
-          <WifiOff className="size-5 shrink-0 text-sky-400" />
+        <div className="flex items-center gap-3 rounded-lg border border-info/25 bg-info/10 px-4 py-3">
+          <WifiOff className="size-5 shrink-0 text-info" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-sky-300">Waiting for internet connection...</p>
+            <p className="text-sm font-semibold text-info">{t.movies.externalUpload.waitingForConnection}</p>
             <p className="text-xs text-muted-foreground">
-              Uploads are paused and will resume automatically from where they left off — nothing is lost.
+              {t.movies.externalUpload.waitingForConnectionDescription}
             </p>
           </div>
         </div>
       )}
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Series information</CardTitle>
+          <CardTitle>{t.series.manage.infoCardTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="series-title">Title</Label>
+            <Label htmlFor="series-title">{t.series.form.titleLabel}</Label>
             <Input id="series-title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="series-description">Description</Label>
+            <Label htmlFor="series-description">{t.series.form.descriptionLabel}</Label>
             <Textarea id="series-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Genre</Label>
+              <Label>{t.series.form.genreLabel}</Label>
               <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Select" /></SelectTrigger>
+                <SelectTrigger className="w-full"><SelectValue placeholder={t.movies.editDialog.genrePlaceholder} /></SelectTrigger>
                 <SelectContent>
                   {GENRE_OPTIONS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label>Language</Label>
+              <Label>{t.series.form.languageLabel}</Label>
               <Select value={language} onValueChange={(v) => v && setLanguage(v)}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -382,25 +384,25 @@ export default function SeriesManagePage() {
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="series-year">Release year</Label>
+              <Label htmlFor="series-year">{t.series.form.releaseYearLabel}</Label>
               <Input id="series-year" type="number" value={releaseYear} onChange={(e) => setReleaseYear(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label>Access type</Label>
+              <Label>{t.series.form.accessTypeLabel}</Label>
               <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Series["accessType"])}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="FREE">Free</SelectItem>
-                  <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+                  <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+                  <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Governs every season and episode, including ones added later.</p>
+              <p className="text-xs text-muted-foreground">{t.series.form.accessTypeHelp}</p>
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>Categories</Label>
+            <Label>{t.series.manage.categoriesLabel}</Label>
             <div className="flex flex-wrap gap-2">
               {categories?.map((c) => {
                 const active = categoryIds.includes(c.id);
@@ -412,7 +414,7 @@ export default function SeriesManagePage() {
                       setCategoryIds((prev) => (active ? prev.filter((id) => id !== c.id) : [...prev, c.id]))
                     }
                     className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                      active ? "border-primary bg-primary/15 text-primary" : "border-white/10 text-muted-foreground hover:bg-secondary"
+                      active ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-secondary/50"
                     }`}
                   >
                     {c.name}
@@ -423,7 +425,7 @@ export default function SeriesManagePage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <FileUploadField
-              label="Thumbnail"
+              label={t.series.manage.thumbnailLabel}
               accept="image/*"
               variant="image"
               aspect="poster"
@@ -432,7 +434,7 @@ export default function SeriesManagePage() {
               onChange={setThumbnailFile}
             />
             <FileUploadField
-              label="Banner"
+              label={t.series.manage.bannerLabel}
               accept="image/*"
               variant="image"
               aspect="wide"
@@ -443,7 +445,7 @@ export default function SeriesManagePage() {
           </div>
           <Button onClick={handleSaveInfo} disabled={savingInfo}>
             {savingInfo && <Loader2 className="size-4 animate-spin" />}
-            Save series information
+            {t.series.manage.saveInfo}
           </Button>
         </CardContent>
       </Card>
@@ -463,13 +465,13 @@ export default function SeriesManagePage() {
       />
 
       {[...seasonMap.entries()].map(([seasonNumber, rows]) => (
-        <Card key={seasonNumber} className="glass-card border-white/[0.08]">
+        <Card key={seasonNumber} className="glass-card">
           <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Season {seasonNumber}</CardTitle>
+            <CardTitle>{t.series.manage.seasonTitle(seasonNumber)}</CardTitle>
             <Button
               size="icon-sm"
               variant="outline"
-              title={`Add episodes to Season ${seasonNumber}`}
+              title={t.series.manage.addEpisodesTitle(seasonNumber)}
               disabled={addingToSeason !== null}
               onClick={() => {
                 pendingSeasonRef.current = seasonNumber;
@@ -482,7 +484,7 @@ export default function SeriesManagePage() {
           <CardContent className="flex flex-col gap-2">
             {rows.length === 0 ? (
               <p className="py-3 text-center text-xs text-muted-foreground">
-                No episodes yet — click + to add pre-transcoded episode folders.
+                {t.series.manage.noEpisodesYet}
               </p>
             ) : (
               rows.map((row, index) => {
@@ -509,9 +511,9 @@ export default function SeriesManagePage() {
                       setDraggingId(null);
                     }}
                     onDragEnd={() => setDraggingId(null)}
-                    className={`flex flex-col gap-2 rounded-lg border border-white/[0.06] bg-secondary/20 px-3 py-2.5 transition-colors ${
+                    className={`flex flex-col gap-2 rounded-lg border border-border bg-secondary/20 px-3 py-2.5 transition-colors ${
                       draggingId === episode.id ? "opacity-50" : ""
-                    } ${liveJob?.status === "uploading" ? "border-sky-500/30 bg-sky-500/[0.04]" : ""}`}
+                    } ${liveJob?.status === "uploading" ? "border-info/25 bg-info/10" : ""}`}
                   >
                     <div className="flex items-center gap-2.5">
                       <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground active:cursor-grabbing" />
@@ -520,7 +522,7 @@ export default function SeriesManagePage() {
                           <span className="text-muted-foreground">E{episode.episodeNumber ?? "?"}</span> · {episode.title}
                         </p>
                         {liveJob && liveJob.status === "uploading" && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs tabular-nums text-muted-foreground">
                             {formatSpeed(liveJob.speedBps)} · {formatEta(liveJob.etaSeconds)}
                           </p>
                         )}
@@ -530,10 +532,16 @@ export default function SeriesManagePage() {
                         <StatusBadge
                           label={
                             liveJob.status === "offline"
-                              ? "Waiting for internet connection"
+                              ? t.series.manage.jobStatus.offline
                               : liveJob.status === "completed"
-                                ? "Validating"
-                                : liveJob.status.charAt(0).toUpperCase() + liveJob.status.slice(1)
+                                ? t.series.manage.jobStatus.validating
+                                : liveJob.status === "waiting"
+                                  ? t.uploads.status.waiting
+                                  : liveJob.status === "uploading"
+                                    ? t.uploads.status.uploading
+                                    : liveJob.status === "paused"
+                                      ? t.series.manage.jobStatus.paused
+                                      : t.uploads.status.failed
                           }
                           tone={
                             liveJob.status === "failed"
@@ -546,44 +554,44 @@ export default function SeriesManagePage() {
                           }
                         />
                       ) : (
-                        <StatusBadge label={episode.status} tone={STATUS_TONE[episode.status]} />
+                        <StatusBadge label={getStatusLabel(t, episode.status)} tone={STATUS_TONE[episode.status]} />
                       )}
 
                       <div className="flex shrink-0 items-center gap-1">
                         {liveJob?.status === "uploading" && (
-                          <Button size="icon-sm" variant="ghost" title="Pause" onClick={() => queue.pause(episode.id)}>
+                          <Button size="icon-sm" variant="ghost" title={t.uploads.pause} onClick={() => queue.pause(episode.id)}>
                             <Pause className="size-3.5" />
                           </Button>
                         )}
                         {liveJob?.status === "paused" && (
-                          <Button size="icon-sm" variant="ghost" title="Resume" onClick={() => queue.resume(episode.id)}>
+                          <Button size="icon-sm" variant="ghost" title={t.uploads.resume} onClick={() => queue.resume(episode.id)}>
                             <Play className="size-3.5" />
                           </Button>
                         )}
                         {liveJob?.status === "failed" && (
-                          <Button size="icon-sm" variant="ghost" title="Retry" onClick={() => queue.retry(episode.id)}>
+                          <Button size="icon-sm" variant="ghost" title={t.common.retry} onClick={() => queue.retry(episode.id)}>
                             <RotateCcw className="size-3.5" />
                           </Button>
                         )}
                         {liveJob && (liveJob.status === "uploading" || liveJob.status === "waiting" || liveJob.status === "paused" || liveJob.status === "offline") && (
-                          <Button size="icon-sm" variant="ghost" title="Cancel" onClick={() => queue.cancel(episode.id)}>
+                          <Button size="icon-sm" variant="ghost" title={t.common.cancel} onClick={() => queue.cancel(episode.id)}>
                             <X className="size-3.5" />
                           </Button>
                         )}
                         {!liveJob && episode.status === "READY_TO_PUBLISH" && (
                           <Button size="sm" onClick={() => handlePublish(episode)}>
                             <Rocket className="size-3.5" />
-                            Publish
+                            {t.movies.publish}
                           </Button>
                         )}
-                        <Button size="icon-sm" variant="ghost" title="Edit details" onClick={() => setEditMovie(episode)}>
+                        <Button size="icon-sm" variant="ghost" title={t.series.manage.editDetails} onClick={() => setEditMovie(episode)}>
                           <Pencil className="size-3.5" />
                         </Button>
                         <Button
                           size="icon-sm"
                           variant="ghost"
                           className="text-muted-foreground hover:text-destructive"
-                          title="Delete episode"
+                          title={t.series.manage.deleteEpisode}
                           onClick={() => {
                             if (liveJob) void handleRemoveJob(row);
                             else setDeleteTarget(episode);
@@ -610,7 +618,7 @@ export default function SeriesManagePage() {
         onClick={() => setExtraSeasons((prev) => [...prev, nextSeasonNumber])}
       >
         <Plus className="size-4" />
-        Add Season {nextSeasonNumber}
+        {t.series.manage.addSeason(nextSeasonNumber)}
       </Button>
 
       <EditMovieDialog
@@ -626,9 +634,9 @@ export default function SeriesManagePage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-        title="Delete this episode?"
-        description={`"${deleteTarget?.title}" and its uploaded files will be permanently removed. This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={t.series.deleteEpisodeTitle}
+        description={deleteTarget ? t.series.manage.deleteEpisodeDescription(deleteTarget.title) : ""}
+        confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}

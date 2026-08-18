@@ -4,18 +4,18 @@ import { cn } from "@/lib/utils";
 export type StatusTone = "success" | "warning" | "danger" | "info" | "neutral";
 
 const TONE_STYLES: Record<StatusTone, string> = {
-  success: "bg-success/15 text-success border-success/30",
-  warning: "bg-warning/15 text-warning border-warning/30",
-  danger: "bg-destructive/15 text-destructive border-destructive/30",
-  info: "bg-sky-500/15 text-sky-400 border-sky-500/30",
-  neutral: "bg-muted text-muted-foreground border-border",
+  success: "bg-success/15 text-success border-success/25",
+  warning: "bg-warning/15 text-warning border-warning/25",
+  danger: "bg-destructive/15 text-destructive border-destructive/25",
+  info: "bg-info/15 text-info border-info/25",
+  neutral: "bg-muted-foreground/15 text-muted-foreground border-muted-foreground/25",
 };
 
 const DOT_STYLES: Record<StatusTone, string> = {
   success: "bg-success",
   warning: "bg-warning",
   danger: "bg-destructive",
-  info: "bg-sky-400",
+  info: "bg-info",
   neutral: "bg-muted-foreground",
 };
 

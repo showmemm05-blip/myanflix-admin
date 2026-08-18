@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
 import { userService } from "@/services/api/userService";
 import { paymentService } from "@/services/api/paymentService";
@@ -18,6 +19,7 @@ import { useRole } from "@/lib/context/role-context";
 
 export function UserDashboard() {
   const { currentUser } = useRole();
+  const { t } = useLanguage();
 
   const { data, isLoading, error, refetch } = useAsyncData(
     async () => {
@@ -36,16 +38,16 @@ export function UserDashboard() {
       <div className="flex flex-col gap-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-lg" />
           ))}
         </div>
-        <Skeleton className="h-72 rounded-xl" />
+        <Skeleton className="h-72 rounded-lg" />
       </div>
     );
   }
 
   if (error || !data) {
-    return <ErrorState description="We couldn't load your account overview." onRetry={refetch} />;
+    return <ErrorState description={t.dashboard.loadErrorUser} onRetry={refetch} />;
   }
 
   const { watchHistory, purchases, transactions } = data;
@@ -56,26 +58,33 @@ export function UserDashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title="Account Balance" value={formatKyat(currentUser.balance)} icon={Wallet} />
+        <DashboardCard title={t.dashboard.accountBalance} value={formatKyat(currentUser.balance)} icon={Wallet} />
         <DashboardCard
-          title="Total Deposited"
+          title={t.dashboard.totalDeposited}
           value={formatKyat(currentUser.totalDeposited)}
           icon={ShoppingBag}
+          iconClassName="bg-income/15 text-income"
         />
-        <DashboardCard title="Total Spent" value={formatKyat(currentUser.totalSpent)} icon={History} />
         <DashboardCard
-          title="Subscription"
-          value={currentUser.isSubscribed ? "Active" : "Not subscribed"}
+          title={t.dashboard.totalSpent}
+          value={formatKyat(currentUser.totalSpent)}
+          icon={History}
+          iconClassName="bg-outgoing/15 text-outgoing"
+        />
+        <DashboardCard
+          title={t.dashboard.subscription}
+          value={currentUser.isSubscribed ? t.dashboard.subscribed : t.dashboard.notSubscribed}
           icon={Clapperboard}
+          iconClassName="bg-chart-5/15 text-chart-5"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle>Continue Watching</CardTitle>
+            <CardTitle>{t.dashboard.continueWatching}</CardTitle>
             <Button variant="ghost" size="sm" render={<Link href="/movies" />} nativeButton={false}>
-              Browse all
+              {t.dashboard.browseAll}
             </Button>
           </CardHeader>
           <CardContent>
@@ -83,9 +92,9 @@ export function UserDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Purchased Movies</CardTitle>
+            <CardTitle>{t.dashboard.purchasedMovies}</CardTitle>
           </CardHeader>
           <CardContent>
             <PurchaseHistoryList entries={purchaseItems} />
@@ -93,9 +102,9 @@ export function UserDashboard() {
         </Card>
       </div>
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle>{t.dashboard.transactionHistory}</CardTitle>
         </CardHeader>
         <CardContent>
           <RecentTransactionsTable transactions={transactionItems} />

@@ -28,11 +28,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { movieService } from "@/services/api/movieService";
 import type { MovieCategory } from "@/types/movie";
 import { toast } from "sonner";
 
 export default function CategoriesPage() {
+  const { t } = useLanguage();
   const { role } = useRole();
   const canManage = role !== "USER";
 
@@ -70,15 +72,15 @@ export default function CategoriesPage() {
           name: nameInput.trim(),
           description: descriptionInput.trim() || undefined,
         });
-        toast.success("Category updated");
+        toast.success(t.movies.categories.updatedToast);
       } else {
         await movieService.createCategory(nameInput.trim(), descriptionInput.trim() || undefined);
-        toast.success("Category created");
+        toast.success(t.movies.categories.createdToast);
       }
       setFormOpen(false);
       refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : t.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -89,11 +91,11 @@ export default function CategoriesPage() {
     setDeleting(true);
     try {
       await movieService.deleteCategory(deleteTarget.id);
-      toast.success("Category deleted");
+      toast.success(t.movies.categories.deletedToast);
       setDeleteTarget(null);
       refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : t.common.somethingWentWrong);
     } finally {
       setDeleting(false);
     }
@@ -102,24 +104,24 @@ export default function CategoriesPage() {
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Categories"
-      description="Organize movies into browsable genres."
+      title={t.movies.categories.title}
+      description={t.movies.categories.description}
     >
       {error ? (
         <div>
-          <PageHeader title="Categories" description="Organize movies into browsable genres." />
-          <ErrorState description="We couldn't load categories." onRetry={refetch} />
+          <PageHeader title={t.movies.categories.title} description={t.movies.categories.description} />
+          <ErrorState description={t.movies.categories.loadError} onRetry={refetch} />
         </div>
       ) : (
     <div>
       <PageHeader
-        title="Categories"
-        description="Organize movies into browsable genres."
+        title={t.movies.categories.title}
+        description={t.movies.categories.description}
         actions={
           canManage && (
             <Button onClick={openCreate}>
               <Plus className="size-4" />
-              Add Category
+              {t.movies.categories.addCategory}
             </Button>
           )
         }
@@ -128,19 +130,19 @@ export default function CategoriesPage() {
       {isLoading ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 rounded-xl" />
+            <Skeleton key={i} className="h-32 rounded-lg" />
           ))}
         </div>
       ) : categories.length === 0 ? (
         <EmptyState
           icon={Tags}
-          title="No categories yet"
-          description="Create a category to help organize the catalog."
+          title={t.movies.categories.emptyTitle}
+          description={t.movies.categories.emptyDescription}
           action={
             canManage && (
               <Button onClick={openCreate}>
                 <Plus className="size-4" />
-                Add Category
+                {t.movies.categories.addCategory}
               </Button>
             )
           }
@@ -150,7 +152,7 @@ export default function CategoriesPage() {
           {categories.map((category) => (
             <Card
               key={category.id}
-              className="glass-card group relative overflow-hidden border-white/[0.08] p-4"
+              className="glass-card group relative overflow-hidden p-4"
             >
               {canManage && (
                 <div className="absolute right-2 top-2">
@@ -163,11 +165,11 @@ export default function CategoriesPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => openEdit(category)}>
                         <Pencil className="size-4" />
-                        Edit
+                        {t.common.edit}
                       </DropdownMenuItem>
                       <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(category)}>
                         <Trash2 className="size-4" />
-                        Delete
+                        {t.common.delete}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -182,7 +184,7 @@ export default function CategoriesPage() {
                   {category.description}
                 </p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">{category.movieCount} movies</p>
+              <p className="mt-3 text-xs tabular-nums text-muted-foreground">{t.movies.categories.movieCount(category.movieCount)}</p>
             </Card>
           ))}
         </div>
@@ -191,35 +193,35 @@ export default function CategoriesPage() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit category" : "Add category"}</DialogTitle>
+            <DialogTitle>{editing ? t.movies.categories.editDialogTitle : t.movies.categories.addDialogTitle}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="category-name">Name</Label>
+              <Label htmlFor="category-name">{t.movies.categories.name}</Label>
               <Input
                 id="category-name"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="e.g. Sci-Fi"
+                placeholder={t.movies.categories.namePlaceholder}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="category-description">Description</Label>
+              <Label htmlFor="category-description">{t.movies.categories.descriptionLabel}</Label>
               <Textarea
                 id="category-description"
                 value={descriptionInput}
                 onChange={(e) => setDescriptionInput(e.target.value)}
-                placeholder="Optional description"
+                placeholder={t.movies.categories.descriptionPlaceholder}
               />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button onClick={handleSave} disabled={saving || !nameInput.trim()}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {editing ? "Save" : "Create"}
+              {editing ? t.common.save : t.movies.categories.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -228,9 +230,9 @@ export default function CategoriesPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-        title="Delete this category?"
-        description={`"${deleteTarget?.name}" will be removed. Movies in this category won't be deleted.`}
-        confirmLabel="Delete"
+        title={t.movies.categories.deleteTitle}
+        description={deleteTarget ? t.movies.categories.deleteDescription(deleteTarget.name) : ""}
+        confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}

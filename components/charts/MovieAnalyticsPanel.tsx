@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Film } from "lucide-react";
+import { useLanguage } from "@/lib/context/language-context";
 import type { MovieAnalyticsEntry } from "@/types/analytics";
 
 interface MovieAnalyticsPanelProps {
@@ -20,10 +21,11 @@ function MovieRankList({
   entries: MovieAnalyticsEntry[];
   metric: (entry: MovieAnalyticsEntry) => { label: string; value: number };
 }) {
+  const { t } = useLanguage();
   const withMovie = entries.filter((e) => e.movie);
   if (!withMovie.length) {
     return (
-      <EmptyState icon={Film} title="No data yet" description="Numbers will show up once users start watching." />
+      <EmptyState icon={Film} title={t.dashboard.noDataYet} description={t.dashboard.noDataYetDescription} />
     );
   }
 
@@ -59,28 +61,29 @@ function MovieRankList({
 }
 
 export function MovieAnalyticsPanel({ mostWatched, mostPurchased }: MovieAnalyticsPanelProps) {
+  const { t } = useLanguage();
   return (
-    <Card className="glass-card border-white/[0.08]">
+    <Card className="glass-card">
       <CardHeader>
-        <CardTitle>Movie Analytics</CardTitle>
-        <p className="text-sm text-muted-foreground">Top performing content across the catalog</p>
+        <CardTitle>{t.dashboard.movieAnalytics}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t.dashboard.movieAnalyticsDescription}</p>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="watched">
           <TabsList className="mb-4 w-full">
-            <TabsTrigger value="watched">Most Watched</TabsTrigger>
-            <TabsTrigger value="purchased">Most Purchased</TabsTrigger>
+            <TabsTrigger value="watched">{t.dashboard.mostWatched}</TabsTrigger>
+            <TabsTrigger value="purchased">{t.dashboard.mostPurchased}</TabsTrigger>
           </TabsList>
           <TabsContent value="watched">
             <MovieRankList
               entries={mostWatched}
-              metric={(e) => ({ label: `${e.viewCount ?? 0} views`, value: e.viewCount ?? 0 })}
+              metric={(e) => ({ label: t.dashboard.viewsCount(e.viewCount ?? 0), value: e.viewCount ?? 0 })}
             />
           </TabsContent>
           <TabsContent value="purchased">
             <MovieRankList
               entries={mostPurchased}
-              metric={(e) => ({ label: `${e.purchaseCount ?? 0} buys`, value: e.purchaseCount ?? 0 })}
+              metric={(e) => ({ label: t.dashboard.buysCount(e.purchaseCount ?? 0), value: e.purchaseCount ?? 0 })}
             />
           </TabsContent>
         </Tabs>

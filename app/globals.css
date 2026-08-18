@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-inter), var(--font-noto-myanmar);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-plus-jakarta-sans);
+  --font-heading: var(--font-plus-jakarta-sans), var(--font-noto-myanmar);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,81 +49,207 @@
 }
 
 :root {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.577 0.226 27.3);
+  /* ---- surfaces: cool graphite, chroma <= 0.020, hue 272-276 ---- */
+  --sidebar: oklch(0.138 0.013 274);
+  --background: oklch(0.165 0.011 272);
+  --card: oklch(0.205 0.012 272);
+  --muted: oklch(0.235 0.012 272);
+  --popover: oklch(0.245 0.013 272);
+  --secondary: oklch(0.265 0.013 272);
+  --accent: oklch(0.305 0.02 276);
+  --field: oklch(0.145 0.01 272);
+
+  /* ---- text ---- */
+  --foreground: oklch(0.965 0.003 275);
+  --card-foreground: oklch(0.97 0.002 275);
+  --popover-foreground: oklch(0.97 0.002 275);
+  --secondary-foreground: oklch(0.97 0.002 275);
+  --accent-foreground: oklch(0.97 0.002 275);
+  --muted-foreground: oklch(0.715 0.015 272);
+  --foreground-subtle: oklch(0.665 0.014 272);
+  --sidebar-foreground: oklch(0.895 0.006 274);
+  --sidebar-accent: oklch(0.225 0.02 278);
+  --sidebar-accent-foreground: oklch(0.97 0.002 275);
+
+  /* ---- lines ---- */
+  --border: oklch(1 0 0 / 9%);
+  --border-strong: oklch(1 0 0 / 14%);
+  --border-stronger: oklch(1 0 0 / 18%);
+  --input: oklch(1 0 0 / 13%);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --edge-highlight: oklch(1 0 0 / 6%);
+
+  /* ---- brand: text-role split from fill-role ---- */
+  --primary: oklch(0.67 0.165 279);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.19 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.17 0 0);
-  --muted-foreground: oklch(0.64 0 0);
-  --accent: oklch(0.22 0.04 27.3);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.55 0.22 17);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.577 0.226 27.3 / 60%);
-  --chart-1: oklch(0.577 0.226 27.3);
-  --chart-2: oklch(0.65 0.18 45);
-  --chart-3: oklch(0.75 0.15 85);
-  --chart-4: oklch(0.6 0.12 200);
-  --chart-5: oklch(0.55 0.02 0);
-  --radius: 0.75rem;
-  --sidebar: oklch(0.07 0 0);
-  --sidebar-foreground: oklch(0.9 0 0);
-  --sidebar-primary: oklch(0.577 0.226 27.3);
+  --primary-solid: oklch(0.575 0.175 278);
+  --primary-solid-hover: oklch(0.618 0.172 278);
+  --primary-solid-active: oklch(0.495 0.17 276);
+  --sidebar-primary: oklch(0.67 0.165 279);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.16 0 0);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.577 0.226 27.3 / 60%);
-  --success: oklch(0.65 0.16 145);
-  --warning: oklch(0.75 0.16 75);
+
+  /* ---- ring: opaque, drawn outside the box ---- */
+  --ring: oklch(0.67 0.165 279);
+  --sidebar-ring: oklch(0.67 0.165 279);
+
+  /* ---- semantic roles ---- */
+  --success: oklch(0.76 0.15 148);
+  --destructive: oklch(0.695 0.185 22);
+  --warning: oklch(0.735 0.165 52);
+  /* Approval-workflow roles. These are NOT aliases of warning/success/destructive:
+     aliasing made the three states pixel-identical to the three generic tones,
+     and left them mutually indistinguishable under red-green colour blindness
+     (OKLab dE 0.023 after Vienot simulation -- below the just-noticeable
+     threshold, so pending/approved/rejected read as one colour).
+     Retuned as a lightness ladder inside their conventional hue families
+     (gold / mint-green / rose-red) so lightness carries the distinction that
+     hue cannot once red and green collapse: dE after simulation is now 0.113
+     across all three pairs, and each clears 4.5:1 on every surface in the
+     ladder including --accent, the lightest one a tab count sits on.
+     --approved is held apart from --income (they share tables in
+     deposits/columns.tsx and withdrawals/columns.tsx). */
+  --pending: oklch(0.855 0.155 88);
+  --approved: oklch(0.855 0.135 158);
+  --rejected: oklch(0.7 0.155 14);
+  --income: oklch(0.78 0.135 172);
+  --outgoing: oklch(0.72 0.105 28);
+  --info: oklch(0.74 0.13 240);
+
+  /* ---- charts: ordinal ramp, alternating lightness ---- */
+  --chart-1: oklch(0.67 0.165 279);
+  --chart-2: oklch(0.73 0.12 205);
+  --chart-3: oklch(0.76 0.13 168);
+  --chart-4: oklch(0.83 0.13 88);
+  --chart-5: oklch(0.69 0.17 340);
+
+  /* ---- elevation: each step opens with a 1px inset top light ---- */
+  --shadow-e1:
+    0 1px 0 0 var(--edge-highlight) inset, 0 1px 2px -1px oklch(0 0 0 / 0.55),
+    0 10px 28px -14px oklch(0 0 0 / 0.5);
+  --shadow-e2:
+    0 1px 0 0 oklch(1 0 0 / 7%) inset, 0 2px 4px -2px oklch(0 0 0 / 0.6),
+    0 12px 32px -16px oklch(0 0 0 / 0.55);
+  --shadow-e3:
+    0 1px 0 0 oklch(1 0 0 / 8%) inset, 0 8px 16px -8px oklch(0 0 0 / 0.6),
+    0 24px 64px -24px oklch(0 0 0 / 0.7);
+  --shadow-field: inset 0 1px 2px 0 oklch(0 0 0 / 0.35);
+  /* Raised controls: a lit top edge over a tight contact shadow. Pressed drops
+     the lit edge so the control reads as seated rather than floating. */
+  --shadow-control:
+    0 1px 0 0 oklch(1 0 0 / 14%) inset, 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-control-pressed: 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-tab-active:
+    0 1px 0 0 var(--edge-highlight) inset, 0 1px 2px 0 oklch(0 0 0 / 0.45);
+
+  --radius: 0.625rem;
 }
 
 .dark {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.97 0 0);
-  --card: oklch(0.14 0 0);
-  --card-foreground: oklch(0.97 0 0);
-  --popover: oklch(0.13 0 0);
-  --popover-foreground: oklch(0.97 0 0);
-  --primary: oklch(0.577 0.226 27.3);
+  /* ---- surfaces: cool graphite, chroma <= 0.020, hue 272-276 ---- */
+  --sidebar: oklch(0.138 0.013 274);
+  --background: oklch(0.165 0.011 272);
+  --card: oklch(0.205 0.012 272);
+  --muted: oklch(0.235 0.012 272);
+  --popover: oklch(0.245 0.013 272);
+  --secondary: oklch(0.265 0.013 272);
+  --accent: oklch(0.305 0.02 276);
+  --field: oklch(0.145 0.01 272);
+
+  /* ---- text ---- */
+  --foreground: oklch(0.965 0.003 275);
+  --card-foreground: oklch(0.97 0.002 275);
+  --popover-foreground: oklch(0.97 0.002 275);
+  --secondary-foreground: oklch(0.97 0.002 275);
+  --accent-foreground: oklch(0.97 0.002 275);
+  --muted-foreground: oklch(0.715 0.015 272);
+  --foreground-subtle: oklch(0.665 0.014 272);
+  --sidebar-foreground: oklch(0.895 0.006 274);
+  --sidebar-accent: oklch(0.225 0.02 278);
+  --sidebar-accent-foreground: oklch(0.97 0.002 275);
+
+  /* ---- lines ---- */
+  --border: oklch(1 0 0 / 9%);
+  --border-strong: oklch(1 0 0 / 14%);
+  --border-stronger: oklch(1 0 0 / 18%);
+  --input: oklch(1 0 0 / 13%);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --edge-highlight: oklch(1 0 0 / 6%);
+
+  /* ---- brand: text-role split from fill-role ---- */
+  --primary: oklch(0.67 0.165 279);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.19 0 0);
-  --secondary-foreground: oklch(0.97 0 0);
-  --muted: oklch(0.17 0 0);
-  --muted-foreground: oklch(0.64 0 0);
-  --accent: oklch(0.22 0.04 27.3);
-  --accent-foreground: oklch(0.97 0 0);
-  --destructive: oklch(0.55 0.22 17);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.577 0.226 27.3 / 60%);
-  --chart-1: oklch(0.577 0.226 27.3);
-  --chart-2: oklch(0.65 0.18 45);
-  --chart-3: oklch(0.75 0.15 85);
-  --chart-4: oklch(0.6 0.12 200);
-  --chart-5: oklch(0.55 0.02 0);
-  --sidebar: oklch(0.07 0 0);
-  --sidebar-foreground: oklch(0.9 0 0);
-  --sidebar-primary: oklch(0.577 0.226 27.3);
+  --primary-solid: oklch(0.575 0.175 278);
+  --primary-solid-hover: oklch(0.618 0.172 278);
+  --primary-solid-active: oklch(0.495 0.17 276);
+  --sidebar-primary: oklch(0.67 0.165 279);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.16 0 0);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.577 0.226 27.3 / 60%);
-  --success: oklch(0.65 0.16 145);
-  --warning: oklch(0.75 0.16 75);
+
+  /* ---- ring: opaque, drawn outside the box ---- */
+  --ring: oklch(0.67 0.165 279);
+  --sidebar-ring: oklch(0.67 0.165 279);
+
+  /* ---- semantic roles ---- */
+  --success: oklch(0.76 0.15 148);
+  --destructive: oklch(0.695 0.185 22);
+  --warning: oklch(0.735 0.165 52);
+  /* Approval-workflow roles. These are NOT aliases of warning/success/destructive:
+     aliasing made the three states pixel-identical to the three generic tones,
+     and left them mutually indistinguishable under red-green colour blindness
+     (OKLab dE 0.023 after Vienot simulation -- below the just-noticeable
+     threshold, so pending/approved/rejected read as one colour).
+     Retuned as a lightness ladder inside their conventional hue families
+     (gold / mint-green / rose-red) so lightness carries the distinction that
+     hue cannot once red and green collapse: dE after simulation is now 0.113
+     across all three pairs, and each clears 4.5:1 on every surface in the
+     ladder including --accent, the lightest one a tab count sits on.
+     --approved is held apart from --income (they share tables in
+     deposits/columns.tsx and withdrawals/columns.tsx). */
+  --pending: oklch(0.855 0.155 88);
+  --approved: oklch(0.855 0.135 158);
+  --rejected: oklch(0.7 0.155 14);
+  --income: oklch(0.78 0.135 172);
+  --outgoing: oklch(0.72 0.105 28);
+  --info: oklch(0.74 0.13 240);
+
+  /* ---- charts: ordinal ramp, alternating lightness ---- */
+  --chart-1: oklch(0.67 0.165 279);
+  --chart-2: oklch(0.73 0.12 205);
+  --chart-3: oklch(0.76 0.13 168);
+  --chart-4: oklch(0.83 0.13 88);
+  --chart-5: oklch(0.69 0.17 340);
+
+  /* ---- elevation: each step opens with a 1px inset top light ---- */
+  --shadow-e1:
+    0 1px 0 0 var(--edge-highlight) inset, 0 1px 2px -1px oklch(0 0 0 / 0.55),
+    0 10px 28px -14px oklch(0 0 0 / 0.5);
+  --shadow-e2:
+    0 1px 0 0 oklch(1 0 0 / 7%) inset, 0 2px 4px -2px oklch(0 0 0 / 0.6),
+    0 12px 32px -16px oklch(0 0 0 / 0.55);
+  --shadow-e3:
+    0 1px 0 0 oklch(1 0 0 / 8%) inset, 0 8px 16px -8px oklch(0 0 0 / 0.6),
+    0 24px 64px -24px oklch(0 0 0 / 0.7);
+  --shadow-field: inset 0 1px 2px 0 oklch(0 0 0 / 0.35);
+  /* Raised controls: a lit top edge over a tight contact shadow. Pressed drops
+     the lit edge so the control reads as seated rather than floating. */
+  --shadow-control:
+    0 1px 0 0 oklch(1 0 0 / 14%) inset, 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-control-pressed: 0 1px 2px 0 oklch(0 0 0 / 0.4);
+  --shadow-tab-active:
+    0 1px 0 0 var(--edge-highlight) inset, 0 1px 2px 0 oklch(0 0 0 / 0.45);
+
+  --radius: 0.625rem;
 }
 
 @theme inline {
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-info: var(--info);
+  --color-pending: var(--pending);
+  --color-approved: var(--approved);
+  --color-rejected: var(--rejected);
+  --color-income: var(--income);
+  --color-outgoing: var(--outgoing);
+  --color-foreground-subtle: var(--foreground-subtle);
 }
 
 @layer base {
@@ -140,31 +266,99 @@
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-white/[0.08] shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset,0_8px_30px_rgba(0,0,0,0.4)];
+    /* Solid layered surface — translucent glass read consumer-grade; a finance
+       console wants opaque elevation with a machined top edge. */
+    @apply border border-[var(--border-strong)] bg-card;
+    box-shadow: var(--shadow-e1);
   }
   .glass-panel {
-    @apply bg-background/70 backdrop-blur-xl border border-white/[0.08];
+    @apply border border-[var(--border-strong)] bg-background/88 backdrop-blur-xl;
   }
   .text-gradient-brand {
-    background: linear-gradient(135deg, oklch(0.65 0.24 27.3), oklch(0.5 0.2 17));
+    /* Near-white to soft indigo: a metal sheen reads as a mark, where a
+       two-stop saturated gradient reads as a sticker. */
+    background: linear-gradient(
+      135deg,
+      oklch(0.985 0.004 275) 0%,
+      oklch(0.8 0.075 280) 100%
+    );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
   .glow-primary {
-    box-shadow: 0 0 0 1px oklch(0.577 0.226 27.3 / 25%), 0 8px 24px -8px oklch(0.577 0.226 27.3 / 45%);
+    box-shadow:
+      0 0 0 1px oklch(0.67 0.165 279 / 32%),
+      0 4px 14px -6px oklch(0.67 0.165 279 / 38%);
   }
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: oklch(1 0 0 / 15%) transparent;
+    scrollbar-color: oklch(1 0 0 / 13%) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: oklch(1 0 0 / 15%);
+    background-color: oklch(1 0 0 / 13%);
     border-radius: 9999px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(1 0 0 / 20%);
+  }
+
+  /* --- Sidebar rail -------------------------------------------------------
+     Two mount animations the sidebar cannot express as Tailwind transitions,
+     because both fire when an element enters the tree rather than when a
+     property changes.
+
+     No local prefers-reduced-motion block: the global one further down forces
+     every animation-duration to 0.01ms, and neither keyframe uses a forwards
+     fill, so both settle on their base style instead of their `to` state. */
+
+  /* The active marker. It lives in a reserved column on the rail's edge at
+     x = 0–3 — the same x for a leaf, a group parent, a child and a collapsed
+     icon — so depth is never re-encoded in it and collapsing the rail does not
+     move it. It re-mounts per row, so it animates in rather than sliding, and
+     it is the only motion in the list. */
+  .sidebar-marker {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    height: 18px;
+    width: 3px;
+    border-radius: 0 999px 999px 0;
+    background: var(--primary);
+    transform: translateY(-50%);
+    transform-origin: center;
+    animation: sidebar-marker-in 160ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  /* Labels are unmounted in collapsed mode rather than squashed, so expanding
+     is a mount: fade in over 120ms after a 60ms delay while the rail widens.
+     Collapsing unmounts instantly, so there is nothing to delay. */
+  .sidebar-label-in {
+    animation: sidebar-label-in 120ms ease-out 60ms backwards;
+  }
+}
+
+@keyframes sidebar-marker-in {
+  from {
+    transform: translateY(-50%) scaleY(0.4);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(-50%) scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes sidebar-label-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -189,11 +383,11 @@
 --------------------------------------------------------------------------- */
 
 [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] {
-  --toast-accent: oklch(0.72 0.02 260);
+  --toast-accent: oklch(0.715 0.015 272);
 
   overflow: hidden;
   border-radius: var(--radius-xl);
-  background: color-mix(in oklab, var(--popover) 82%, transparent);
+  background: color-mix(in oklab, var(--popover) 93%, transparent);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid color-mix(in oklab, var(--toast-accent) 22%, transparent);
@@ -212,9 +406,9 @@
 }
 
 [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="success"] { --toast-accent: var(--success); }
-[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="error"] { --toast-accent: oklch(0.65 0.21 22); }
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="error"] { --toast-accent: var(--destructive); }
 [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="warning"] { --toast-accent: var(--warning); }
-[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="info"] { --toast-accent: oklch(0.7 0.15 245); }
+[data-sonner-toaster][data-sonner-toaster] [data-sonner-toast][data-type="info"] { --toast-accent: var(--info); }
 
 /* Icon sits in a tinted chip rather than floating loose beside the text. */
 [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-icon] {
@@ -283,5 +477,20 @@
   [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-button],
   [data-sonner-toaster][data-sonner-toaster] [data-sonner-toast] [data-close-button] {
     transition: none;
+  }
+
+  /* Every interaction state in this system is carried by color and value as
+     well as by motion, so the whole motion layer can be dropped without any
+     state becoming ambiguous. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  [data-slot="button"]:active {
+    transform: none !important;
   }
 }

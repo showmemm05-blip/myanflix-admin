@@ -8,12 +8,14 @@ import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { UploadQueueList } from "@/components/uploads/UploadQueueList";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBulkUploadQueue, type MovieUploadJob } from "@/lib/context/bulk-upload-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { readDroppedFolders, foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { movieService } from "@/services/api/movieService";
 import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
 
 export default function BulkUploadExternalPage() {
+  const { t } = useLanguage();
   const {
     jobs,
     restoring,
@@ -36,11 +38,11 @@ export default function BulkUploadExternalPage() {
   const addDroppedFolders = async (folders: DroppedFolder[]) => {
     const toAdd = folders.filter((f) => f.files.length > 0);
     if (toAdd.length === 0) {
-      toast.error("That folder appears to be empty.");
+      toast.error(t.movies.externalUpload.emptyFolderToast);
       return;
     }
     const added = await addFolders(toAdd);
-    if (added > 0) toast.success(`${added} movie${added === 1 ? "" : "s"} added to the queue`);
+    if (added > 0) toast.success(t.movies.externalUpload.moviesAddedToast(added));
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
@@ -49,12 +51,14 @@ export default function BulkUploadExternalPage() {
     try {
       const folders = await readDroppedFolders(e.dataTransfer);
       if (folders.length === 0) {
-        toast.error("Drop one or more movie folders — individual files aren't supported here.");
+        toast.error(t.movies.externalUpload.noFoldersToast);
         return;
       }
       await addDroppedFolders(folders);
     } catch {
-      toast.error("Couldn't read the dropped folders", { description: "Try again, or use “Add folder” instead." });
+      toast.error(t.movies.externalUpload.readFoldersFailedToast, {
+        description: t.movies.externalUpload.readFoldersFailedDescription(t.movies.externalUpload.addFolder),
+      });
     }
   };
 
@@ -66,48 +70,48 @@ export default function BulkUploadExternalPage() {
       const movie = await movieService.getMovieById(job.movieId);
       setEditMovie(movie);
     } catch {
-      toast.error("Couldn't load this movie's details");
+      toast.error(t.movies.externalUpload.loadMovieFailedToast);
     }
-  }, []);
+  }, [t]);
 
   const handlePublish = useCallback(
     async (job: MovieUploadJob) => {
       try {
         await movieService.updateMovie(job.movieId, { status: "PUBLISHED" });
         markPublished(job.movieId);
-        toast.success("Movie published", { description: `"${job.title}" is now live on MyanFlix.` });
+        toast.success(t.movies.publishedToast, { description: t.movies.publishedDescription(job.title) });
       } catch {
-        toast.error("Couldn't publish this movie", { description: "Please try again." });
+        toast.error(t.movies.publishFailedToast, { description: t.movies.pleaseTryAgain });
       }
     },
-    [markPublished],
+    [markPublished, t],
   );
 
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"]}
-      title="Upload Movie"
-      description="Drop movie folders — they upload one at a time in order, the rest wait in queue."
+      title={t.movies.uploadMovie}
+      description={t.movies.externalUpload.description}
     >
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
       <PageHeader
-        title="Upload Movie"
-        description="Drop movie folders — they upload one at a time in order, the rest wait in queue. This system never runs ffmpeg for this flow, and never publishes a movie automatically."
+        title={t.movies.uploadMovie}
+        description={t.movies.externalUpload.pageDescription}
       />
 
       {!isOnline && (
-        <div className="flex items-center gap-3 rounded-xl border border-sky-500/30 bg-sky-500/10 px-4 py-3">
-          <WifiOff className="size-5 shrink-0 text-sky-400" />
+        <div className="flex items-center gap-3 rounded-lg border border-info/25 bg-info/10 px-4 py-3">
+          <WifiOff className="size-5 shrink-0 text-info" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-sky-300">Waiting for internet connection...</p>
+            <p className="text-sm font-semibold text-info">{t.movies.externalUpload.waitingForConnection}</p>
             <p className="text-xs text-muted-foreground">
-              Uploads are paused and will resume automatically from where they left off — nothing is lost.
+              {t.movies.externalUpload.waitingForConnectionDescription}
             </p>
           </div>
         </div>
       )}
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardContent className="flex flex-col gap-4">
           <div
             onDragOver={(e) => {
@@ -117,19 +121,19 @@ export default function BulkUploadExternalPage() {
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center transition-colors ${
-              isDragging ? "border-primary bg-primary/10" : "border-white/15 hover:border-primary/40 hover:bg-secondary/20"
+              isDragging ? "border-primary bg-primary/10" : "border-input hover:border-primary/50 hover:bg-primary/[0.04]"
             }`}
           >
             <UploadCloud className="size-7 text-muted-foreground" />
-            <span className="text-sm font-semibold">Drop movie folders here</span>
+            <span className="text-sm font-semibold">{t.movies.externalUpload.dropFoldersHere}</span>
             <span className="text-xs text-muted-foreground">
-              Each folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/
+              {t.movies.externalUpload.folderStructureHint}
             </span>
 
             <label className="mt-2 cursor-pointer">
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-secondary/40 px-3 py-1.5 text-xs font-medium hover:bg-secondary/60">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary/40 px-3 py-1.5 text-xs font-medium hover:bg-secondary/60">
                 <UploadCloud className="size-3.5" />
-                Add folder
+                {t.movies.externalUpload.addFolder}
               </span>
               <input
                 type="file"
@@ -147,8 +151,8 @@ export default function BulkUploadExternalPage() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            {jobs.length} movie{jobs.length === 1 ? "" : "s"} queued
-            {restoring && " · restoring your last session..."}
+            {t.movies.externalUpload.moviesQueued(jobs.length)}
+            {restoring && t.movies.externalUpload.restoringSession}
           </p>
         </CardContent>
       </Card>
@@ -156,7 +160,7 @@ export default function BulkUploadExternalPage() {
       <UploadQueueList
         jobs={jobs}
         restoring={restoring}
-        emptyText="No movies queued yet — drop or add a folder above to get started."
+        emptyText={t.movies.externalUpload.emptyQueueText}
         onPause={pause}
         onResume={resume}
         onRetry={retry}

@@ -1,20 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpFromLine, CheckCircle2, Clock, XCircle } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RequireRole } from "@/components/shared/RequireRole";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
+import { DateRangeFilter, todayStr, type DateRangeValue } from "@/components/shared/DateRangeFilter";
 import { getWithdrawalColumns } from "@/components/withdrawals/columns";
 import { RejectWithdrawalDialog } from "@/components/withdrawals/RejectWithdrawalDialog";
-import { EditTransferAccountDialog } from "@/components/withdrawals/EditTransferAccountDialog";
 import { ViewWithdrawalDialog } from "@/components/withdrawals/ViewWithdrawalDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { getSocket } from "@/lib/socket";
 import { withdrawalService } from "@/services/api/withdrawalService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
@@ -30,26 +30,76 @@ interface WithdrawalCreatedEvent {
   accountType: string;
   accountName: string;
   accountNumber: string;
+  /** Only sent for bank-transfer account types. */
+  bankName: string | null;
   status: Withdrawal["status"];
   createdAt: string;
 }
 
+interface WithdrawalUpdatedEvent {
+  id: string;
+  status: Withdrawal["status"];
+  amount: number;
+  accountType: string;
+  accountName: string;
+  accountNumber: string;
+  rejectionReason?: string | null;
+  approvedAt?: string | null;
+  transferAccountType?: string | null;
+  transferAccountSubname?: string | null;
+  transferAccountName?: string | null;
+  transferAccountNumber?: string | null;
+  transferTransactionCode?: string | null;
+  transferTransactionTime?: string | null;
+}
+
 export default function WithdrawalsPage() {
   const { role } = useRole();
+  const { t } = useLanguage();
+
+  // Default to TODAY so the page opens on the current day's activity.
+  const [range, setRange] = useState(() => ({ from: todayStr(), to: todayStr() }));
 
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => withdrawalService.getAll({ limit: 100 }),
-    []
+    () => {
+      // LOCAL day boundaries sent as full ISO datetimes — a bare YYYY-MM-DD
+      // would be parsed as UTC midnight and make the "to" day exclusive here.
+      const dateFrom = range.from ? new Date(`${range.from}T00:00:00`).toISOString() : undefined;
+      const dateTo = range.to ? new Date(`${range.to}T23:59:59.999`).toISOString() : undefined;
+      return withdrawalService.getAll({ limit: 100, dateFrom, dateTo });
+    },
+    [range]
   );
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
+  // Full accounts (not just method types) so the "our transfer account"
+  // picker in TransferAccountCell can list every subname — a withdrawal
+  // reviewer gets the admin-shaped response (incl. subname) even without
+  // PAYMENT_ACCOUNT_MANAGE; see PaymentAccountsService.findAll.
+  const { data: paymentAccounts } = useAsyncData(() => paymentAccountService.getAccounts(), []);
   const [withdrawals, setWithdrawals] = useState<Withdrawal[] | null>(null);
   const activeWithdrawals = useMemo(() => withdrawals ?? data?.items ?? [], [withdrawals, data]);
 
   const [viewTarget, setViewTarget] = useState<Withdrawal | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Withdrawal | null>(null);
-  const [editTarget, setEditTarget] = useState<Withdrawal | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
+
+  // True while a range-change refetch is in flight — a socket row landing in
+  // that window must NOT seed the local list from the closure-stale previous
+  // range's data (it would mask the refetched rows for the new range).
+  const rangeRefetchingRef = useRef(false);
+
+  const handleRangeChange = (next: DateRangeValue) => {
+    // Drop the socket/action-local override so the refetched rows for the new
+    // range aren't masked by the stale local list.
+    rangeRefetchingRef.current = true;
+    setWithdrawals(null);
+    setRange(next);
+  };
+
+  useEffect(() => {
+    if (data) rangeRefetchingRef.current = false;
+  }, [data]);
 
   const stats = useMemo(() => {
     let pendingAmount = 0;
@@ -82,6 +132,14 @@ export default function WithdrawalsPage() {
     if (!socket) return;
 
     const handleCreated = (event: WithdrawalCreatedEvent) => {
+      // A freshly created row is always from "now" — skip the prepend when the
+      // active range excludes today (the default today-range and All both
+      // include it, so their behavior is unchanged).
+      const today = todayStr();
+      if ((range.from && today < range.from) || (range.to && today > range.to)) return;
+      // Mid-refetch the fetched data still belongs to the previous range —
+      // skip; the in-flight fetch will include this row if it qualifies.
+      if (rangeRefetchingRef.current) return;
       const incoming: Withdrawal = {
         id: event.id,
         userId: event.userId,
@@ -91,13 +149,18 @@ export default function WithdrawalsPage() {
         accountType: event.accountType,
         accountName: event.accountName,
         accountNumber: event.accountNumber,
+        bankName: event.bankName,
         status: event.status,
         rejectionReason: null,
         approvedByUserId: null,
         approvedAt: null,
         transferAccountType: null,
+        transferAccountSubname: null,
         transferAccountName: null,
         transferAccountNumber: null,
+        transferTransactionCode: null,
+        transferTransactionTime: null,
+        transferPaymentAccountId: null,
         createdAt: event.createdAt,
         updatedAt: event.createdAt,
       };
@@ -106,23 +169,54 @@ export default function WithdrawalsPage() {
       setWithdrawals((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
     };
 
+    const handleUpdated = (event: WithdrawalUpdatedEvent) => {
+      // Covers status changes and transfer-account edits made from another
+      // admin session/tab — this page's own actions already update state
+      // directly via handleApprove/handleRejected/handleAccountEdited, so
+      // this merge is a no-op there and only matters for cross-session sync.
+      setWithdrawals((prev) =>
+        (prev ?? data?.items ?? []).map((w) =>
+          w.id === event.id
+            ? {
+                ...w,
+                status: event.status,
+                amount: event.amount,
+                accountType: event.accountType,
+                accountName: event.accountName,
+                accountNumber: event.accountNumber,
+                rejectionReason: event.rejectionReason ?? null,
+                approvedAt: event.approvedAt ?? null,
+                transferAccountType: event.transferAccountType ?? null,
+                transferAccountSubname: event.transferAccountSubname ?? null,
+                transferAccountName: event.transferAccountName ?? null,
+                transferAccountNumber: event.transferAccountNumber ?? null,
+                transferTransactionCode: event.transferTransactionCode ?? null,
+                transferTransactionTime: event.transferTransactionTime ?? null,
+              }
+            : w
+        )
+      );
+    };
+
     socket.on("withdrawal.created", handleCreated);
+    socket.on("withdrawal.updated", handleUpdated);
     return () => {
       socket.off("withdrawal.created", handleCreated);
+      socket.off("withdrawal.updated", handleUpdated);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, data]);
+
+  }, [role, data, range]);
 
   const handleApprove = async (withdrawal: Withdrawal) => {
     setApprovingId(withdrawal.id);
     try {
       const updated = await withdrawalService.approve(withdrawal.id);
       setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
-      toast.success("Withdrawal approved", {
-        description: `${withdrawal.userName}'s balance has been debited.`,
+      toast.success(t.withdrawals.approvedToast, {
+        description: t.withdrawals.approvedDescription(withdrawal.userName),
       });
     } catch (err) {
-      toast.error("Failed to approve withdrawal", {
+      toast.error(t.withdrawals.approveFailedToast, {
         description: err instanceof Error ? err.message : undefined,
       });
     } finally {
@@ -139,55 +233,77 @@ export default function WithdrawalsPage() {
   };
 
   const columns = getWithdrawalColumns({
+    t,
     types: types ?? [],
+    paymentAccounts: paymentAccounts ?? [],
     onView: setViewTarget,
     onApprove: handleApprove,
     onReject: setRejectTarget,
-    onEdit: setEditTarget,
+    onTransferSaved: handleAccountEdited,
     approvingId,
   });
+
+  // Shared by the loaded AND loading DataTable branches so the range inputs
+  // never unmount mid-typing while a refetch is in flight.
+  const tableToolbar = (
+    <div className="flex flex-wrap items-center gap-2">
+      <StatusFilterTabs
+        value={statusFilter}
+        onValueChange={setStatusFilter}
+        counts={{
+          all: stats.total,
+          pending: stats.pendingCount,
+          approved: stats.approvedCount,
+          rejected: stats.rejectedCount,
+        }}
+      />
+      <DateRangeFilter value={range} onChange={handleRangeChange} />
+    </div>
+  );
 
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Withdrawals"
-      description="Review and approve wallet withdrawal requests."
+      title={t.withdrawals.page.title}
+      description={t.withdrawals.page.description}
     >
       <div className="flex flex-col gap-6">
-        <PageHeader title="Withdrawals" description="Review and approve wallet withdrawal requests. Pending requests are shown first." />
-
         {isLoading ? (
-          <DataTable columns={columns} data={[]} isLoading pageSize={10} />
+          // Toolbar stays mounted through refetches — otherwise changing a
+          // date unmounts the very input the admin is typing into.
+          <DataTable columns={columns} data={[]} isLoading pageSize={10} toolbar={tableToolbar} />
         ) : error ? (
-          <ErrorState description="We couldn't load withdrawals." onRetry={refetch} />
-        ) : activeWithdrawals.length === 0 ? (
-          <EmptyState icon={ArrowUpFromLine} title="No withdrawals yet" description="Submitted withdrawal requests will show up here." />
+          <ErrorState description={t.withdrawals.loadError} onRetry={refetch} />
+        ) : activeWithdrawals.length === 0 && !range.from && !range.to ? (
+          // Full-page empty state only when unfiltered — with a range active the
+          // table (and its toolbar) must stay visible so the range can be changed.
+          <EmptyState icon={ArrowUpFromLine} title={t.withdrawals.emptyTitle} description={t.withdrawals.emptyDescription} />
         ) : (
           <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <DashboardCard
-                title="Pending Amount"
+                title={t.withdrawals.pendingAmount}
                 value={formatKyat(stats.pendingAmount)}
                 icon={Clock}
-                iconClassName="bg-warning/15 text-warning"
+                iconClassName="bg-pending/15 text-pending"
               />
               <DashboardCard
-                title="Approved Amount"
+                title={t.withdrawals.approvedAmount}
                 value={formatKyat(stats.approvedAmount)}
                 icon={CheckCircle2}
-                iconClassName="bg-success/15 text-success"
+                iconClassName="bg-approved/15 text-approved"
               />
               <DashboardCard
-                title="Rejected"
+                title={t.shared.statusRejected}
                 value={stats.rejectedCount.toLocaleString()}
                 icon={XCircle}
-                iconClassName="bg-destructive/15 text-destructive"
+                iconClassName="bg-rejected/15 text-rejected"
               />
               <DashboardCard
-                title="Total Withdrawals"
+                title={t.withdrawals.totalWithdrawals}
                 value={stats.total.toLocaleString()}
                 icon={ArrowUpFromLine}
-                iconClassName="bg-violet-500/15 text-violet-400"
+                iconClassName="bg-info/15 text-info"
               />
             </div>
 
@@ -195,19 +311,8 @@ export default function WithdrawalsPage() {
               columns={columns}
               data={filteredWithdrawals}
               searchKey="userName"
-              searchPlaceholder="Search by customer name..."
-              toolbar={
-                <StatusFilterTabs
-                  value={statusFilter}
-                  onValueChange={setStatusFilter}
-                  counts={{
-                    all: stats.total,
-                    pending: stats.pendingCount,
-                    approved: stats.approvedCount,
-                    rejected: stats.rejectedCount,
-                  }}
-                />
-              }
+              searchPlaceholder={t.withdrawals.searchPlaceholder}
+              toolbar={tableToolbar}
             />
           </>
         )}
@@ -223,14 +328,6 @@ export default function WithdrawalsPage() {
           open={rejectTarget !== null}
           onOpenChange={(open) => !open && setRejectTarget(null)}
           onRejected={handleRejected}
-        />
-
-        <EditTransferAccountDialog
-          withdrawal={editTarget}
-          types={types ?? []}
-          open={editTarget !== null}
-          onOpenChange={(open) => !open && setEditTarget(null)}
-          onSaved={handleAccountEdited}
         />
       </div>
     </RequireRole>

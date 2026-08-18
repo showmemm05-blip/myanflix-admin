@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Geist_Mono, Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Geist_Mono, Inter, Noto_Sans_Myanmar, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { LanguageProvider } from "@/lib/context/language-context";
 import { RoleProvider } from "@/lib/context/role-context";
 import { SidebarProvider } from "@/lib/context/sidebar-context";
 import { UploadProvider } from "@/lib/context/upload-context";
@@ -27,6 +28,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Inter/Plus Jakarta Sans have no Myanmar glyphs — without this, Burmese
+// text falls back to whatever generic font the OS picks. Included in the
+// font stack (globals.css) as a fallback, not a replacement.
+const notoSansMyanmar = Noto_Sans_Myanmar({
+  variable: "--font-noto-myanmar",
+  subsets: ["myanmar", "latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "MyanFlix Admin",
   description: "Admin dashboard for the MyanFlix streaming platform",
@@ -40,7 +50,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${plusJakartaSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${inter.variable} ${plusJakartaSans.variable} ${geistMono.variable} ${notoSansMyanmar.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full">
@@ -51,17 +61,19 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <TooltipProvider>
-            <RoleProvider>
-              <SidebarProvider>
-                <UploadProvider>
-                  <BulkUploadProvider>
-                    <AppShell>{children}</AppShell>
-                    <GlobalUploadIndicator />
-                    <AdminDepositNotifications />
-                  </BulkUploadProvider>
-                </UploadProvider>
-              </SidebarProvider>
-            </RoleProvider>
+            <LanguageProvider>
+              <RoleProvider>
+                <SidebarProvider>
+                  <UploadProvider>
+                    <BulkUploadProvider>
+                      <AppShell>{children}</AppShell>
+                      <GlobalUploadIndicator />
+                      <AdminDepositNotifications />
+                    </BulkUploadProvider>
+                  </UploadProvider>
+                </SidebarProvider>
+              </RoleProvider>
+            </LanguageProvider>
           </TooltipProvider>
           <Toaster position="top-right" />
         </ThemeProvider>

@@ -13,12 +13,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { STATUS_TONE } from "@/components/movies/columns";
+import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AdminEpisode } from "@/types/series";
 
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
 
 interface GetEpisodeColumnsOptions {
+  t: TranslationShape;
   canManage: boolean;
   onEdit: (episode: AdminEpisode) => void;
   onDelete: (episode: AdminEpisode) => void;
@@ -28,6 +30,7 @@ interface GetEpisodeColumnsOptions {
 }
 
 export function getEpisodeColumns({
+  t,
   canManage,
   onEdit,
   onDelete,
@@ -37,7 +40,7 @@ export function getEpisodeColumns({
   return [
     {
       accessorKey: "title",
-      header: "Episode Title",
+      header: t.series.episodeColumns.title,
       cell: ({ row }) => {
         const episode = row.original;
         return (
@@ -58,7 +61,7 @@ export function getEpisodeColumns({
     },
     {
       accessorKey: "seriesTitle",
-      header: "Series",
+      header: t.series.episodeColumns.series,
       cell: ({ row }) => (
         <Badge variant="secondary" className="font-normal">
           {row.original.seriesTitle ?? "—"}
@@ -67,32 +70,32 @@ export function getEpisodeColumns({
     },
     {
       accessorKey: "seasonNumber",
-      header: "Season",
+      header: t.series.episodeColumns.season,
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.seasonNumber ?? "—"}</span>
+        <span className="text-sm tabular-nums">{row.original.seasonNumber ?? "—"}</span>
       ),
     },
     {
       accessorKey: "episodeNumber",
-      header: "Episode",
+      header: t.series.episodeColumns.episode,
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.episodeNumber ?? "—"}</span>
+        <span className="text-sm tabular-nums">{row.original.episodeNumber ?? "—"}</span>
       ),
     },
     {
       accessorKey: "createdAt",
-      header: "Upload Date",
+      header: t.series.episodeColumns.uploadDate,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), "MMM d, yyyy")}
+          {format(new Date(row.original.createdAt), "d MMM yyyy")}
         </span>
       ),
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: t.movies.columns.status,
       cell: ({ row }) => (
-        <StatusBadge label={row.original.status} tone={STATUS_TONE[row.original.status]} />
+        <StatusBadge label={getStatusLabel(t, row.original.status)} tone={STATUS_TONE[row.original.status]} />
       ),
     },
     {
@@ -109,7 +112,7 @@ export function getEpisodeColumns({
                 ) : (
                   <Rocket className="size-3.5" />
                 )}
-                Publish
+                {t.movies.publish}
               </Button>
             )}
             {canManage && (
@@ -120,11 +123,11 @@ export function getEpisodeColumns({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => onEdit(episode)}>
                     <Pencil className="size-4" />
-                    Edit
+                    {t.common.edit}
                   </DropdownMenuItem>
                   <DropdownMenuItem variant="destructive" onClick={() => onDelete(episode)}>
                     <Trash2 className="size-4" />
-                    Delete
+                    {t.common.delete}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

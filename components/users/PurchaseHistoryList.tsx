@@ -1,14 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import { format } from "date-fns";
 import { ShoppingBag } from "lucide-react";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
 import type { PurchaseEntry } from "@/types/user";
 
 export function PurchaseHistoryList({ entries }: { entries: PurchaseEntry[] }) {
+  const { t } = useLanguage();
+
   if (!entries.length) {
     return (
-      <EmptyState icon={ShoppingBag} title="No purchases yet" description="Movies bought will show up here." />
+      <EmptyState
+        icon={ShoppingBag}
+        title={t.users.purchaseHistory.emptyTitle}
+        description={t.users.purchaseHistory.emptyDescription}
+      />
     );
   }
 
@@ -24,10 +33,10 @@ export function PurchaseHistoryList({ entries }: { entries: PurchaseEntry[] }) {
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{entry.movieTitle}</p>
             <p className="text-xs text-muted-foreground">
-              Purchased {format(new Date(entry.purchasedAt), "MMM d, yyyy")}
+              {t.users.purchaseHistory.purchasedOn(format(new Date(entry.purchasedAt), "d MMM yyyy"))}
             </p>
           </div>
-          <span className="shrink-0 text-sm font-medium">{formatKyat(entry.price)}</span>
+          <span className="shrink-0 text-sm font-medium tabular-nums">{formatKyat(entry.price)}</span>
         </li>
       ))}
     </ul>

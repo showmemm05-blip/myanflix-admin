@@ -1,6 +1,7 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useLanguage } from "@/lib/context/language-context";
 
 export type StatusFilterValue = "ALL" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -13,20 +14,21 @@ export function StatusFilterTabs({
   onValueChange: (value: StatusFilterValue) => void;
   counts: { all: number; pending: number; approved: number; rejected: number };
 }) {
+  const { t } = useLanguage();
   return (
     <Tabs value={value} onValueChange={(v) => v && onValueChange(v as StatusFilterValue)}>
       <TabsList>
         <TabsTrigger value="ALL">
-          All <span className="text-muted-foreground">({counts.all})</span>
+          {t.shared.statusAll} <span className="text-muted-foreground">({counts.all})</span>
         </TabsTrigger>
         <TabsTrigger value="PENDING">
-          Pending <span className="text-warning">({counts.pending})</span>
+          {t.shared.statusPending} <span className="text-pending">({counts.pending})</span>
         </TabsTrigger>
         <TabsTrigger value="APPROVED">
-          Approved <span className="text-success">({counts.approved})</span>
+          {t.shared.statusApproved} <span className="text-approved">({counts.approved})</span>
         </TabsTrigger>
         <TabsTrigger value="REJECTED">
-          Rejected <span className="text-destructive">({counts.rejected})</span>
+          {t.shared.statusRejected} <span className="text-rejected">({counts.rejected})</span>
         </TabsTrigger>
       </TabsList>
     </Tabs>

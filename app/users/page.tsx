@@ -11,11 +11,13 @@ import { DataTable } from "@/components/tables/DataTable";
 import { getUserColumns } from "@/components/users/columns";
 import { EditRoleDialog } from "@/components/users/EditRoleDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { userService } from "@/services/api/userService";
 import type { AppUser } from "@/types/user";
 import { toast } from "sonner";
 
 export default function UsersPage() {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(
     () => userService.getUsers({ limit: 100 }),
     []
@@ -34,38 +36,46 @@ export default function UsersPage() {
     await userService.updateUserStatus(suspendTarget.id, nextStatus);
     setUsers(activeUsers.map((u) => (u.id === suspendTarget.id ? { ...u, status: nextStatus } : u)));
     setSuspending(false);
-    toast.success(nextStatus === "SUSPENDED" ? "User suspended" : "User reactivated", {
-      description: `${suspendTarget.name}'s account is now ${nextStatus.toLowerCase()}.`,
+    toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast, {
+      description:
+        nextStatus === "SUSPENDED"
+          ? t.users.suspendedDescription(suspendTarget.name)
+          : t.users.reactivatedDescription(suspendTarget.name),
     });
     setSuspendTarget(null);
   };
 
   const columns = getUserColumns({
+    t,
     canManage: true,
     onEditRole: setEditUser,
     onToggleSuspend: setSuspendTarget,
   });
 
   return (
-    <RequireRole allow={["SUPER_ADMIN"]} title="Users" description="Manage subscriber accounts.">
+    <RequireRole allow={["SUPER_ADMIN"]} title={t.users.page.title} description={t.users.page.descriptionShort}>
       {error ? (
         <div>
-          <PageHeader title="Users" description="Manage subscriber accounts." />
-          <ErrorState description="We couldn't load the user list." onRetry={refetch} />
+          <PageHeader title={t.users.page.title} description={t.users.page.descriptionShort} />
+          <ErrorState description={t.users.page.loadError} onRetry={refetch} />
         </div>
       ) : (
         <div>
-          <PageHeader title="Users" description="Manage subscriber accounts, roles and access." />
+          <PageHeader title={t.users.page.title} description={t.users.page.description} />
 
           {!isLoading && activeUsers.length === 0 ? (
-            <EmptyState icon={UsersIcon} title="No users yet" description="New signups will appear here." />
+            <EmptyState
+              icon={UsersIcon}
+              title={t.users.page.emptyTitle}
+              description={t.users.page.emptyDescription}
+            />
           ) : (
             <DataTable
               columns={columns}
               data={activeUsers}
               isLoading={isLoading}
               searchKey="name"
-              searchPlaceholder="Search users by name..."
+              searchPlaceholder={t.users.page.searchPlaceholder}
             />
           )}
 
@@ -81,13 +91,13 @@ export default function UsersPage() {
           <ConfirmDialog
             open={!!suspendTarget}
             onOpenChange={(o) => !o && setSuspendTarget(null)}
-            title={suspendTarget?.status === "SUSPENDED" ? "Reactivate this user?" : "Suspend this user?"}
+            title={suspendTarget?.status === "SUSPENDED" ? t.users.reactivateTitle : t.users.suspendTitle}
             description={
               suspendTarget?.status === "SUSPENDED"
-                ? `${suspendTarget?.name} will regain access to their account.`
-                : `${suspendTarget?.name} will lose access to their account until reactivated.`
+                ? t.users.reactivateDescription(suspendTarget?.name ?? "")
+                : t.users.suspendDescription(suspendTarget?.name ?? "")
             }
-            confirmLabel={suspendTarget?.status === "SUSPENDED" ? "Reactivate" : "Suspend"}
+            confirmLabel={suspendTarget?.status === "SUSPENDED" ? t.users.reactivate : t.users.suspend}
             variant={suspendTarget?.status === "SUSPENDED" ? "default" : "destructive"}
             loading={suspending}
             onConfirm={handleToggleSuspend}

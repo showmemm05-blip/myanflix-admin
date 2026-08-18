@@ -6,7 +6,6 @@ export interface Transaction {
   id: string;
   userId: string;
   userName: string;
-  userAvatarUrl: string;
   movieId: string | null;
   movieTitle: string | null;
   type: TransactionType;

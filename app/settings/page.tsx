@@ -15,58 +15,59 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRole } from "@/lib/context/role-context";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/context/language-context";
 
 export default function SettingsPage() {
+  const { t } = useLanguage();
   const { currentUser, role } = useRole();
   const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState(currentUser.email);
+  const [phone, setPhone] = useState(currentUser.phone ?? "");
 
-  const [emailAlerts, setEmailAlerts] = useState(true);
   const [paymentAlerts, setPaymentAlerts] = useState(true);
   const [newUserAlerts, setNewUserAlerts] = useState(role !== "USER");
   const [contentAlerts, setContentAlerts] = useState(true);
 
   const handleSaveProfile = () => {
-    toast.success("Profile updated", { description: "Your changes have been saved." });
+    toast.success(t.settings.profile.updatedToast, { description: t.settings.profile.updatedDescription });
   };
 
   const handleSaveNotifications = () => {
-    toast.success("Notification preferences saved");
+    toast.success(t.settings.notifications.savedToast);
   };
 
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN", "USER"]}
-      title="Settings"
-      description="Manage your account and platform preferences."
+      title={t.settings.page.title}
+      description={t.settings.page.description}
     >
       <div>
-      <PageHeader title="Settings" description="Manage your account and platform preferences." />
+      <PageHeader title={t.settings.page.title} description={t.settings.page.description} />
 
       <Tabs defaultValue="profile">
         <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="profile">{t.settings.tabs.profile}</TabsTrigger>
+          <TabsTrigger value="notifications">{t.settings.tabs.notifications}</TabsTrigger>
+          <TabsTrigger value="appearance">{t.settings.tabs.appearance}</TabsTrigger>
+          <TabsTrigger value="security">{t.settings.tabs.security}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
-          <Card className="glass-card max-w-2xl border-white/[0.08]">
+          <Card className="glass-card max-w-2xl">
             <CardHeader>
-              <CardTitle>Profile information</CardTitle>
-              <CardDescription>Update your account details.</CardDescription>
+              <CardTitle>{t.settings.profile.cardTitle}</CardTitle>
+              <CardDescription>{t.settings.profile.cardDescription}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-5">
               <div className="flex items-center gap-4">
                 <Avatar className="size-16 border border-border">
-                  <AvatarImage src={currentUser.avatarUrl} alt={currentUser.name} />
+                  <AvatarImage src={currentUser.avatarUrl ?? undefined} alt={currentUser.name} />
                   <AvatarFallback>{currentUser.name.slice(0, 2)}</AvatarFallback>
                 </Avatar>
                 <div>
                   <RoleBadge role={role} />
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Role changes are managed from Roles &amp; Permissions.
+                    {t.settings.profile.roleNote}
                   </p>
                 </div>
               </div>
@@ -75,46 +76,41 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="settings-name">Full name</Label>
+                  <Label htmlFor="settings-name">{t.settings.profile.fullNameLabel}</Label>
                   <Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="settings-email">Email address</Label>
+                  <Label htmlFor="settings-phone">{t.settings.profile.phoneLabel}</Label>
                   <Input
-                    id="settings-email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="settings-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                   />
                 </div>
               </div>
 
               <div>
-                <Button onClick={handleSaveProfile}>Save changes</Button>
+                <Button onClick={handleSaveProfile}>{t.settings.profile.saveChanges}</Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="notifications" className="mt-6">
-          <Card className="glass-card max-w-2xl border-white/[0.08]">
+          <Card className="glass-card max-w-2xl">
             <CardHeader>
-              <CardTitle>Notification preferences</CardTitle>
-              <CardDescription>Choose what you want to be notified about.</CardDescription>
+              <CardTitle>{t.settings.notifications.cardTitle}</CardTitle>
+              <CardDescription>{t.settings.notifications.cardDescription}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col divide-y divide-white/[0.08]">
-              <div className="flex items-center justify-between py-3 first:pt-0">
-                <div>
-                  <p className="text-sm font-medium">Email alerts</p>
-                  <p className="text-xs text-muted-foreground">Receive account activity by email</p>
-                </div>
-                <Switch checked={emailAlerts} onCheckedChange={setEmailAlerts} />
-              </div>
+            <CardContent className="flex flex-col divide-y divide-border">
               {role !== "USER" && (
-                <div className="flex items-center justify-between py-3">
+                <div className="flex items-center justify-between py-3 first:pt-0">
                   <div>
-                    <p className="text-sm font-medium">Payment alerts</p>
-                    <p className="text-xs text-muted-foreground">Get notified about new transactions</p>
+                    <p className="text-sm font-medium">{t.settings.notifications.paymentAlertsLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.settings.notifications.paymentAlertsDescription}
+                    </p>
                   </div>
                   <Switch checked={paymentAlerts} onCheckedChange={setPaymentAlerts} />
                 </div>
@@ -122,45 +118,47 @@ export default function SettingsPage() {
               {role !== "USER" && (
                 <div className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-medium">New user signups</p>
-                    <p className="text-xs text-muted-foreground">Alert when a new user registers</p>
+                    <p className="text-sm font-medium">{t.settings.notifications.newUserAlertsLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.settings.notifications.newUserAlertsDescription}
+                    </p>
                   </div>
                   <Switch checked={newUserAlerts} onCheckedChange={setNewUserAlerts} />
                 </div>
               )}
-              <div className="flex items-center justify-between py-3 last:pb-0">
+              <div className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                 <div>
-                  <p className="text-sm font-medium">Content updates</p>
+                  <p className="text-sm font-medium">{t.settings.notifications.contentAlertsLabel}</p>
                   <p className="text-xs text-muted-foreground">
                     {role === "USER"
-                      ? "New releases in your favorite genres"
-                      : "Upload, processing and publish status changes"}
+                      ? t.settings.notifications.contentAlertsDescriptionUser
+                      : t.settings.notifications.contentAlertsDescriptionStaff}
                   </p>
                 </div>
                 <Switch checked={contentAlerts} onCheckedChange={setContentAlerts} />
               </div>
               <div className="pt-4">
-                <Button onClick={handleSaveNotifications}>Save preferences</Button>
+                <Button onClick={handleSaveNotifications}>{t.settings.notifications.savePreferences}</Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="appearance" className="mt-6">
-          <Card className="glass-card max-w-2xl border-white/[0.08]">
+          <Card className="glass-card max-w-2xl">
             <CardHeader>
-              <CardTitle>Appearance</CardTitle>
-              <CardDescription>MyanFlix Admin is designed for a premium dark experience.</CardDescription>
+              <CardTitle>{t.settings.appearance.cardTitle}</CardTitle>
+              <CardDescription>{t.settings.appearance.cardDescription}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between rounded-lg border border-border p-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-full bg-primary/15 text-primary">
+                  <div className="flex size-9 items-center justify-center rounded-full bg-primary/12 text-primary">
                     <Moon className="size-4.5" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium">Dark theme</p>
-                    <p className="text-xs text-muted-foreground">Locked for this admin dashboard</p>
+                    <p className="text-sm font-medium">{t.settings.appearance.darkThemeLabel}</p>
+                    <p className="text-xs text-muted-foreground">{t.settings.appearance.darkThemeDescription}</p>
                   </div>
                 </div>
                 <Switch checked disabled />
@@ -170,33 +168,32 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="security" className="mt-6">
-          <Card className="glass-card max-w-2xl border-white/[0.08]">
+          <Card className="glass-card max-w-2xl">
             <CardHeader>
-              <CardTitle>Security</CardTitle>
-              <CardDescription>Password and authentication settings.</CardDescription>
+              <CardTitle>{t.settings.security.cardTitle}</CardTitle>
+              <CardDescription>{t.settings.security.cardDescription}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 p-3 text-sm text-muted-foreground">
+              <div className="flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm text-muted-foreground">
                 <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                Authentication isn&apos;t connected yet in this preview build. These fields are for layout
-                purposes only.
+                {t.settings.security.previewNotice}
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="current-password">Current password</Label>
+                <Label htmlFor="current-password">{t.settings.security.currentPasswordLabel}</Label>
                 <Input id="current-password" type="password" placeholder="••••••••" disabled />
               </div>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="new-password">New password</Label>
+                  <Label htmlFor="new-password">{t.settings.security.newPasswordLabel}</Label>
                   <Input id="new-password" type="password" placeholder="••••••••" disabled />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="confirm-password">Confirm password</Label>
+                  <Label htmlFor="confirm-password">{t.settings.security.confirmPasswordLabel}</Label>
                   <Input id="confirm-password" type="password" placeholder="••••••••" disabled />
                 </div>
               </div>
               <div>
-                <Button disabled>Update password</Button>
+                <Button disabled>{t.settings.security.updatePassword}</Button>
               </div>
             </CardContent>
           </Card>

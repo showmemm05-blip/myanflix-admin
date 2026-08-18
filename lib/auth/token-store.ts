@@ -6,7 +6,6 @@ const USER_KEY = "myanflix_user";
 
 export interface StoredUser {
   id: string;
-  email: string;
   username: string;
   role: UserRole;
 }

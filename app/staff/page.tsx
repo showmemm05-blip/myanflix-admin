@@ -15,6 +15,7 @@ import { EditStaffDialog } from "@/components/staff/EditStaffDialog";
 import { ResetPasswordDialog } from "@/components/staff/ResetPasswordDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { staffService } from "@/services/api/staffService";
 import { ApiError } from "@/services/api/apiClient";
 import type { StaffMember } from "@/types/staff";
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 
 export default function StaffPage() {
   const { currentUser } = useRole();
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(() => staffService.getStaff(), []);
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const activeStaff = staff ?? data ?? [];
@@ -41,12 +43,15 @@ export default function StaffPage() {
     try {
       const updated = await staffService.updateStatus(statusTarget.id, nextStatus);
       setStaff(activeStaff.map((s) => (s.id === updated.id ? updated : s)));
-      toast.success(nextStatus === "SUSPENDED" ? "Account deactivated" : "Account activated", {
-        description: `${statusTarget.username} is now ${nextStatus === "SUSPENDED" ? "inactive" : "active"}.`,
+      toast.success(nextStatus === "SUSPENDED" ? t.staff.deactivatedToast : t.staff.activatedToast, {
+        description:
+          nextStatus === "SUSPENDED"
+            ? t.staff.deactivatedDescription(statusTarget.username)
+            : t.staff.activatedDescription(statusTarget.username),
       });
       setStatusTarget(null);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
     } finally {
       setStatusSubmitting(false);
     }
@@ -58,16 +63,17 @@ export default function StaffPage() {
     try {
       await staffService.deleteStaff(deleteTarget.id);
       setStaff(activeStaff.filter((s) => s.id !== deleteTarget.id));
-      toast.success("Staff account deleted", { description: `${deleteTarget.username} has been removed.` });
+      toast.success(t.staff.deletedToast, { description: t.staff.deletedDescription(deleteTarget.username) });
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
     } finally {
       setDeleteSubmitting(false);
     }
   };
 
   const columns = getStaffColumns({
+    t,
     currentUserId: currentUser.id,
     onEdit: setEditTarget,
     onResetPassword: setResetTarget,
@@ -76,21 +82,21 @@ export default function StaffPage() {
   });
 
   return (
-    <RequireRole allow={["SUPER_ADMIN"]} title="Staff" description="Manage admin dashboard staff accounts.">
+    <RequireRole allow={["SUPER_ADMIN"]} title={t.staff.page.title} description={t.staff.page.descriptionShort}>
       {error ? (
         <div>
-          <PageHeader title="Staff" description="Manage admin dashboard staff accounts." />
-          <ErrorState description="We couldn't load the staff list." onRetry={refetch} />
+          <PageHeader title={t.staff.page.title} description={t.staff.page.descriptionShort} />
+          <ErrorState description={t.staff.page.loadError} onRetry={refetch} />
         </div>
       ) : (
         <div>
           <PageHeader
-            title="Staff"
-            description="Create and manage Super Admin, Admin, and Content Uploader accounts."
+            title={t.staff.page.title}
+            description={t.staff.page.description}
             actions={
               <Button onClick={() => setCreateOpen(true)}>
                 <Plus className="size-4" />
-                Create Staff
+                {t.staff.page.createStaff}
               </Button>
             }
           />
@@ -98,8 +104,8 @@ export default function StaffPage() {
           {!isLoading && activeStaff.length === 0 ? (
             <EmptyState
               icon={UserCog}
-              title="No staff accounts yet"
-              description="Create a staff account to give someone access to this dashboard."
+              title={t.staff.page.emptyTitle}
+              description={t.staff.page.emptyDescription}
             />
           ) : (
             <DataTable
@@ -107,7 +113,7 @@ export default function StaffPage() {
               data={activeStaff}
               isLoading={isLoading}
               searchKey="username"
-              searchPlaceholder="Search staff by username..."
+              searchPlaceholder={t.staff.page.searchPlaceholder}
             />
           )}
 
@@ -134,13 +140,13 @@ export default function StaffPage() {
           <ConfirmDialog
             open={!!statusTarget}
             onOpenChange={(o) => !o && setStatusTarget(null)}
-            title={statusTarget?.status === "SUSPENDED" ? "Activate this account?" : "Deactivate this account?"}
+            title={statusTarget?.status === "SUSPENDED" ? t.staff.activateTitle : t.staff.deactivateTitle}
             description={
               statusTarget?.status === "SUSPENDED"
-                ? `${statusTarget?.username} will regain access to the dashboard.`
-                : `${statusTarget?.username} will immediately lose access to the dashboard.`
+                ? t.staff.activateDescription(statusTarget?.username ?? "")
+                : t.staff.deactivateDescription(statusTarget?.username ?? "")
             }
-            confirmLabel={statusTarget?.status === "SUSPENDED" ? "Activate" : "Deactivate"}
+            confirmLabel={statusTarget?.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
             variant={statusTarget?.status === "SUSPENDED" ? "default" : "destructive"}
             loading={statusSubmitting}
             onConfirm={handleToggleStatus}
@@ -149,9 +155,9 @@ export default function StaffPage() {
           <ConfirmDialog
             open={!!deleteTarget}
             onOpenChange={(o) => !o && setDeleteTarget(null)}
-            title="Delete this staff account?"
-            description={`${deleteTarget?.username} will permanently lose access to the dashboard. This action cannot be undone.`}
-            confirmLabel="Delete"
+            title={t.staff.deleteTitle}
+            description={t.staff.deleteDescription(deleteTarget?.username ?? "")}
+            confirmLabel={t.common.delete}
             variant="destructive"
             loading={deleteSubmitting}
             onConfirm={handleDelete}

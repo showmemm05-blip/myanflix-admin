@@ -13,12 +13,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { ApiError } from "@/services/api/apiClient";
 import { financeSettingsService } from "@/services/api/financeSettingsService";
 import type { FinanceSettings } from "@/types/finance-settings";
 import { toast } from "sonner";
 
 function LimitsPageContent() {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(
     () => financeSettingsService.get(),
     [],
@@ -63,9 +65,9 @@ function LimitsPageContent() {
       setMaxDepositOverride(null);
       setMinWithdrawalOverride(null);
       setMaxWithdrawalOverride(null);
-      toast.success("Limits updated");
+      toast.success(t.finance.limits.updatedToast);
     } catch (err) {
-      setSaveError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setSaveError(err instanceof ApiError ? err.message : t.login.genericError);
     } finally {
       setSaving(false);
     }
@@ -75,10 +77,10 @@ function LimitsPageContent() {
     return (
       <div>
         <PageHeader
-          title="Deposit & Withdrawal Limits"
-          description="Control the minimum and maximum amounts users can deposit or withdraw."
+          title={t.finance.limits.title}
+          description={t.finance.limits.description}
         />
-        <ErrorState description="We couldn't load the current limits." onRetry={refetch} />
+        <ErrorState description={t.finance.limits.loadError} onRetry={refetch} />
       </div>
     );
   }
@@ -86,14 +88,14 @@ function LimitsPageContent() {
   return (
     <div>
       <PageHeader
-        title="Deposit & Withdrawal Limits"
-        description="Control the minimum and maximum amounts users can deposit or withdraw."
+        title={t.finance.limits.title}
+        description={t.finance.limits.description}
       />
 
       {isLoading ? (
         <div className="flex flex-col gap-4">
-          <Skeleton className="h-48 rounded-xl" />
-          <Skeleton className="h-48 rounded-xl" />
+          <Skeleton className="h-48 rounded-lg" />
+          <Skeleton className="h-48 rounded-lg" />
         </div>
       ) : (
         <div className="flex flex-col gap-4">
@@ -103,14 +105,14 @@ function LimitsPageContent() {
             </Alert>
           )}
 
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Deposit Limits</CardTitle>
+              <CardTitle>{t.finance.limits.depositLimitsTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="min-deposit">Minimum Deposit Amount (Ks)</Label>
+                  <Label htmlFor="min-deposit">{t.finance.limits.minDepositLabel}</Label>
                   <Input
                     id="min-deposit"
                     type="number"
@@ -121,7 +123,7 @@ function LimitsPageContent() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="max-deposit">Maximum Deposit Amount (Ks)</Label>
+                  <Label htmlFor="max-deposit">{t.finance.limits.maxDepositLabel}</Label>
                   <Input
                     id="max-deposit"
                     type="number"
@@ -134,20 +136,20 @@ function LimitsPageContent() {
               </div>
               {depositInvalid && (
                 <p className="mt-2 text-sm text-destructive">
-                  Minimum deposit amount cannot be greater than the maximum.
+                  {t.finance.limits.depositInvalid}
                 </p>
               )}
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Withdrawal Limits</CardTitle>
+              <CardTitle>{t.finance.limits.withdrawalLimitsTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="min-withdrawal">Minimum Withdrawal Amount (Ks)</Label>
+                  <Label htmlFor="min-withdrawal">{t.finance.limits.minWithdrawalLabel}</Label>
                   <Input
                     id="min-withdrawal"
                     type="number"
@@ -158,7 +160,7 @@ function LimitsPageContent() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="max-withdrawal">Maximum Withdrawal Amount (Ks)</Label>
+                  <Label htmlFor="max-withdrawal">{t.finance.limits.maxWithdrawalLabel}</Label>
                   <Input
                     id="max-withdrawal"
                     type="number"
@@ -171,7 +173,7 @@ function LimitsPageContent() {
               </div>
               {withdrawalInvalid && (
                 <p className="mt-2 text-sm text-destructive">
-                  Minimum withdrawal amount cannot be greater than the maximum.
+                  {t.finance.limits.withdrawalInvalid}
                 </p>
               )}
             </CardContent>
@@ -180,12 +182,15 @@ function LimitsPageContent() {
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">
               {settings?.updatedBy
-                ? `Last updated by ${settings.updatedBy.username} on ${format(new Date(settings.updatedAt), "MMM d, yyyy 'at' h:mm a")}`
-                : "Not yet customized — showing default limits."}
+                ? t.finance.limits.lastUpdatedBy(
+                    settings.updatedBy.username,
+                    format(new Date(settings.updatedAt), "d MMM yyyy, HH:mm:ss"),
+                  )
+                : t.finance.limits.notCustomized}
             </p>
             <Button onClick={handleSave} disabled={saving || !canSave}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              Save changes
+              {t.finance.limits.saveChanges}
             </Button>
           </div>
         </div>
@@ -195,11 +200,12 @@ function LimitsPageContent() {
 }
 
 export default function LimitsPage() {
+  const { t } = useLanguage();
   return (
     <RequireRole
       allow={["SUPER_ADMIN"]}
-      title="Deposit & Withdrawal Limits"
-      description="Control the minimum and maximum amounts users can deposit or withdraw."
+      title={t.finance.limits.title}
+      description={t.finance.limits.description}
     >
       <LimitsPageContent />
     </RequireRole>

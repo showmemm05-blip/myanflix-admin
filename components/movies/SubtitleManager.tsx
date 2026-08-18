@@ -6,12 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { subtitleService } from "@/services/api/subtitleService";
 import type { Subtitle } from "@/types/subtitle";
 import { toast } from "sonner";
 
 /** Managed for an existing Video — subtitles attach to the video, not the movie, so this only renders once a video exists (see EditMovieDialog). */
 export function SubtitleManager({ videoId }: { videoId: string }) {
+  const { t } = useLanguage();
   const { data: subtitles, isLoading, refetch } = useAsyncData(
     () => subtitleService.getForVideo(videoId),
     [videoId],
@@ -26,7 +28,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
 
   const handleUpload = async () => {
     if (!file || !language.trim() || !label.trim()) {
-      toast.error("A subtitle file, language code, and label are all required.");
+      toast.error(t.movies.subtitles.missingFieldsToast);
       return;
     }
     setUploading(true);
@@ -37,9 +39,9 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
       setLabel("");
       setIsDefault(false);
       refetch();
-      toast.success("Subtitle uploaded");
+      toast.success(t.movies.subtitles.uploadedToast);
     } catch (err) {
-      toast.error("Couldn't upload subtitle", { description: err instanceof Error ? err.message : undefined });
+      toast.error(t.movies.subtitles.uploadFailedToast, { description: err instanceof Error ? err.message : undefined });
     } finally {
       setUploading(false);
     }
@@ -51,7 +53,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
       await subtitleService.setDefault(subtitle.id);
       refetch();
     } catch {
-      toast.error("Couldn't set default subtitle");
+      toast.error(t.movies.subtitles.setDefaultFailedToast);
     } finally {
       setBusyId(null);
     }
@@ -62,17 +64,17 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
     try {
       await subtitleService.remove(subtitle.id);
       refetch();
-      toast.success("Subtitle removed");
+      toast.success(t.movies.subtitles.removedToast);
     } catch {
-      toast.error("Couldn't remove subtitle");
+      toast.error(t.movies.subtitles.removeFailedToast);
     } finally {
       setBusyId(null);
     }
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-white/[0.08] p-3">
-      <p className="text-sm font-medium">Subtitles</p>
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <p className="text-sm font-medium">{t.movies.subtitles.title}</p>
 
       {isLoading ? (
         <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -82,7 +84,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
             <div key={s.id} className="flex items-center justify-between gap-2 rounded-md bg-secondary/30 px-2.5 py-1.5 text-sm">
               <span className="truncate">
                 {s.label} ({s.language}) · {s.format}
-                {s.isDefault && <span className="ml-1.5 text-xs text-primary">default</span>}
+                {s.isDefault && <span className="ml-1.5 text-xs text-primary">{t.movies.subtitles.default}</span>}
               </span>
               <div className="flex shrink-0 items-center gap-1">
                 {!s.isDefault && (
@@ -91,7 +93,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
                     variant="ghost"
                     disabled={busyId === s.id}
                     onClick={() => handleSetDefault(s)}
-                    title="Set as default"
+                    title={t.movies.subtitles.setAsDefault}
                   >
                     <Star className="size-3.5" />
                   </Button>
@@ -102,7 +104,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
                   variant="ghost"
                   disabled={busyId === s.id}
                   onClick={() => handleDelete(s)}
-                  title="Delete"
+                  title={t.common.delete}
                 >
                   <Trash2 className="size-3.5 text-destructive" />
                 </Button>
@@ -111,7 +113,7 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
           ))}
         </div>
       ) : (
-        <p className="text-xs text-muted-foreground">No subtitles uploaded yet.</p>
+        <p className="text-xs text-muted-foreground">{t.movies.subtitles.empty}</p>
       )}
 
       <div className="grid grid-cols-2 gap-2">
@@ -122,21 +124,21 @@ export function SubtitleManager({ videoId }: { videoId: string }) {
           className="col-span-2"
         />
         <div className="flex flex-col gap-1">
-          <Label className="text-xs">Language code</Label>
+          <Label className="text-xs">{t.movies.subtitles.languageCodeLabel}</Label>
           <Input placeholder="en" value={language} onChange={(e) => setLanguage(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
-          <Label className="text-xs">Label</Label>
+          <Label className="text-xs">{t.movies.subtitles.labelField}</Label>
           <Input placeholder="English" value={label} onChange={(e) => setLabel(e.target.value)} />
         </div>
         <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={isDefault} onChange={(e) => setIsDefault(e.target.checked)} />
-          Set as default
+          {t.movies.subtitles.setAsDefault}
         </label>
       </div>
       <Button size="sm" variant="outline" onClick={handleUpload} disabled={uploading}>
         {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
-        Upload subtitle
+        {t.movies.subtitles.uploadSubtitle}
       </Button>
     </div>
   );

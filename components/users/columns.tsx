@@ -16,6 +16,7 @@ import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AppUser, UserStatus } from "@/types/user";
 
 const STATUS_TONE: Record<UserStatus, StatusTone> = {
@@ -25,12 +26,14 @@ const STATUS_TONE: Record<UserStatus, StatusTone> = {
 };
 
 interface GetUserColumnsOptions {
+  t: TranslationShape;
   canManage: boolean;
   onEditRole: (user: AppUser) => void;
   onToggleSuspend: (user: AppUser) => void;
 }
 
 export function getUserColumns({
+  t,
   canManage,
   onEditRole,
   onToggleSuspend,
@@ -38,13 +41,13 @@ export function getUserColumns({
   const columns: ColumnDef<AppUser>[] = [
     {
       accessorKey: "name",
-      header: "Username",
+      header: t.users.columns.username,
       cell: ({ row }) => {
         const user = row.original;
         return (
           <div className="flex items-center gap-2.5">
             <Avatar className="size-8 border border-border">
-              <AvatarImage src={user.avatarUrl} alt={user.name} />
+              <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
               <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <span className="max-w-36 truncate font-medium">{user.name}</span>
@@ -54,7 +57,7 @@ export function getUserColumns({
     },
     {
       accessorKey: "phone",
-      header: "Phone",
+      header: t.users.columns.phone,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatLocalPhone(row.original.phone) ?? "—"}
@@ -63,43 +66,43 @@ export function getUserColumns({
     },
     {
       accessorKey: "role",
-      header: "Role",
+      header: t.users.columns.role,
       cell: ({ row }) => <RoleBadge role={row.original.role} />,
     },
     {
       accessorKey: "balance",
-      header: "Balance",
+      header: t.users.columns.balance,
       cell: ({ row }) => <span className="tabular-nums">{formatKyat(row.original.balance)}</span>,
     },
     {
       accessorKey: "isSubscribed",
-      header: "Subscription",
+      header: t.users.columns.subscription,
       cell: ({ row }) =>
         row.original.isSubscribed ? (
-          <StatusBadge label="Active" tone="success" />
+          <StatusBadge label={t.common.active} tone="success" />
         ) : (
-          <StatusBadge label="Not subscribed" tone="neutral" />
+          <StatusBadge label={t.dashboard.notSubscribed} tone="neutral" />
         ),
     },
     {
       accessorKey: "totalSpent",
-      header: "Total Spending",
+      header: t.users.columns.totalSpending,
       cell: ({ row }) => (
         <span className="font-medium tabular-nums">{formatKyat(row.original.totalSpent)}</span>
       ),
     },
     {
       accessorKey: "joinDate",
-      header: "Join Date",
+      header: t.users.columns.joinDate,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.joinDate), "MMM d, yyyy")}
+          {format(new Date(row.original.joinDate), "d MMM yyyy")}
         </span>
       ),
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: t.users.columns.status,
       cell: ({ row }) => (
         <StatusBadge label={row.original.status} tone={STATUS_TONE[row.original.status]} />
       ),
@@ -119,13 +122,13 @@ export function getUserColumns({
           <DropdownMenuContent align="end">
             <DropdownMenuItem render={<Link href={`/users/${user.id}`} />}>
               <UserRound className="size-4" />
-              View Profile
+              {t.users.columns.viewProfile}
             </DropdownMenuItem>
             {canManage && (
               <>
                 <DropdownMenuItem onClick={() => onEditRole(user)}>
                   <ShieldCheck className="size-4" />
-                  Edit Role
+                  {t.users.columns.editRole}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   variant={user.status === "SUSPENDED" ? undefined : "destructive"}
@@ -136,7 +139,7 @@ export function getUserColumns({
                   ) : (
                     <Ban className="size-4" />
                   )}
-                  {user.status === "SUSPENDED" ? "Reactivate User" : "Suspend User"}
+                  {user.status === "SUSPENDED" ? t.users.columns.reactivateUser : t.users.columns.suspendUser}
                 </DropdownMenuItem>
               </>
             )}

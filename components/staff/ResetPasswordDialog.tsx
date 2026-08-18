@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useLanguage } from "@/lib/context/language-context";
 import { ApiError } from "@/services/api/apiClient";
 import { staffService } from "@/services/api/staffService";
 import type { StaffMember } from "@/types/staff";
@@ -26,6 +27,7 @@ function ResetPasswordForm({
   staff: StaffMember;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLanguage();
   const [newPassword, setNewPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -35,10 +37,12 @@ function ResetPasswordForm({
     setSaving(true);
     try {
       await staffService.resetPassword(staff.id, newPassword);
-      toast.success("Password reset", { description: `${staff.username}'s password has been changed.` });
+      toast.success(t.staff.resetPasswordDialog.resetToast, {
+        description: t.staff.resetPasswordDialog.resetDescription(staff.username),
+      });
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof ApiError ? err.message : t.login.genericError);
     } finally {
       setSaving(false);
     }
@@ -47,8 +51,8 @@ function ResetPasswordForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Reset password</DialogTitle>
-        <DialogDescription>Set a new password for {staff.username}.</DialogDescription>
+        <DialogTitle>{t.staff.resetPasswordDialog.title}</DialogTitle>
+        <DialogDescription>{t.staff.resetPasswordDialog.descriptionFor(staff.username)}</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-3">
@@ -58,25 +62,25 @@ function ResetPasswordForm({
           </Alert>
         )}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reset-staff-password">New password</Label>
+          <Label htmlFor="reset-staff-password">{t.staff.resetPasswordDialog.newPasswordLabel}</Label>
           <Input
             id="reset-staff-password"
             type="password"
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            placeholder="••••••••"
+            placeholder={t.staff.resetPasswordDialog.passwordPlaceholder}
           />
         </div>
       </div>
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button onClick={handleReset} disabled={saving || newPassword.length < 8}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Reset password
+          {t.staff.resetPasswordDialog.resetPassword}
         </Button>
       </DialogFooter>
     </>

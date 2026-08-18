@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
@@ -42,24 +43,25 @@ function DashboardSkeleton() {
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-28 rounded-lg" />
         ))}
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Skeleton className="h-96 rounded-xl lg:col-span-2" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-96 rounded-lg lg:col-span-2" />
+        <Skeleton className="h-96 rounded-lg" />
       </div>
-      <Skeleton className="h-80 rounded-xl" />
+      <Skeleton className="h-80 rounded-lg" />
     </div>
   );
 }
 
 export function AdminDashboard({ role }: { role: UserRole }) {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(loadDashboardData, []);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error || !data) {
-    return <ErrorState description="We couldn't load the dashboard analytics." onRetry={refetch} />;
+    return <ErrorState description={t.dashboard.loadErrorAdmin} onRetry={refetch} />;
   }
 
   const { summary, revenue, growth, movieAnalytics, recentTransactions, recentUsers } = data;
@@ -68,35 +70,51 @@ export function AdminDashboard({ role }: { role: UserRole }) {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <DashboardCard title="Total Movies" value={summary.totalMovies.toLocaleString()} icon={Film} />
-        <DashboardCard title="Total Users" value={summary.totalUsers.toLocaleString()} icon={UsersIcon} />
         <DashboardCard
-          title="Active Users"
+          title={t.dashboard.totalMovies}
+          value={summary.totalMovies.toLocaleString()}
+          icon={Film}
+          iconClassName="bg-chart-5/15 text-chart-5"
+        />
+        <DashboardCard
+          title={t.dashboard.totalUsers}
+          value={summary.totalUsers.toLocaleString()}
+          icon={UsersIcon}
+          iconClassName="bg-info/15 text-info"
+        />
+        <DashboardCard
+          title={t.dashboard.activeUsers}
           value={summary.activeUsers.toLocaleString()}
           icon={UserCheck}
+          iconClassName="bg-info/15 text-info"
         />
         {canViewFinance ? (
           <>
             <DashboardCard
-              title="Total Revenue"
+              title={t.dashboard.totalRevenue}
               value={formatKyat(summary.totalRevenue)}
               icon={Banknote}
             />
             <DashboardCard
-              title="Monthly Revenue"
+              title={t.dashboard.monthlyRevenue}
               value={formatKyat(summary.monthlyRevenue)}
               icon={TrendingUp}
             />
           </>
         ) : (
-          <Card className="glass-card col-span-1 border-white/[0.08] sm:col-span-2">
+          <Card className="glass-card col-span-1 sm:col-span-2">
             <CardContent className="flex h-full items-center justify-center gap-2 p-5 text-center text-sm text-muted-foreground">
               <Lock className="size-4" />
-              Revenue figures are restricted to Super Admin
+              {t.dashboard.revenueRestricted}
             </CardContent>
           </Card>
         )}
-        <DashboardCard title="Total Views" value={summary.totalViews.toLocaleString()} icon={Eye} />
+        <DashboardCard
+          title={t.dashboard.totalViews}
+          value={summary.totalViews.toLocaleString()}
+          icon={Eye}
+          iconClassName="bg-chart-5/15 text-chart-5"
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -104,14 +122,14 @@ export function AdminDashboard({ role }: { role: UserRole }) {
           {canViewFinance ? (
             <RevenueChart daily={revenue.daily} weekly={revenue.weekly} monthly={revenue.monthly} />
           ) : (
-            <Card className="glass-card h-full border-white/[0.08]">
+            <Card className="glass-card h-full">
               <CardHeader>
-                <CardTitle>Revenue</CardTitle>
+                <CardTitle>{t.dashboard.revenue}</CardTitle>
               </CardHeader>
               <CardContent className="flex h-72 flex-col items-center justify-center gap-2 text-center">
                 <Lock className="size-6 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Detailed revenue analytics are limited to Super Admin.
+                  {t.dashboard.revenueRestrictedDetail}
                 </p>
               </CardContent>
             </Card>
@@ -126,17 +144,17 @@ export function AdminDashboard({ role }: { role: UserRole }) {
       />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
+            <CardTitle>{t.dashboard.recentTransactions}</CardTitle>
           </CardHeader>
           <CardContent>
             <RecentTransactionsTable transactions={recentTransactions} />
           </CardContent>
         </Card>
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Recent Users</CardTitle>
+            <CardTitle>{t.dashboard.recentUsers}</CardTitle>
           </CardHeader>
           <CardContent>
             <RecentUsersTable users={recentUsers} />

@@ -4,10 +4,6 @@ import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { FinanceSummary, RevenuePoint } from "@/types/analytics";
 import type { Transaction, TransactionStatus, TransactionType } from "@/types/transaction";
 
-function avatarFor(username: string) {
-  return `https://i.pravatar.cc/150?u=${encodeURIComponent(username)}`;
-}
-
 interface BackendTransactionSelf {
   id: string;
   userId: string;
@@ -20,7 +16,7 @@ interface BackendTransactionSelf {
 }
 
 interface BackendTransactionAdmin extends BackendTransactionSelf {
-  user: { id: string; username: string; email: string } | null;
+  user: { id: string; username: string } | null;
 }
 
 function mapSelfTransaction(t: BackendTransactionSelf, selfUsername: string): Transaction {
@@ -28,7 +24,6 @@ function mapSelfTransaction(t: BackendTransactionSelf, selfUsername: string): Tr
     id: t.id,
     userId: t.userId,
     userName: selfUsername,
-    userAvatarUrl: avatarFor(selfUsername),
     movieId: t.movieId,
     movieTitle: t.movieTitle,
     type: t.type,
@@ -44,7 +39,6 @@ function mapAdminTransaction(t: BackendTransactionAdmin): Transaction {
     id: t.id,
     userId: t.userId,
     userName: username,
-    userAvatarUrl: avatarFor(username),
     movieId: t.movieId,
     movieTitle: t.movieTitle,
     type: t.type,

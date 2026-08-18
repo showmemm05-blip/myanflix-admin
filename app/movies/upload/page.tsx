@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useUploads, type PublishInput } from "@/lib/context/upload-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
@@ -40,15 +41,6 @@ const STAGE_ORDER: UploadStage[] = [
   "processing",
   "published",
 ];
-const STAGE_LABEL: Record<UploadStage, string> = {
-  idle: "Idle",
-  "uploading-images": "Uploading images",
-  "creating-movie": "Creating movie",
-  "uploading-video": "Uploading video",
-  processing: "Processing video",
-  published: "Published",
-  error: "Error",
-};
 
 /** Rough multiplier of the source video's own length — sequential multi-tier HLS transcoding on typical dev hardware. */
 const PROCESSING_ESTIMATE_MULTIPLIER = 1;
@@ -80,8 +72,19 @@ function formatTimeRemaining(totalSeconds: number): string {
 }
 
 export default function UploadMoviePage() {
+  const { t } = useLanguage();
   const { data: categories } = useAsyncData(movieService.getCategories, []);
   const { tasks, startPublish } = useUploads();
+
+  const STAGE_LABEL: Record<UploadStage, string> = {
+    idle: t.movies.upload.stage.idle,
+    "uploading-images": t.movies.upload.stage.uploadingImages,
+    "creating-movie": t.movies.upload.stage.creatingMovie,
+    "uploading-video": t.movies.upload.stage.uploadingVideo,
+    processing: t.movies.upload.stage.processing,
+    published: t.movies.upload.stage.published,
+    error: t.movies.upload.stage.error,
+  };
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -140,9 +143,8 @@ export default function UploadMoviePage() {
       !posterFile ||
       !videoFile
     ) {
-      toast.error("Missing required fields", {
-        description:
-          "Title, description, genre, a poster and a video file are required.",
+      toast.error(t.movies.upload.missingFieldsToast, {
+        description: t.movies.upload.missingFieldsDescription,
       });
       return;
     }
@@ -165,18 +167,18 @@ export default function UploadMoviePage() {
     setTaskId(id);
     done
       .then(() => {
-        toast.success("Movie published", {
-          description: `"${title}" is now live on MyanFlix.`,
+        toast.success(t.movies.publishedToast, {
+          description: t.movies.publishedDescription(title),
         });
       })
       .catch((err) => {
-        toast.error(err instanceof Error ? err.message : "Publish failed");
+        toast.error(err instanceof Error ? err.message : t.movies.upload.publishFailedFallback);
       });
   };
 
   const handleSaveDraft = async () => {
     if (!title.trim() || !genre) {
-      toast.error("Title and genre are required to save a draft.");
+      toast.error(t.movies.upload.draftMissingFields);
       return;
     }
     try {
@@ -198,12 +200,12 @@ export default function UploadMoviePage() {
         posterUrl,
         coverUrl,
       });
-      toast.success("Draft saved", {
-        description: `"${title}" was saved to Movies as a draft.`,
+      toast.success(t.movies.upload.draftSavedToast, {
+        description: t.movies.upload.draftSavedDescription(title),
       });
       resetForm();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save draft");
+      toast.error(err instanceof Error ? err.message : t.movies.upload.failedToSaveDraft);
     }
   };
 
@@ -227,29 +229,28 @@ export default function UploadMoviePage() {
     return (
       <div>
         <PageHeader
-          title="Upload Movie"
-          description="Add a new title to the MyanFlix catalog."
+          title={t.movies.uploadMovie}
+          description={t.movies.upload.description}
         />
-        <Card className="glass-card mx-auto max-w-md border-white/[0.08]">
+        <Card className="glass-card mx-auto max-w-md">
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-            <div className="flex size-14 items-center justify-center rounded-full bg-success/15 text-success">
+            <div className="flex size-14 items-center justify-center rounded-full bg-success/12 text-success">
               <PartyPopper className="size-7" />
             </div>
             <div>
               <p className="text-lg font-semibold">
-                &ldquo;{activeTask?.title}&rdquo; is published
+                {t.movies.upload.publishedTitle(activeTask?.title ?? "")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Your movie has finished processing and is now live in the
-                catalog.
+                {t.movies.upload.publishedDescription}
               </p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={resetForm}>
-                Upload another
+                {t.movies.upload.uploadAnother}
               </Button>
               <Button render={<Link href="/movies" />} nativeButton={false}>
-                Go to catalog
+                {t.movies.upload.goToCatalog}
               </Button>
             </div>
           </CardContent>
@@ -261,40 +262,40 @@ export default function UploadMoviePage() {
   return (
     <div>
       <PageHeader
-        title="Upload Movie"
-        description="Add a new title to the MyanFlix catalog."
+        title={t.movies.uploadMovie}
+        description={t.movies.upload.description}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Details</CardTitle>
+              <CardTitle>{t.movies.upload.detailsCard}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title">{t.movies.upload.titleLabel}</Label>
                 <Input
                   id="title"
-                  placeholder="e.g. Twilight of the Wolves"
+                  placeholder={t.movies.upload.titlePlaceholder}
                   value={title}
                   disabled={isBusy}
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="description">{t.movies.upload.descriptionLabel}</Label>
                 <Textarea
                   id="description"
                   rows={4}
-                  placeholder="A short synopsis for viewers..."
+                  placeholder={t.movies.upload.descriptionPlaceholder}
                   value={description}
                   disabled={isBusy}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label>Genre</Label>
+                <Label>{t.movies.upload.genreLabel}</Label>
                 <div className="flex flex-wrap gap-1.5">
                   {GENRE_OPTIONS.map((g) => (
                     <button
@@ -316,7 +317,7 @@ export default function UploadMoviePage() {
               </div>
               {categories && categories.length > 0 && (
                 <div className="flex flex-col gap-1.5">
-                  <Label>Categories</Label>
+                  <Label>{t.movies.upload.categoriesLabel}</Label>
                   <div className="flex flex-wrap gap-1.5">
                     {categories.map((c) => (
                       <button
@@ -341,7 +342,7 @@ export default function UploadMoviePage() {
               )}
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Language</Label>
+                  <Label>{t.movies.upload.languageLabel}</Label>
                   <Select
                     value={language}
                     onValueChange={(v) => v && setLanguage(v)}
@@ -360,7 +361,7 @@ export default function UploadMoviePage() {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="year">Release Year</Label>
+                  <Label htmlFor="year">{t.movies.upload.releaseYearLabel}</Label>
                   <Input
                     id="year"
                     type="number"
@@ -370,7 +371,7 @@ export default function UploadMoviePage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="duration">Duration (min)</Label>
+                  <Label htmlFor="duration">{t.movies.upload.durationLabel}</Label>
                   <Input
                     id="duration"
                     type="number"
@@ -383,13 +384,13 @@ export default function UploadMoviePage() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Access</CardTitle>
+              <CardTitle>{t.movies.upload.accessCard}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
               <div className="flex flex-col gap-1.5 sm:max-w-52">
-                <Label>Access type</Label>
+                <Label>{t.movies.upload.accessTypeLabel}</Label>
                 <Select
                   value={accessType}
                   onValueChange={(v) => v && setAccessType(v as "FREE" | "SUBSCRIPTION")}
@@ -398,34 +399,34 @@ export default function UploadMoviePage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="FREE">Free</SelectItem>
-                    <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+                    <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+                    <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
                 <div>
                   <p className="text-sm font-medium">
-                    {accessType === "SUBSCRIPTION" ? "Subscription" : "Free"}
+                    {accessType === "SUBSCRIPTION" ? t.movies.accessType.subscription : t.movies.accessType.free}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {accessType === "SUBSCRIPTION"
-                      ? "Requires an active subscription to watch"
-                      : "Available to all users"}
+                      ? t.movies.upload.subscriptionRequires
+                      : t.movies.upload.freeAvailable}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Video</CardTitle>
+              <CardTitle>{t.movies.upload.videoCard}</CardTitle>
             </CardHeader>
             <CardContent>
               <FileUploadField
-                label="Video file"
-                hint="MP4, MKV — will be transcoded to HLS at up to 1080p"
+                label={t.movies.upload.videoFileLabel}
+                hint={t.movies.upload.videoFileHint}
                 accept="video/*"
                 file={videoFile}
                 progress={
@@ -439,14 +440,14 @@ export default function UploadMoviePage() {
         </div>
 
         <div className="flex flex-col gap-6">
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Poster &amp; Cover</CardTitle>
+              <CardTitle>{t.movies.upload.posterAndCoverCard}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <FileUploadField
-                label="Movie poster"
-                hint="Portrait, 2:3 ratio"
+                label={t.movies.upload.moviePosterLabel}
+                hint={t.movies.upload.moviePosterHint}
                 accept="image/*"
                 variant="image"
                 aspect="poster"
@@ -456,8 +457,8 @@ export default function UploadMoviePage() {
                 disabled={isBusy}
               />
               <FileUploadField
-                label="Cover image"
-                hint="Widescreen, 16:9 ratio, optional"
+                label={t.movies.upload.coverImageLabel}
+                hint={t.movies.upload.coverImageHint}
                 accept="image/*"
                 variant="image"
                 aspect="wide"
@@ -470,9 +471,9 @@ export default function UploadMoviePage() {
           </Card>
 
           {stage !== "idle" && stage !== "error" && (
-            <Card className="glass-card border-white/[0.08]">
+            <Card className="glass-card">
               <CardHeader>
-                <CardTitle>Upload Status</CardTitle>
+                <CardTitle>{t.movies.upload.uploadStatusCard}</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <ul className="flex flex-col gap-3">
@@ -488,7 +489,7 @@ export default function UploadMoviePage() {
                         ) : active ? (
                           <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
                         ) : (
-                          <Circle className="size-4 shrink-0 text-muted-foreground/40" />
+                          <Circle className="size-4 shrink-0 text-muted-foreground/60" />
                         )}
                         <span
                           className={
@@ -504,31 +505,31 @@ export default function UploadMoviePage() {
                   })}
                 </ul>
                 {stage === "uploading-video" && (
-                  <div className="space-y-2 border-t border-white/[0.08] pt-3">
+                  <div className="space-y-2 border-t border-border pt-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Video upload progress</span>
-                      <span>{activeTask?.videoProgress ?? 0}%</span>
+                      <span>{t.movies.upload.videoUploadProgress}</span>
+                      <span className="tabular-nums">{activeTask?.videoProgress ?? 0}%</span>
                     </div>
                     <Progress value={activeTask?.videoProgress ?? 0} className="h-1.5" />
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>
+                      <span className="tabular-nums">
                         {activeTask?.speedBps != null
                           ? formatUploadSpeed(activeTask.speedBps)
-                          : "Measuring speed…"}
+                          : t.movies.upload.measuringSpeed}
                       </span>
-                      <span>
+                      <span className="tabular-nums">
                         {activeTask?.etaSeconds != null
-                          ? `${formatTimeRemaining(activeTask.etaSeconds)} left`
-                          : "Estimating time…"}
+                          ? t.movies.upload.timeLeft(formatTimeRemaining(activeTask.etaSeconds))
+                          : t.movies.upload.estimatingTime}
                       </span>
                     </div>
                   </div>
                 )}
                 {stage === "processing" && (
-                  <div className="space-y-2 border-t border-white/[0.08] pt-3">
+                  <div className="space-y-2 border-t border-border pt-3">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Elapsed</span>
-                      <span>
+                      <span>{t.movies.upload.elapsedLabel}</span>
+                      <span className="tabular-nums">
                         {formatTimeRemaining(activeTask?.processingElapsedSeconds ?? 0)}
                       </span>
                     </div>
@@ -537,16 +538,15 @@ export default function UploadMoviePage() {
                       className="h-1.5"
                     />
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Estimated total</span>
-                      <span>
+                      <span>{t.movies.upload.estimatedTotalLabel}</span>
+                      <span className="tabular-nums">
                         {estimatedProcessingSeconds !== null
-                          ? `~${formatTimeRemaining(estimatedProcessingSeconds)}`
-                          : "Calculating…"}
+                          ? t.movies.upload.estimatedApprox(formatTimeRemaining(estimatedProcessingSeconds))
+                          : t.movies.upload.calculating}
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground/70">
-                      Rough estimate based on the video&rsquo;s length — actual
-                      time can vary with machine load.
+                      {t.movies.upload.estimateNote}
                     </p>
                   </div>
                 )}
@@ -556,14 +556,14 @@ export default function UploadMoviePage() {
         </div>
       </div>
 
-      <div className="glass-panel sticky bottom-4 z-10 mt-6 flex flex-col-reverse items-center justify-end gap-2 rounded-xl border-white/[0.08] p-3 sm:flex-row">
+      <div className="glass-panel sticky bottom-4 z-10 mt-6 flex flex-col-reverse items-center justify-end gap-2 rounded-xl p-3 sm:flex-row">
         <Button
           variant="outline"
           onClick={handleSaveDraft}
           disabled={isBusy}
           className="w-full sm:w-auto"
         >
-          Save as Draft
+          {t.movies.upload.saveAsDraft}
         </Button>
         <Button
           onClick={handlePublish}
@@ -575,7 +575,7 @@ export default function UploadMoviePage() {
           ) : (
             <UploadCloud className="size-4" />
           )}
-          {isBusy ? STAGE_LABEL[stage] + "..." : "Publish Movie"}
+          {isBusy ? t.movies.upload.busyEllipsis(STAGE_LABEL[stage]) : t.movies.upload.publishMovie}
         </Button>
       </div>
     </div>

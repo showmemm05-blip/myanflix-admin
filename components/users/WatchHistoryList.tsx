@@ -1,17 +1,22 @@
+"use client";
+
 import Image from "next/image";
 import { format } from "date-fns";
 import { Clapperboard } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { useLanguage } from "@/lib/context/language-context";
 import type { WatchHistoryEntry } from "@/types/user";
 
 export function WatchHistoryList({ entries }: { entries: WatchHistoryEntry[] }) {
+  const { t } = useLanguage();
+
   if (!entries.length) {
     return (
       <EmptyState
         icon={Clapperboard}
-        title="No watch history yet"
-        description="Movies watched will show up here."
+        title={t.users.watchHistory.emptyTitle}
+        description={t.users.watchHistory.emptyDescription}
       />
     );
   }
@@ -28,11 +33,11 @@ export function WatchHistoryList({ entries }: { entries: WatchHistoryEntry[] }) 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium">{entry.movieTitle}</p>
             <p className="text-xs text-muted-foreground">
-              Watched {format(new Date(entry.watchedAt), "MMM d, yyyy")}
+              {t.users.watchHistory.watchedOn(format(new Date(entry.watchedAt), "d MMM yyyy"))}
             </p>
             <Progress value={entry.progressPercent} className="mt-1.5 h-1.5" />
           </div>
-          <span className="shrink-0 text-xs font-medium text-muted-foreground">
+          <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
             {entry.progressPercent}%
           </span>
         </li>

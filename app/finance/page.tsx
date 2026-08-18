@@ -1,7 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
 import { Lock, Receipt, Wallet } from "lucide-react";
-import { PageHeader } from "@/components/shared/PageHeader";
 import { RequireRole } from "@/components/shared/RequireRole";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -9,7 +9,7 @@ import { DashboardCard } from "@/components/cards/DashboardCard";
 import { DataTable } from "@/components/tables/DataTable";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { UserSpendingChart } from "@/components/finance/UserSpendingChart";
-import { transactionColumns } from "@/components/finance/columns";
+import { getTransactionColumns } from "@/components/finance/columns";
 import { PurchaseHistoryList } from "@/components/users/PurchaseHistoryList";
 import { WatchHistoryList } from "@/components/users/WatchHistoryList";
 import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
@@ -17,26 +17,62 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
+import { getSocket } from "@/lib/socket";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
 import { userService } from "@/services/api/userService";
+
+/**
+ * Every event that can change what this page shows — new/updated deposits
+ * and withdrawals move both the transaction list and the revenue/summary
+ * cards, and a payment-account ledger entry can originate from either. Kept
+ * as a plain refetch (not a patch) since summary/revenue are aggregates
+ * recomputed server-side, not values this page could derive from an event
+ * payload alone.
+ */
+const FINANCE_REFRESH_EVENTS = [
+  "deposit.created",
+  "deposit.updated",
+  "withdrawal.created",
+  "withdrawal.updated",
+  "payment-account.updated",
+] as const;
+
+function useFinanceRealtimeRefresh(refetch: () => void) {
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const handleRefresh = () => refetch();
+    for (const event of FINANCE_REFRESH_EVENTS) {
+      socket.on(event, handleRefresh);
+    }
+    return () => {
+      for (const event of FINANCE_REFRESH_EVENTS) {
+        socket.off(event, handleRefresh);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
 
 function FinanceSkeleton() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-28 rounded-lg" />
         ))}
       </div>
-      <Skeleton className="h-80 rounded-xl" />
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-80 rounded-lg" />
+      <Skeleton className="h-64 rounded-lg" />
     </div>
   );
 }
 
 function SuperAdminFinanceView() {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(async () => {
     const [summary, revenue, transactions] = await Promise.all([
       paymentService.getFinanceSummary(),
@@ -45,10 +81,11 @@ function SuperAdminFinanceView() {
     ]);
     return { summary, revenue, transactions };
   }, []);
+  useFinanceRealtimeRefresh(refetch);
 
   if (isLoading) return <FinanceSkeleton />;
   if (error || !data) {
-    return <ErrorState description="We couldn't load finance data." onRetry={refetch} />;
+    return <ErrorState description={t.finance.loadError} onRetry={refetch} />;
   }
 
   const { summary, revenue, transactions } = data;
@@ -57,13 +94,14 @@ function SuperAdminFinanceView() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title="Total Revenue" value={formatKyat(summary.totalRevenue)} icon={Wallet} />
-        <DashboardCard title="Monthly Revenue" value={formatKyat(summary.monthlyRevenue)} icon={Wallet} />
-        <DashboardCard title="Daily Revenue" value={formatKyat(summary.dailyRevenue)} icon={Wallet} />
+        <DashboardCard title={t.dashboard.totalRevenue} value={formatKyat(summary.totalRevenue)} icon={Wallet} />
+        <DashboardCard title={t.dashboard.monthlyRevenue} value={formatKyat(summary.monthlyRevenue)} icon={Wallet} />
+        <DashboardCard title={t.finance.dailyRevenue} value={formatKyat(summary.dailyRevenue)} icon={Wallet} />
         <DashboardCard
-          title="Total Transactions"
+          title={t.finance.totalTransactions}
           value={transactions.total.toLocaleString()}
           icon={Receipt}
+          iconClassName="bg-info/15 text-info"
         />
       </div>
 
@@ -71,28 +109,29 @@ function SuperAdminFinanceView() {
 
       <UserSpendingChart topUsers={summary.topUsers} />
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle>All Transactions</CardTitle>
+          <CardTitle>{t.finance.allTransactions}</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={transactionColumns}
+            columns={getTransactionColumns(t)}
             data={transactions.items}
             searchKey="userName"
-            searchPlaceholder="Search by user name..."
+            searchPlaceholder={t.finance.searchByUserName}
           />
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">
-        Average purchase: {formatKyat(averagePurchase)}
+      <p className="text-xs text-muted-foreground tabular-nums">
+        {t.finance.averagePurchase(formatKyat(averagePurchase))}
       </p>
     </div>
   );
 }
 
 function AdminFinanceView() {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(async () => {
     const [summary, transactions] = await Promise.all([
       paymentService.getFinanceSummary(),
@@ -100,10 +139,11 @@ function AdminFinanceView() {
     ]);
     return { summary, transactions };
   }, []);
+  useFinanceRealtimeRefresh(refetch);
 
   if (isLoading) return <FinanceSkeleton />;
   if (error || !data) {
-    return <ErrorState description="We couldn't load finance data." onRetry={refetch} />;
+    return <ErrorState description={t.finance.loadError} onRetry={refetch} />;
   }
 
   const { summary, transactions } = data;
@@ -111,33 +151,34 @@ function AdminFinanceView() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title="Total Revenue" value={formatKyat(summary.totalRevenue)} icon={Wallet} />
-        <DashboardCard title="Monthly Revenue" value={formatKyat(summary.monthlyRevenue)} icon={Wallet} />
-        <DashboardCard title="Daily Revenue" value={formatKyat(summary.dailyRevenue)} icon={Wallet} />
+        <DashboardCard title={t.dashboard.totalRevenue} value={formatKyat(summary.totalRevenue)} icon={Wallet} />
+        <DashboardCard title={t.dashboard.monthlyRevenue} value={formatKyat(summary.monthlyRevenue)} icon={Wallet} />
+        <DashboardCard title={t.finance.dailyRevenue} value={formatKyat(summary.dailyRevenue)} icon={Wallet} />
         <DashboardCard
-          title="Total Transactions"
+          title={t.finance.totalTransactions}
           value={transactions.total.toLocaleString()}
           icon={Receipt}
+          iconClassName="bg-info/15 text-info"
         />
       </div>
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardContent className="flex items-center justify-center gap-2 py-6 text-center text-sm text-muted-foreground">
           <Lock className="size-4" />
-          Detailed revenue charts are restricted to Super Admin. You have access to transaction records only.
+          {t.finance.revenueRestrictedNotice}
         </CardContent>
       </Card>
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle>All Transactions</CardTitle>
+          <CardTitle>{t.finance.allTransactions}</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
-            columns={transactionColumns}
+            columns={getTransactionColumns(t)}
             data={transactions.items}
             searchKey="userName"
-            searchPlaceholder="Search by user name..."
+            searchPlaceholder={t.finance.searchByUserName}
           />
         </CardContent>
       </Card>
@@ -146,6 +187,7 @@ function AdminFinanceView() {
 }
 
 function UserCashFlowView() {
+  const { t } = useLanguage();
   const { currentUser } = useRole();
 
   const { data, isLoading, error, refetch } = useAsyncData(
@@ -159,10 +201,14 @@ function UserCashFlowView() {
     },
     [currentUser.id]
   );
+  // A USER-role socket only joins their own room, so deposit.updated /
+  // withdrawal.updated here can only ever be this viewer's own — no
+  // cross-user leakage risk from a blanket refetch.
+  useFinanceRealtimeRefresh(refetch);
 
   if (isLoading) return <FinanceSkeleton />;
   if (error || !data) {
-    return <ErrorState description="We couldn't load your cash flow." onRetry={refetch} />;
+    return <ErrorState description={t.finance.loadErrorCashFlow} onRetry={refetch} />;
   }
 
   const { transactions, purchases, watchHistory } = data;
@@ -170,32 +216,39 @@ function UserCashFlowView() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title="Balance" value={formatKyat(currentUser.balance)} icon={Wallet} />
+        <DashboardCard title={t.finance.balance} value={formatKyat(currentUser.balance)} icon={Wallet} />
         <DashboardCard
-          title="Total Deposited"
+          title={t.dashboard.totalDeposited}
           value={formatKyat(currentUser.totalDeposited)}
           icon={Wallet}
+          iconClassName="bg-income/15 text-income"
         />
-        <DashboardCard title="Total Spent" value={formatKyat(currentUser.totalSpent)} icon={Receipt} />
         <DashboardCard
-          title="Subscription"
-          value={currentUser.isSubscribed ? "Active" : "Not subscribed"}
+          title={t.dashboard.totalSpent}
+          value={formatKyat(currentUser.totalSpent)}
           icon={Receipt}
+          iconClassName="bg-outgoing/15 text-outgoing"
+        />
+        <DashboardCard
+          title={t.dashboard.subscription}
+          value={currentUser.isSubscribed ? t.dashboard.subscribed : t.dashboard.notSubscribed}
+          icon={Receipt}
+          iconClassName="bg-chart-5/15 text-chart-5"
         />
       </div>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Purchased Movies</CardTitle>
+            <CardTitle>{t.dashboard.purchasedMovies}</CardTitle>
           </CardHeader>
           <CardContent>
             <PurchaseHistoryList entries={purchases.items} />
           </CardContent>
         </Card>
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Watch History</CardTitle>
+            <CardTitle>{t.users.profile.watchHistoryTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <WatchHistoryList entries={watchHistory.items} />
@@ -203,15 +256,15 @@ function UserCashFlowView() {
         </Card>
       </div>
 
-      <Card className="glass-card border-white/[0.08]">
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
+          <CardTitle>{t.dashboard.transactionHistory}</CardTitle>
         </CardHeader>
         <CardContent>
           {transactions.items.length ? (
             <RecentTransactionsTable transactions={transactions.items} />
           ) : (
-            <EmptyState icon={Receipt} title="No transactions yet" description="Your purchases will show up here." />
+            <EmptyState icon={Receipt} title={t.finance.noTransactionsTitle} description={t.finance.noTransactionsDescription} />
           )}
         </CardContent>
       </Card>
@@ -221,22 +274,15 @@ function UserCashFlowView() {
 
 export default function FinancePage() {
   const { role } = useRole();
+  const { t } = useLanguage();
 
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN", "USER"]}
-      title="Finance"
-      description="Revenue, transactions and payment analytics."
+      title={t.finance.page.title}
+      description={t.finance.page.description}
     >
       <div>
-        <PageHeader
-          title={role === "USER" ? "My Cash Flow" : "Finance"}
-          description={
-            role === "USER"
-              ? "Your balance, spending and transaction history."
-              : "Revenue, transactions and payment analytics."
-          }
-        />
         {role === "SUPER_ADMIN" && <SuperAdminFinanceView />}
         {role === "ADMIN" && <AdminFinanceView />}
         {role === "USER" && <UserCashFlowView />}

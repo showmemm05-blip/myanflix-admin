@@ -15,16 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useLanguage } from "@/lib/context/language-context";
 import { ApiError } from "@/services/api/apiClient";
 import { staffService } from "@/services/api/staffService";
 import type { StaffMember, StaffRole } from "@/types/staff";
 import { toast } from "sonner";
-
-const ROLE_ITEMS: Record<StaffRole, string> = {
-  SUPER_ADMIN: "Super Admin",
-  ADMIN: "Admin",
-  CONTENT_UPLOADER: "Content Uploader",
-};
 
 function EditStaffForm({
   staff,
@@ -37,10 +32,17 @@ function EditStaffForm({
   onOpenChange: (open: boolean) => void;
   onSaved: (staff: StaffMember) => void;
 }) {
+  const { t } = useLanguage();
   const [username, setUsername] = useState(staff.username);
   const [role, setRole] = useState<StaffRole>(staff.role);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const ROLE_ITEMS: Record<StaffRole, string> = {
+    SUPER_ADMIN: t.staff.roleOptions.superAdmin,
+    ADMIN: t.staff.roleOptions.admin,
+    CONTENT_UPLOADER: t.staff.roleOptions.contentUploader,
+  };
 
   const dirty = username !== staff.username || role !== staff.role;
 
@@ -53,10 +55,10 @@ function EditStaffForm({
         ...(role !== staff.role && { role }),
       });
       onSaved(updated);
-      toast.success("Staff account updated");
+      toast.success(t.staff.editDialog.updatedToast);
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof ApiError ? err.message : t.login.genericError);
     } finally {
       setSaving(false);
     }
@@ -65,8 +67,8 @@ function EditStaffForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Edit staff account</DialogTitle>
-        <DialogDescription>Update the username or role for {staff.username}.</DialogDescription>
+        <DialogTitle>{t.staff.editDialog.title}</DialogTitle>
+        <DialogDescription>{t.staff.editDialog.descriptionFor(staff.username)}</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-3">
@@ -76,7 +78,7 @@ function EditStaffForm({
           </Alert>
         )}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="edit-staff-username">Username</Label>
+          <Label htmlFor="edit-staff-username">{t.staff.editDialog.usernameLabel}</Label>
           <Input
             id="edit-staff-username"
             autoComplete="off"
@@ -85,7 +87,7 @@ function EditStaffForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label>Role</Label>
+          <Label>{t.staff.editDialog.roleLabel}</Label>
           <Select
             items={ROLE_ITEMS}
             value={role}
@@ -96,26 +98,22 @@ function EditStaffForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="CONTENT_UPLOADER">Content Uploader</SelectItem>
+              <SelectItem value="SUPER_ADMIN">{t.staff.roleOptions.superAdmin}</SelectItem>
+              <SelectItem value="ADMIN">{t.staff.roleOptions.admin}</SelectItem>
+              <SelectItem value="CONTENT_UPLOADER">{t.staff.roleOptions.contentUploader}</SelectItem>
             </SelectContent>
           </Select>
-          {isSelf && (
-            <p className="text-xs text-muted-foreground">
-              You cannot change your own role. Ask another Super Admin to do this.
-            </p>
-          )}
+          {isSelf && <p className="text-xs text-muted-foreground">{t.staff.editDialog.selfRoleNote}</p>}
         </div>
       </div>
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button onClick={handleSave} disabled={saving || !dirty || username.length < 3}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Save changes
+          {t.staff.editDialog.saveChanges}
         </Button>
       </DialogFooter>
     </>

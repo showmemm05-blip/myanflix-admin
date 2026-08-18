@@ -10,50 +10,41 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { rolesService } from "@/services/api/rolesService";
 import { userService } from "@/services/api/userService";
 import type { RoleDefinition } from "@/types/role";
-
-const ROLE_DEFINITIONS: RoleDefinition[] = [
-  {
-    role: "SUPER_ADMIN",
-    title: "Super Admin",
-    description: "Full platform control — manage admins, users, movies, revenue and permissions.",
-    color: "oklch(0.577 0.226 27.3)",
-    capabilities: [
-      "Manage admins",
-      "Manage users",
-      "Manage movies",
-      "View all revenue",
-      "View system analytics",
-    ],
-  },
-  {
-    role: "ADMIN",
-    title: "Admin",
-    description: "Content-focused access to upload, edit, and moderate the movie catalog.",
-    color: "oklch(0.65 0.18 45)",
-    capabilities: ["Upload movies", "Edit movies", "Delete movies", "Manage video uploads"],
-  },
-  {
-    role: "USER",
-    title: "User",
-    description: "Standard subscriber access to purchased content and personal account data.",
-    color: "oklch(0.6 0.12 200)",
-    capabilities: [
-      "View purchased movies",
-      "View watch history",
-      "View account balance",
-      "View own transaction history",
-    ],
-  },
-  {
-    role: "CONTENT_UPLOADER",
-    title: "Content Uploader",
-    description: "Uploads and manages movies, series and episodes — no access to users, finance or platform settings.",
-    color: "oklch(0.7 0.15 145)",
-    capabilities: ["Create movies", "Edit movies", "Create series & episodes", "Upload videos", "Upload subtitles"],
-  },
-];
+import { useLanguage } from "@/lib/context/language-context";
 
 export default function RolesPage() {
+  const { t } = useLanguage();
+  const ROLE_DEFINITIONS: RoleDefinition[] = [
+    {
+      role: "SUPER_ADMIN",
+      title: t.roles.definitions.superAdmin.title,
+      description: t.roles.definitions.superAdmin.description,
+      color: "var(--primary)",
+      capabilities: t.roles.definitions.superAdmin.capabilities,
+    },
+    {
+      role: "ADMIN",
+      title: t.roles.definitions.admin.title,
+      description: t.roles.definitions.admin.description,
+      color: "var(--chart-5)",
+      capabilities: t.roles.definitions.admin.capabilities,
+    },
+    {
+      role: "USER",
+      title: t.roles.definitions.user.title,
+      description: t.roles.definitions.user.description,
+      color: "var(--muted-foreground)",
+      capabilities: t.roles.definitions.user.capabilities,
+    },
+    {
+      role: "CONTENT_UPLOADER",
+      title: t.roles.definitions.contentUploader.title,
+      description: t.roles.definitions.contentUploader.description,
+      color: "var(--chart-2)",
+      capabilities: t.roles.definitions.contentUploader.capabilities,
+    },
+  ];
+
   const { data, isLoading, error, refetch } = useAsyncData(async () => {
     const [matrix, users] = await Promise.all([
       rolesService.getRolePermissionMatrix(),
@@ -69,23 +60,23 @@ export default function RolesPage() {
   return (
     <RequireRole
       allow={["SUPER_ADMIN"]}
-      title="Roles & Permissions"
-      description="Manage platform-wide access control."
+      title={t.roles.page.title}
+      description={t.roles.page.description}
     >
       <div>
-        <PageHeader title="Roles & Permissions" description="Manage platform-wide access control." />
+        <PageHeader title={t.roles.page.title} description={t.roles.page.description} />
 
         {isLoading ? (
           <div className="flex flex-col gap-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-48 rounded-xl" />
+                <Skeleton key={i} className="h-48 rounded-lg" />
               ))}
             </div>
-            <Skeleton className="h-72 rounded-xl" />
+            <Skeleton className="h-72 rounded-lg" />
           </div>
         ) : error || !data ? (
-          <ErrorState description="We couldn't load role data." onRetry={refetch} />
+          <ErrorState description={t.roles.loadError} onRetry={refetch} />
         ) : (
           <>
             <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-4">

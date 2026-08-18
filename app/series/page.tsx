@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useLanguage } from "@/lib/context/language-context";
 import { seriesService } from "@/services/api/seriesService";
 import type { AccessType } from "@/types/movie";
 import type { Series, SeriesListItem } from "@/types/series";
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 const ALL = "all";
 
 export default function SeriesPage() {
+  const { t } = useLanguage();
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
 
   const { data, isLoading, error, refetch } = useAsyncData(
@@ -51,11 +53,11 @@ export default function SeriesPage() {
     try {
       await seriesService.deleteSeries(deleteTarget.id);
       setItems(activeItems.filter((s) => s.id !== deleteTarget.id));
-      toast.success("Series deleted", {
-        description: `"${deleteTarget.title}" was removed. Its episodes are kept and remain manageable from the Movies table.`,
+      toast.success(t.series.page.deletedToast, {
+        description: t.series.page.deletedDescription(deleteTarget.title),
       });
     } catch {
-      toast.error("Couldn't delete the series", { description: "Please try again." });
+      toast.error(t.series.page.deleteFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setDeleting(false);
       setDeleteTarget(null);
@@ -64,22 +66,22 @@ export default function SeriesPage() {
 
   const filters = (
     <Select value={accessTypeFilter} onValueChange={(v) => v && setAccessTypeFilter(v)}>
-      <SelectTrigger className="w-40"><SelectValue placeholder="Access type" /></SelectTrigger>
+      <SelectTrigger className="w-40"><SelectValue placeholder={t.movies.page.accessTypeFilterPlaceholder} /></SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>All access types</SelectItem>
-        <SelectItem value="FREE">Free</SelectItem>
-        <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+        <SelectItem value={ALL}>{t.movies.page.allAccessTypes}</SelectItem>
+        <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+        <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
       </SelectContent>
     </Select>
   );
 
-  const columns = getSeriesColumns({ onDelete: setDeleteTarget });
+  const columns = getSeriesColumns({ t, onDelete: setDeleteTarget });
 
   if (error) {
     return (
       <div>
-        <PageHeader title="All Series" description="Manage shows and their episodes." />
-        <ErrorState description="We couldn't load the series list." onRetry={refetch} />
+        <PageHeader title={t.series.page.title} description={t.series.page.description} />
+        <ErrorState description={t.series.page.loadError} onRetry={refetch} />
       </div>
     );
   }
@@ -87,12 +89,12 @@ export default function SeriesPage() {
   return (
     <div>
       <PageHeader
-        title="All Series"
-        description="Manage shows and their episodes."
+        title={t.series.page.title}
+        description={t.series.page.description}
         actions={
           <Button onClick={() => setFormOpen(true)}>
             <Plus className="size-4" />
-            Create Series
+            {t.series.createSeries}
           </Button>
         }
       />
@@ -100,12 +102,12 @@ export default function SeriesPage() {
       {!isLoading && activeItems.length === 0 && accessTypeFilter === ALL ? (
         <EmptyState
           icon={Tv}
-          title="No series yet"
-          description="Create your first show, then add episodes with Bulk Upload Episodes."
+          title={t.series.page.emptyTitle}
+          description={t.series.page.emptyDescription}
           action={
             <Button onClick={() => setFormOpen(true)}>
               <Plus className="size-4" />
-              Create Series
+              {t.series.createSeries}
             </Button>
           }
         />
@@ -115,7 +117,7 @@ export default function SeriesPage() {
           data={activeItems}
           isLoading={isLoading}
           searchKey="title"
-          searchPlaceholder="Search series by title..."
+          searchPlaceholder={t.series.page.searchPlaceholder}
           toolbar={filters}
         />
       )}
@@ -130,9 +132,9 @@ export default function SeriesPage() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
-        title="Delete this series?"
-        description={`"${deleteTarget?.title}" will be removed. Its episodes are NOT deleted — they stay in the system, detached from the show, and remain manageable from the Movies table.`}
-        confirmLabel="Delete"
+        title={t.series.page.deleteTitle}
+        description={deleteTarget ? t.series.page.deleteDescription(deleteTarget.title) : ""}
+        confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}

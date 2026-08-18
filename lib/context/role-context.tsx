@@ -23,16 +23,15 @@ import { ROLE_LABELS, type AppUser, type UserRole } from "@/types/user";
  * which this provider listens for to force a logout.
  *
  * `currentUser` is the full enriched profile (balance, avatar, etc.) from
- * GET /users/me — the lightweight {id,email,username,role} returned by
+ * GET /users/me — the lightweight {id,username,role} returned by
  * /auth/login only carries identity, not wallet/spend stats.
  */
 
 const EMPTY_USER: AppUser = {
   id: "",
   name: "",
-  email: "",
   phone: null,
-  avatarUrl: "",
+  avatarUrl: null,
   role: "USER",
   status: "ACTIVE",
   balance: 0,

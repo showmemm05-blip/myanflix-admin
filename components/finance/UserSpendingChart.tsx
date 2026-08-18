@@ -9,25 +9,27 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { formatKyat } from "@/lib/currency";
+import { useLanguage } from "@/lib/context/language-context";
 import type { FinanceSummary } from "@/types/analytics";
 
-const chartConfig = {
-  totalSpent: {
-    label: "Total Spent",
-    color: "oklch(0.577 0.226 27.3)",
-  },
-} satisfies ChartConfig;
-
 export function UserSpendingChart({ topUsers }: { topUsers: FinanceSummary["topUsers"] }) {
+  const { t } = useLanguage();
+  const chartConfig = {
+    totalSpent: {
+      label: t.finance.topSpenders.totalSpent,
+      color: "var(--chart-1)",
+    },
+  } satisfies ChartConfig;
+
   const data = topUsers
     .filter((entry) => entry.user)
     .map((entry) => ({ name: entry.user!.username, totalSpent: entry.totalSpent }));
 
   return (
-    <Card className="glass-card border-white/[0.08]">
+    <Card className="glass-card">
       <CardHeader>
-        <CardTitle>Top Spenders</CardTitle>
-        <p className="text-sm text-muted-foreground">Highest lifetime spend by subscriber</p>
+        <CardTitle>{t.finance.topSpenders.title}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t.finance.topSpenders.description}</p>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">

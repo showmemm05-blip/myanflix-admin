@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { ApiError } from "@/services/api/apiClient";
@@ -30,6 +31,7 @@ import { toast } from "sonner";
 const ALL = "all";
 
 export default function MoviesPage() {
+  const { t } = useLanguage();
   const { role } = useRole();
   const canManage = role !== "USER";
 
@@ -64,7 +66,7 @@ export default function MoviesPage() {
     await movieService.deleteMovie(deleteMovie.id);
     setMovies(activeMovies.filter((m) => m.id !== deleteMovie.id));
     setDeleting(false);
-    toast.success("Movie deleted", { description: `"${deleteMovie.title}" was removed from the catalog.` });
+    toast.success(t.movies.page.deletedToast, { description: t.movies.page.deletedDescription(deleteMovie.title) });
     setDeleteMovie(null);
   };
 
@@ -73,15 +75,15 @@ export default function MoviesPage() {
     try {
       await uploadService.reprocess(movie.id);
       setMovies(activeMovies.map((m) => (m.id === movie.id ? { ...m, status: "PROCESSING" } : m)));
-      toast.success("Reprocessing started", {
-        description: `"${movie.title}" is transcoding again — no re-upload needed.`,
+      toast.success(t.movies.page.reprocessStartedToast, {
+        description: t.movies.page.reprocessStartedDescription(movie.title),
       });
     } catch (err) {
-      toast.error("Couldn't reprocess this movie", {
+      toast.error(t.movies.page.reprocessFailedToast, {
         description:
           err instanceof ApiError
             ? err.message
-            : "Only a movie whose video failed to process can be reprocessed.",
+            : t.movies.page.reprocessFailedFallback,
       });
     } finally {
       setReprocessingId(null);
@@ -90,16 +92,17 @@ export default function MoviesPage() {
 
   const filters = (
     <Select value={accessTypeFilter} onValueChange={(v) => v && handleAccessTypeFilterChange(v)}>
-      <SelectTrigger className="w-40"><SelectValue placeholder="Access type" /></SelectTrigger>
+      <SelectTrigger className="w-40"><SelectValue placeholder={t.movies.page.accessTypeFilterPlaceholder} /></SelectTrigger>
       <SelectContent>
-        <SelectItem value={ALL}>All access types</SelectItem>
-        <SelectItem value="FREE">Free</SelectItem>
-        <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+        <SelectItem value={ALL}>{t.movies.page.allAccessTypes}</SelectItem>
+        <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+        <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
       </SelectContent>
     </Select>
   );
 
   const columns = getMovieColumns({
+    t,
     canManage,
     onView: setViewMovie,
     onEdit: setEditMovie,
@@ -111,8 +114,8 @@ export default function MoviesPage() {
   if (error) {
     return (
       <div>
-        <PageHeader title="All Movies" description="Browse and manage the MyanFlix catalog." />
-        <ErrorState description="We couldn't load the movie catalog." onRetry={refetch} />
+        <PageHeader title={t.movies.page.title} description={t.movies.page.description} />
+        <ErrorState description={t.movies.page.loadError} onRetry={refetch} />
       </div>
     );
   }
@@ -120,13 +123,13 @@ export default function MoviesPage() {
   return (
     <div>
       <PageHeader
-        title="All Movies"
-        description="Browse and manage the MyanFlix catalog."
+        title={t.movies.page.title}
+        description={t.movies.page.description}
         actions={
           canManage && (
             <Button render={<Link href="/movies/upload" />} nativeButton={false}>
               <Plus className="size-4" />
-              Upload Movie
+              {t.movies.uploadMovie}
             </Button>
           )
         }
@@ -135,13 +138,13 @@ export default function MoviesPage() {
       {!isLoading && activeMovies.length === 0 && accessTypeFilter === ALL ? (
         <EmptyState
           icon={Film}
-          title="No movies yet"
-          description="Upload your first title to start building the catalog."
+          title={t.movies.page.emptyTitle}
+          description={t.movies.page.emptyDescription}
           action={
             canManage && (
               <Button render={<Link href="/movies/upload" />} nativeButton={false}>
                 <Plus className="size-4" />
-                Upload Movie
+                {t.movies.uploadMovie}
               </Button>
             )
           }
@@ -152,7 +155,7 @@ export default function MoviesPage() {
           data={activeMovies}
           isLoading={isLoading}
           searchKey="title"
-          searchPlaceholder="Search movies by title..."
+          searchPlaceholder={t.movies.page.searchPlaceholder}
           toolbar={filters}
         />
       )}
@@ -169,9 +172,9 @@ export default function MoviesPage() {
       <ConfirmDialog
         open={!!deleteMovie}
         onOpenChange={(o) => !o && setDeleteMovie(null)}
-        title="Delete this movie?"
-        description={`"${deleteMovie?.title}" will be permanently removed from the catalog. This action cannot be undone.`}
-        confirmLabel="Delete"
+        title={t.movies.page.deleteTitle}
+        description={deleteMovie ? t.movies.page.deleteDescription(deleteMovie.title) : ""}
+        confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}

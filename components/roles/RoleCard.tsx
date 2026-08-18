@@ -4,7 +4,7 @@ import type { RoleDefinition } from "@/types/role";
 
 export function RoleCard({ role, userCount }: { role: RoleDefinition; userCount: number }) {
   return (
-    <Card className="glass-card border-white/[0.08]">
+    <Card className="glass-card">
       <CardContent className="flex flex-col gap-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -12,7 +12,7 @@ export function RoleCard({ role, userCount }: { role: RoleDefinition; userCount:
             <p className="mt-1 text-sm text-muted-foreground">{role.description}</p>
           </div>
           <div
-            className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+            className="flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold tabular-nums"
             style={{ backgroundColor: `color-mix(in oklch, ${role.color} 15%, transparent)`, color: role.color }}
           >
             {userCount}

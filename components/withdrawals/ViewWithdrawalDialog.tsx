@@ -11,6 +11,7 @@ import {
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import { useLanguage } from "@/lib/context/language-context";
 import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
 
 const STATUS_TONE: Record<WithdrawalStatus, StatusTone> = {
@@ -37,52 +38,66 @@ export function ViewWithdrawalDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         {withdrawal && (
           <>
             <DialogHeader>
-              <DialogTitle>Withdrawal request</DialogTitle>
-              <DialogDescription>Full details for this payout request.</DialogDescription>
+              <DialogTitle>{t.withdrawals.viewDialog.title}</DialogTitle>
+              <DialogDescription>{t.withdrawals.viewDialog.description}</DialogDescription>
             </DialogHeader>
 
             <div className="flex flex-col">
-              <Row label="User" value={withdrawal.userName} />
-              <Row label="Phone" value={formatLocalPhone(withdrawal.userPhone) || "—"} />
-              <Row label="Amount" value={formatKyat(withdrawal.amount)} />
+              <Row label={t.withdrawals.viewDialog.user} value={withdrawal.userName} />
+              <Row label={t.withdrawals.viewDialog.phone} value={formatLocalPhone(withdrawal.userPhone) || "—"} />
+              <Row label={t.withdrawals.viewDialog.amount} value={formatKyat(withdrawal.amount)} />
               <Row
-                label="Status"
+                label={t.withdrawals.viewDialog.status}
                 value={<StatusBadge label={withdrawal.status} tone={STATUS_TONE[withdrawal.status]} />}
               />
-              <Row label="Requested" value={format(new Date(withdrawal.createdAt), "MMM d, yyyy HH:mm")} />
+              <Row label={t.withdrawals.viewDialog.requested} value={format(new Date(withdrawal.createdAt), "d MMM yyyy, HH:mm:ss")} />
               {withdrawal.approvedAt && (
                 <Row
-                  label={withdrawal.status === "REJECTED" ? "Reviewed" : "Approved"}
-                  value={format(new Date(withdrawal.approvedAt), "MMM d, yyyy HH:mm")}
+                  label={withdrawal.status === "REJECTED" ? t.withdrawals.viewDialog.reviewed : t.withdrawals.viewDialog.approved}
+                  value={format(new Date(withdrawal.approvedAt), "d MMM yyyy, HH:mm:ss")}
                 />
               )}
               {withdrawal.status === "REJECTED" && withdrawal.rejectionReason && (
-                <Row label="Rejection reason" value={withdrawal.rejectionReason} />
+                <Row label={t.withdrawals.viewDialog.rejectionReason} value={withdrawal.rejectionReason} />
               )}
             </div>
 
             <p className="mb-1 mt-4 text-xs font-medium text-muted-foreground">
-              User&apos;s withdrawal account
+              {t.withdrawals.viewDialog.withdrawalAccountHeading}
             </p>
             <div className="flex flex-col">
-              <Row label="Payment method" value={withdrawal.accountType} />
-              <Row label="Account name" value={withdrawal.accountName} />
-              <Row label="Account / phone number" value={withdrawal.accountNumber} />
+              <Row label={t.withdrawals.viewDialog.paymentMethod} value={withdrawal.accountType} />
+              {withdrawal.bankName && <Row label={t.withdrawals.viewDialog.bankName} value={withdrawal.bankName} />}
+              <Row label={t.withdrawals.viewDialog.accountName} value={withdrawal.accountName} />
+              <Row label={t.withdrawals.viewDialog.accountNumber} value={withdrawal.accountNumber} />
             </div>
 
             {(withdrawal.transferAccountType || withdrawal.transferAccountName || withdrawal.transferAccountNumber) && (
               <>
-                <p className="mb-1 mt-4 text-xs font-medium text-muted-foreground">Our transfer account</p>
+                <p className="mb-1 mt-4 text-xs font-medium text-muted-foreground">{t.withdrawals.viewDialog.transferAccountHeading}</p>
                 <div className="flex flex-col">
-                  <Row label="Payment method" value={withdrawal.transferAccountType || "—"} />
-                  <Row label="Account name" value={withdrawal.transferAccountName || "—"} />
-                  <Row label="Account / phone number" value={withdrawal.transferAccountNumber || "—"} />
+                  <Row label={t.withdrawals.viewDialog.paymentMethod} value={withdrawal.transferAccountType || "—"} />
+                  {withdrawal.transferAccountSubname && (
+                    <Row label={t.withdrawals.viewDialog.subname} value={withdrawal.transferAccountSubname} />
+                  )}
+                  <Row label={t.withdrawals.viewDialog.accountName} value={withdrawal.transferAccountName || "—"} />
+                  <Row label={t.withdrawals.viewDialog.accountNumber} value={withdrawal.transferAccountNumber || "—"} />
+                  <Row label={t.withdrawals.viewDialog.transactionCode} value={withdrawal.transferTransactionCode || "—"} />
+                  <Row
+                    label={t.withdrawals.viewDialog.transactionDateTime}
+                    value={
+                      withdrawal.transferTransactionTime
+                        ? `${format(new Date(withdrawal.approvedAt ?? withdrawal.createdAt), "d MMM yyyy")}, ${withdrawal.transferTransactionTime}`
+                        : "—"
+                    }
+                  />
                 </div>
               </>
             )}

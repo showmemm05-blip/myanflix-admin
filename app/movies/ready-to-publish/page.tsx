@@ -13,6 +13,7 @@ import { MovieDetailsSheet } from "@/components/movies/MovieDetailsSheet";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { ApiError } from "@/services/api/apiClient";
@@ -27,6 +28,7 @@ import { toast } from "sonner";
  * on its own.
  */
 export default function ReadyToPublishPage() {
+  const { t } = useLanguage();
   const { role } = useRole();
   const canManage = role !== "USER";
 
@@ -51,7 +53,7 @@ export default function ReadyToPublishPage() {
     await movieService.deleteMovie(deleteMovie.id);
     setMovies(activeMovies.filter((m) => m.id !== deleteMovie.id));
     setDeleting(false);
-    toast.success("Movie deleted", { description: `"${deleteMovie.title}" was removed from the catalog.` });
+    toast.success(t.movies.page.deletedToast, { description: t.movies.page.deletedDescription(deleteMovie.title) });
     setDeleteMovie(null);
   };
 
@@ -60,15 +62,15 @@ export default function ReadyToPublishPage() {
     try {
       await uploadService.reprocess(movie.id);
       setMovies(activeMovies.filter((m) => m.id !== movie.id));
-      toast.success("Reprocessing started", {
-        description: `"${movie.title}" is transcoding again — no re-upload needed.`,
+      toast.success(t.movies.page.reprocessStartedToast, {
+        description: t.movies.page.reprocessStartedDescription(movie.title),
       });
     } catch (err) {
-      toast.error("Couldn't reprocess this movie", {
+      toast.error(t.movies.page.reprocessFailedToast, {
         description:
           err instanceof ApiError
             ? err.message
-            : "Only a movie whose video failed to process can be reprocessed.",
+            : t.movies.page.reprocessFailedFallback,
       });
     } finally {
       setReprocessingId(null);
@@ -80,15 +82,16 @@ export default function ReadyToPublishPage() {
     try {
       await movieService.updateMovie(movie.id, { status: "PUBLISHED" });
       setMovies(activeMovies.filter((m) => m.id !== movie.id));
-      toast.success("Movie published", { description: `"${movie.title}" is now live on MyanFlix.` });
+      toast.success(t.movies.publishedToast, { description: t.movies.publishedDescription(movie.title) });
     } catch {
-      toast.error("Couldn't publish this movie", { description: "Please try again." });
+      toast.error(t.movies.publishFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setPublishingId(null);
     }
   };
 
   const columns = getMovieColumns({
+    t,
     canManage,
     onView: setViewMovie,
     onEdit: setEditMovie,
@@ -102,26 +105,26 @@ export default function ReadyToPublishPage() {
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Ready to Publish"
-      description="Review completed uploads before they go live."
+      title={t.movies.readyToPublish.title}
+      description={t.movies.readyToPublish.description}
     >
       {error ? (
         <div>
-          <PageHeader title="Ready to Publish" description="Review completed uploads before they go live." />
-          <ErrorState description="We couldn't load the review queue." onRetry={refetch} />
+          <PageHeader title={t.movies.readyToPublish.title} description={t.movies.readyToPublish.description} />
+          <ErrorState description={t.movies.readyToPublish.loadError} onRetry={refetch} />
         </div>
       ) : (
         <div>
           <PageHeader
-            title="Ready to Publish"
-            description="Uploads that finished and passed validation, waiting on your review. They stay hidden from users until you publish them."
+            title={t.movies.readyToPublish.title}
+            description={t.movies.readyToPublish.pageDescription}
           />
 
           {!isLoading && activeMovies.length === 0 ? (
             <EmptyState
               icon={Rocket}
-              title="Nothing waiting to publish"
-              description="Movies show up here once a bulk or pre-transcoded upload finishes and passes validation."
+              title={t.movies.readyToPublish.emptyTitle}
+              description={t.movies.readyToPublish.emptyDescription}
             />
           ) : (
             <DataTable
@@ -129,7 +132,7 @@ export default function ReadyToPublishPage() {
               data={activeMovies}
               isLoading={isLoading}
               searchKey="title"
-              searchPlaceholder="Search movies by title..."
+              searchPlaceholder={t.movies.page.searchPlaceholder}
             />
           )}
 
@@ -154,9 +157,9 @@ export default function ReadyToPublishPage() {
           <ConfirmDialog
             open={!!deleteMovie}
             onOpenChange={(o) => !o && setDeleteMovie(null)}
-            title="Delete this movie?"
-            description={`"${deleteMovie?.title}" will be permanently removed from the catalog. This action cannot be undone.`}
-            confirmLabel="Delete"
+            title={t.movies.page.deleteTitle}
+            description={deleteMovie ? t.movies.page.deleteDescription(deleteMovie.title) : ""}
+            confirmLabel={t.common.delete}
             variant="destructive"
             loading={deleting}
             onConfirm={handleDelete}

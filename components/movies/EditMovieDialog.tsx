@@ -21,6 +21,7 @@ import { videoService } from "@/services/api/videoService";
 import { uploadService } from "@/services/api/uploadService";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
+import { useLanguage } from "@/lib/context/language-context";
 import { GENRE_OPTIONS } from "@/lib/constants/movie-options";
 import { SubtitleManager } from "./SubtitleManager";
 import type { Movie } from "@/types/movie";
@@ -35,6 +36,7 @@ function EditMovieForm({
   onOpenChange: (open: boolean) => void;
   onSaved: (movie: Movie) => void;
 }) {
+  const { t } = useLanguage();
   const [title, setTitle] = useState(movie.title);
   const [description, setDescription] = useState(movie.description);
   const [genre, setGenre] = useState(movie.genre);
@@ -93,10 +95,10 @@ function EditMovieForm({
           : {}),
       });
       onSaved(updated);
-      toast.success("Movie updated", { description: `"${title}" has been saved.` });
+      toast.success(t.movies.editDialog.updatedToast, { description: t.movies.editDialog.updatedDescription(title) });
       onOpenChange(false);
     } catch {
-      toast.error("Couldn't save changes", { description: "Please try again." });
+      toast.error(t.movies.editDialog.saveFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setSaving(false);
     }
@@ -108,9 +110,9 @@ function EditMovieForm({
       const updated = await movieService.updateMovie(movie.id, { status: "PUBLISHED" });
       setStatus("PUBLISHED");
       onSaved(updated);
-      toast.success("Movie published", { description: `"${movie.title}" is now live on MyanFlix.` });
+      toast.success(t.movies.publishedToast, { description: t.movies.publishedDescription(movie.title) });
     } catch {
-      toast.error("Couldn't publish this movie", { description: "Please try again." });
+      toast.error(t.movies.publishFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setPublishing(false);
     }
@@ -119,20 +121,20 @@ function EditMovieForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Edit movie</DialogTitle>
-        <DialogDescription>Update details for &ldquo;{movie.title}&rdquo;.</DialogDescription>
+        <DialogTitle>{t.movies.editDialog.title}</DialogTitle>
+        <DialogDescription>{t.movies.editDialog.descriptionFor(movie.title)}</DialogDescription>
       </DialogHeader>
 
       <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="edit-title">Title</Label>
+          <Label htmlFor="edit-title">{t.movies.editDialog.titleLabel}</Label>
           <Input id="edit-title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
 
         {isEpisode && (
-          <div className="grid grid-cols-2 gap-3 rounded-lg border border-white/[0.08] bg-secondary/20 p-3">
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-secondary/20 p-3">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-season">Season</Label>
+              <Label htmlFor="edit-season">{t.movies.editDialog.seasonLabel}</Label>
               <Input
                 id="edit-season"
                 type="number"
@@ -142,7 +144,7 @@ function EditMovieForm({
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-episode">Episode</Label>
+              <Label htmlFor="edit-episode">{t.movies.editDialog.episodeLabel}</Label>
               <Input
                 id="edit-episode"
                 type="number"
@@ -154,7 +156,7 @@ function EditMovieForm({
           </div>
         )}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="edit-description">Description</Label>
+          <Label htmlFor="edit-description">{t.movies.editDialog.descriptionLabel}</Label>
           <Textarea
             id="edit-description"
             rows={3}
@@ -164,16 +166,16 @@ function EditMovieForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label>Genre</Label>
+            <Label>{t.movies.editDialog.genreLabel}</Label>
             <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Select genre" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t.movies.editDialog.genrePlaceholder} /></SelectTrigger>
               <SelectContent>
                 {GENRE_OPTIONS.map((g) => <SelectItem key={g} value={g}>{g}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-release-year">Release year</Label>
+            <Label htmlFor="edit-release-year">{t.movies.editDialog.releaseYearLabel}</Label>
             <Input
               id="edit-release-year"
               type="number"
@@ -183,7 +185,7 @@ function EditMovieForm({
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label>Categories</Label>
+          <Label>{t.movies.editDialog.categoriesLabel}</Label>
           <div className="flex flex-wrap gap-2">
             {categories?.map((c) => {
               const active = categoryIds.includes(c.id);
@@ -195,7 +197,7 @@ function EditMovieForm({
                     setCategoryIds((prev) => (active ? prev.filter((id) => id !== c.id) : [...prev, c.id]))
                   }
                   className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                    active ? "border-primary bg-primary/15 text-primary" : "border-white/10 text-muted-foreground hover:bg-secondary"
+                    active ? "border-primary bg-primary/15 text-primary" : "border-border text-muted-foreground hover:bg-secondary/50"
                   }`}
                 >
                   {c.name}
@@ -206,41 +208,41 @@ function EditMovieForm({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
-            <Label>Access type</Label>
+            <Label>{t.movies.editDialog.accessTypeLabel}</Label>
             <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Movie["accessType"])}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="FREE">Free</SelectItem>
-                <SelectItem value="SUBSCRIPTION">Subscription</SelectItem>
+                <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+                <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label>Status</Label>
+            <Label>{t.movies.editDialog.statusLabel}</Label>
             <Select value={status} onValueChange={(v) => v && setStatus(v as Movie["status"])}>
               <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="PUBLISHED">Published</SelectItem>
-                <SelectItem value="READY_TO_PUBLISH">Ready to publish</SelectItem>
-                <SelectItem value="UPLOADING">Uploading</SelectItem>
-                <SelectItem value="PROCESSING">Processing</SelectItem>
-                <SelectItem value="FAILED">Failed</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="ARCHIVED">Archived</SelectItem>
+                <SelectItem value="PUBLISHED">{t.movies.status.published}</SelectItem>
+                <SelectItem value="READY_TO_PUBLISH">{t.movies.status.readyToPublish}</SelectItem>
+                <SelectItem value="UPLOADING">{t.movies.status.uploading}</SelectItem>
+                <SelectItem value="PROCESSING">{t.movies.status.processing}</SelectItem>
+                <SelectItem value="FAILED">{t.movies.status.failed}</SelectItem>
+                <SelectItem value="DRAFT">{t.movies.status.draft}</SelectItem>
+                <SelectItem value="ARCHIVED">{t.movies.status.archived}</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Images</Label>
+          <Label>{t.movies.editDialog.imagesLabel}</Label>
           <div className="grid grid-cols-3 gap-4">
             <FileUploadField
-              label="Poster"
+              label={t.movies.editDialog.posterLabel}
               accept="image/*"
               variant="image"
               aspect="poster"
@@ -249,7 +251,7 @@ function EditMovieForm({
               onChange={setPosterFile}
             />
             <FileUploadField
-              label="Banner"
+              label={t.movies.editDialog.bannerLabel}
               accept="image/*"
               variant="image"
               aspect="wide"
@@ -258,7 +260,7 @@ function EditMovieForm({
               onChange={setCoverFile}
             />
             <FileUploadField
-              label="Thumbnail"
+              label={t.movies.editDialog.thumbnailLabel}
               accept="image/*"
               variant="image"
               aspect="wide"
@@ -270,14 +272,14 @@ function EditMovieForm({
         </div>
 
         {movie.status === "READY_TO_PUBLISH" && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-warning/25 bg-warning/10 p-3">
             <div>
-              <p className="text-sm font-medium">Ready to publish</p>
-              <p className="text-xs text-muted-foreground">This movie is uploaded and validated — it stays hidden from users until you publish it.</p>
+              <p className="text-sm font-medium">{t.movies.editDialog.readyToPublishTitle}</p>
+              <p className="text-xs text-muted-foreground">{t.movies.editDialog.readyToPublishDescription}</p>
             </div>
             <Button size="sm" onClick={handlePublish} disabled={publishing}>
               {publishing ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
-              Publish
+              {t.movies.publish}
             </Button>
           </div>
         )}
@@ -287,11 +289,11 @@ function EditMovieForm({
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button onClick={handleSave} disabled={saving || !title.trim()}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Save changes
+          {t.movies.editDialog.saveChanges}
         </Button>
       </DialogFooter>
     </>

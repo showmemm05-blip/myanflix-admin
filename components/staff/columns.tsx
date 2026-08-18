@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { StaffMember, StaffStatus } from "@/types/staff";
 
 const STATUS_TONE: Record<StaffStatus, StatusTone> = {
@@ -21,6 +22,7 @@ const STATUS_TONE: Record<StaffStatus, StatusTone> = {
 };
 
 interface GetStaffColumnsOptions {
+  t: TranslationShape;
   currentUserId: string;
   onEdit: (staff: StaffMember) => void;
   onResetPassword: (staff: StaffMember) => void;
@@ -29,6 +31,7 @@ interface GetStaffColumnsOptions {
 }
 
 export function getStaffColumns({
+  t,
   currentUserId,
   onEdit,
   onResetPassword,
@@ -38,48 +41,48 @@ export function getStaffColumns({
   return [
     {
       accessorKey: "username",
-      header: "Username",
+      header: t.staff.columns.username,
       cell: ({ row }) => (
         <span className="font-medium">
           {row.original.username}
           {row.original.id === currentUserId && (
-            <span className="ml-2 text-xs text-muted-foreground">(you)</span>
+            <span className="ml-2 text-xs text-muted-foreground">{t.staff.columns.you}</span>
           )}
         </span>
       ),
     },
     {
       accessorKey: "role",
-      header: "Role",
+      header: t.staff.columns.role,
       cell: ({ row }) => <RoleBadge role={row.original.role} />,
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: t.staff.columns.status,
       cell: ({ row }) => (
         <StatusBadge
-          label={row.original.status === "ACTIVE" ? "Active" : "Inactive"}
+          label={row.original.status === "ACTIVE" ? t.common.active : t.common.inactive}
           tone={STATUS_TONE[row.original.status]}
         />
       ),
     },
     {
       accessorKey: "lastLoginAt",
-      header: "Last Login",
+      header: t.staff.columns.lastLogin,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.lastLoginAt
-            ? format(new Date(row.original.lastLoginAt), "MMM d, yyyy HH:mm")
-            : "Never"}
+            ? format(new Date(row.original.lastLoginAt), "d MMM yyyy, HH:mm:ss")
+            : t.common.never}
         </span>
       ),
     },
     {
       accessorKey: "createdAt",
-      header: "Created",
+      header: t.staff.columns.created,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), "MMM d, yyyy")}
+          {format(new Date(row.original.createdAt), "d MMM yyyy")}
         </span>
       ),
     },
@@ -97,11 +100,11 @@ export function getStaffColumns({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onEdit(staff)}>
                 <Pencil className="size-4" />
-                Edit
+                {t.common.edit}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onResetPassword(staff)}>
                 <KeyRound className="size-4" />
-                Reset Password
+                {t.staff.columns.resetPassword}
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={isSelf}
@@ -113,12 +116,12 @@ export function getStaffColumns({
                 ) : (
                   <Ban className="size-4" />
                 )}
-                {staff.status === "SUSPENDED" ? "Activate" : "Deactivate"}
+                {staff.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled={isSelf} variant="destructive" onClick={() => onDelete(staff)}>
                 <Trash2 className="size-4" />
-                Delete
+                {t.common.delete}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

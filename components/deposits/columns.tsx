@@ -1,15 +1,17 @@
 "use client";
 
 import { format } from "date-fns";
-import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Check, ImageIcon, Loader2, X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { ReceivingAccountCell } from "@/components/deposits/ReceivingAccountCell";
+import { UserDepositAccountCell } from "@/components/deposits/UserDepositAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { Deposit, DepositStatus } from "@/types/deposit";
-import type { PaymentAccountType } from "@/types/payment-account";
+import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 
 const STATUS_TONE: Record<DepositStatus, StatusTone> = {
   PENDING: "warning",
@@ -18,88 +20,73 @@ const STATUS_TONE: Record<DepositStatus, StatusTone> = {
 };
 
 export function getDepositColumns({
+  t,
   types,
+  paymentAccounts,
   onApprove,
   onReject,
+  onReceivingSaved,
   approvingId,
 }: {
+  t: TranslationShape;
   types: PaymentAccountType[];
+  paymentAccounts: PaymentAccount[];
   onApprove: (deposit: Deposit) => void;
   onReject: (deposit: Deposit) => void;
+  onReceivingSaved: (deposit: Deposit) => void;
   approvingId?: string | null;
 }): ColumnDef<Deposit>[] {
-  // paymentMethod is a free-typed label, sometimes with " - <bank name>"
-  // appended (see the deposit dialogs' methodLabel() helper) — so an exact
-  // match against the catalog only works for non-bank methods; everything
-  // else needs the "<label> - " prefix check.
-  const typeLogo = (paymentMethod: string) =>
-    types.find((t) => paymentMethod === t.label || paymentMethod.startsWith(`${t.label} - `))?.logoUrl ?? null;
-
   return [
     {
       accessorKey: "userName",
-      header: "Customer",
-      cell: ({ row }) => <span className="max-w-40 truncate text-sm font-medium">{row.original.userName}</span>,
-    },
-    {
-      accessorKey: "userPhone",
-      header: "Phone",
+      header: t.deposits.columns.customer,
       cell: ({ row }) => (
-        <span className="text-sm">{formatLocalPhone(row.original.userPhone) ?? <span className="text-muted-foreground">—</span>}</span>
+        <div className="flex max-w-40 flex-col">
+          <span className="truncate text-sm font-medium">{row.original.userName}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatLocalPhone(row.original.userPhone) ?? "—"}
+          </span>
+        </div>
       ),
     },
     {
       accessorKey: "amount",
-      header: "Amount",
+      header: t.deposits.columns.amount,
       cell: ({ row }) => (
-        <span className="text-base font-semibold tabular-nums text-sky-400">
+        <span className="text-base font-semibold tabular-nums text-income">
           {formatSignedKyat(row.original.amount, "in")}
         </span>
       ),
     },
     {
-      accessorKey: "paymentMethod",
-      header: "Payment Method",
-      cell: ({ row }) => {
-        const logoUrl = typeLogo(row.original.paymentMethod);
-        return (
-          <div className="flex items-center gap-2">
-            <div className="flex size-6 shrink-0 items-center justify-center overflow-hidden rounded border border-white/[0.08] bg-secondary/20">
-              {logoUrl ? (
-                <Image src={logoUrl} alt="" width={24} height={24} className="size-full object-cover" unoptimized />
-              ) : (
-                <ImageIcon className="size-3 text-muted-foreground" />
-              )}
-            </div>
-            <span className="text-sm">{row.original.paymentMethod}</span>
-          </div>
-        );
-      },
-    },
-    {
-      accessorKey: "accountName",
-      header: "Account Name",
+      id: "receivingAccount",
+      header: t.deposits.columns.receivingAccount,
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.accountName ?? <span className="text-muted-foreground">—</span>}</span>
+        <ReceivingAccountCell
+          deposit={row.original}
+          accounts={paymentAccounts}
+          types={types}
+          onSaved={onReceivingSaved}
+        />
       ),
     },
     {
       accessorKey: "reference",
-      header: "Reference / Txn ID",
+      header: t.deposits.columns.reference,
       cell: ({ row }) => <span className="font-mono text-xs text-muted-foreground">{row.original.reference}</span>,
     },
     {
       accessorKey: "createdAt",
-      header: "Date & Time",
+      header: t.deposits.columns.dateTime,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {format(new Date(row.original.createdAt), "MMM d, yyyy HH:mm")}
+          {format(new Date(row.original.createdAt), "d MMM yyyy, HH:mm:ss")}
         </span>
       ),
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: t.deposits.columns.status,
       cell: ({ row }) => {
         const deposit = row.original;
         return (
@@ -112,7 +99,7 @@ export function getDepositColumns({
             )}
             {deposit.status !== "PENDING" && deposit.approvedAt && (
               <span className="text-xs text-muted-foreground">
-                Processed {format(new Date(deposit.approvedAt), "MMM d, yyyy HH:mm")}
+                {t.deposits.columns.processedAt(format(new Date(deposit.approvedAt), "d MMM yyyy, HH:mm:ss"))}
               </span>
             )}
           </div>
@@ -121,7 +108,7 @@ export function getDepositColumns({
     },
     {
       id: "actions",
-      header: "Actions",
+      header: t.deposits.columns.actions,
       cell: ({ row }) => {
         const deposit = row.original;
         if (deposit.status !== "PENDING") {
@@ -142,15 +129,27 @@ export function getDepositColumns({
               ) : (
                 <Check className="size-3.5 text-success" />
               )}
-              Approve
+              {t.common.approve}
             </Button>
             <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(deposit)}>
               <X className="size-3.5 text-destructive" />
-              Reject
+              {t.common.reject}
             </Button>
           </div>
         );
       },
+    },
+    {
+      id: "userDepositAccount",
+      header: t.deposits.columns.userDepositAccount,
+      cell: ({ row }) => (
+        <UserDepositAccountCell
+          deposit={row.original}
+          accounts={paymentAccounts}
+          types={types}
+          onSaved={onReceivingSaved}
+        />
+      ),
     },
   ];
 }

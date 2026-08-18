@@ -4,13 +4,17 @@ import { movieService } from "./movieService";
 import { videoService } from "./videoService";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { AppUser, PurchaseEntry, UserRole, UserStatus, WatchHistoryEntry } from "@/types/user";
+import type {
+  CreateWalletAdjustmentValues,
+  WalletAdjustment,
+  WalletAdjustmentResult,
+} from "@/types/wallet-adjustment";
 
 interface BackendUser {
   id: string;
   username: string;
-  email: string;
   phone: string | null;
-  avatar: string | null;
+  avatarUrl: string | null;
   role: UserRole;
   status: UserStatus;
   createdAt: string;
@@ -26,9 +30,8 @@ function mapUser(u: BackendUser): AppUser {
   return {
     id: u.id,
     name: u.username,
-    email: u.email,
     phone: u.phone,
-    avatarUrl: u.avatar ?? `https://i.pravatar.cc/150?u=${encodeURIComponent(u.username)}`,
+    avatarUrl: u.avatarUrl,
     role: u.role,
     status: u.status,
     balance: u.balance ?? 0,
@@ -87,5 +90,24 @@ export const userService = {
     return isSelf(userId)
       ? movieService.getMyPurchases(pagination)
       : movieService.getUserPurchases(userId, pagination);
+  },
+
+  /**
+   * Manually credit/debit a user's wallet — Super Admin only (WALLET_ADJUST).
+   * Idempotent per `values.idempotencyKey`: resubmitting the same key returns
+   * the original adjustment with `replayed: true` instead of double-charging.
+   */
+  adjustBalance(userId: string, values: CreateWalletAdjustmentValues): Promise<WalletAdjustmentResult> {
+    return apiClient.post<WalletAdjustmentResult>(`/users/${userId}/wallet-adjustments`, values);
+  },
+
+  /** Audit trail of manual balance adjustments, newest first — Super Admin only (WALLET_ADJUST). */
+  getWalletAdjustments(
+    userId: string,
+    pagination: PaginationParams = {},
+  ): Promise<PaginatedResponse<WalletAdjustment>> {
+    return apiClient.get<PaginatedResponse<WalletAdjustment>>(`/users/${userId}/wallet-adjustments`, {
+      params: pagination,
+    });
   },
 };

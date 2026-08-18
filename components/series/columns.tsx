@@ -13,20 +13,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
-import { ACCESS_TYPE_LABEL, ACCESS_TYPE_TONE } from "@/components/movies/columns";
+import { ACCESS_TYPE_TONE, getAccessTypeLabel } from "@/components/movies/columns";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { SeriesListItem } from "@/types/series";
 
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-series-poster/400/600";
 
 interface GetSeriesColumnsOptions {
+  t: TranslationShape;
   onDelete: (series: SeriesListItem) => void;
 }
 
-export function getSeriesColumns({ onDelete }: GetSeriesColumnsOptions): ColumnDef<SeriesListItem>[] {
+export function getSeriesColumns({ t, onDelete }: GetSeriesColumnsOptions): ColumnDef<SeriesListItem>[] {
   return [
     {
       accessorKey: "title",
-      header: "Title",
+      header: t.movies.columns.title,
       cell: ({ row }) => {
         const series = row.original;
         return (
@@ -50,7 +52,7 @@ export function getSeriesColumns({ onDelete }: GetSeriesColumnsOptions): ColumnD
     },
     {
       accessorKey: "genre",
-      header: "Genre",
+      header: t.movies.columns.genre,
       cell: ({ row }) => (
         <Badge variant="secondary" className="font-normal">
           {row.original.genre}
@@ -61,25 +63,25 @@ export function getSeriesColumns({ onDelete }: GetSeriesColumnsOptions): ColumnD
     },
     {
       accessorKey: "language",
-      header: "Language",
+      header: t.series.columns.language,
       cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.language}</span>,
     },
     {
       accessorKey: "accessType",
-      header: "Access",
+      header: t.movies.columns.access,
       cell: ({ row }) => (
         <StatusBadge
-          label={ACCESS_TYPE_LABEL[row.original.accessType]}
+          label={getAccessTypeLabel(t, row.original.accessType)}
           tone={ACCESS_TYPE_TONE[row.original.accessType]}
         />
       ),
     },
     {
       accessorKey: "episodeCount",
-      header: "Episodes",
+      header: t.series.columns.episodesHeader,
       cell: ({ row }) => (
         <span className="tabular-nums text-sm">
-          {row.original.episodeCount} episode{row.original.episodeCount === 1 ? "" : "s"}
+          {t.series.columns.episodeCount(row.original.episodeCount)}
         </span>
       ),
     },
@@ -92,7 +94,7 @@ export function getSeriesColumns({ onDelete }: GetSeriesColumnsOptions): ColumnD
           <div className="flex items-center justify-end gap-2">
             <Button size="sm" render={<Link href={`/series/${series.id}`} />} nativeButton={false}>
               <Settings2 className="size-3.5" />
-              Manage
+              {t.series.columns.manage}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
@@ -101,7 +103,7 @@ export function getSeriesColumns({ onDelete }: GetSeriesColumnsOptions): ColumnD
               <DropdownMenuContent align="end">
                 <DropdownMenuItem variant="destructive" onClick={() => onDelete(series)}>
                   <Trash2 className="size-4" />
-                  Delete
+                  {t.common.delete}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

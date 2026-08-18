@@ -23,20 +23,26 @@ import {
   type MovieUploadJob,
   type MovieUploadStatus,
 } from "@/lib/context/bulk-upload-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { formatBytes, formatEta, formatSpeed } from "@/lib/upload/format";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import { toast } from "sonner";
 
-const STATUS_META: Record<MovieUploadStatus, { label: string; tone: StatusTone }> = {
-  waiting: { label: "Waiting", tone: "neutral" },
-  uploading: { label: "Uploading", tone: "info" },
-  paused: { label: "Waiting", tone: "warning" },
-  offline: { label: "Waiting", tone: "info" },
-  failed: { label: "Failed", tone: "danger" },
-  completed: { label: "Processing", tone: "info" },
-  ready_to_publish: { label: "Completed", tone: "success" },
-};
-const FINALIZING_META = { label: "Finalizing", tone: "info" as StatusTone };
+function getStatusMeta(t: TranslationShape): Record<MovieUploadStatus, { label: string; tone: StatusTone }> {
+  return {
+    waiting: { label: t.uploads.status.waiting, tone: "neutral" },
+    uploading: { label: t.uploads.status.uploading, tone: "info" },
+    paused: { label: t.uploads.status.waiting, tone: "warning" },
+    offline: { label: t.uploads.status.waiting, tone: "info" },
+    failed: { label: t.uploads.status.failed, tone: "danger" },
+    completed: { label: t.uploads.status.processing, tone: "info" },
+    ready_to_publish: { label: t.uploads.status.completed, tone: "success" },
+  };
+}
+function getFinalizingMeta(t: TranslationShape) {
+  return { label: t.uploads.status.finalizing, tone: "info" as StatusTone };
+}
 
 /** True once every chunk of the job's still-in-flight asset(s) has reached the backend, which is now merging them and pushing the result to storage — distinct from "uploading" so the UI doesn't just look stuck at 100%. */
 function isFinalizing(job: MovieUploadJob) {
@@ -86,8 +92,9 @@ const UploadJobCard = memo(function UploadJobCard({
   onPublish,
   onAttachClick,
 }: UploadJobCardProps) {
+  const { t } = useLanguage();
   const finalizing = isFinalizing(job);
-  const meta = finalizing ? FINALIZING_META : STATUS_META[job.status];
+  const meta = finalizing ? getFinalizingMeta(t) : getStatusMeta(t)[job.status];
   const isActive = job.status === "uploading" || job.status === "completed";
   const showProgress = isActive || job.status === "paused" || job.status === "offline";
   const total = totalBytes(job);
@@ -107,8 +114,8 @@ const UploadJobCard = memo(function UploadJobCard({
         if (isDraggable) onDrop(job.key, position);
       }}
       onDragEnd={onDragEnd}
-      className={`glass-card border-white/[0.08] transition-colors ${
-        job.status === "uploading" ? "border-sky-500/30 bg-sky-500/[0.03]" : ""
+      className={`glass-card transition-colors ${
+        job.status === "uploading" ? "border-info/25 bg-info/10" : ""
       } ${isDragging ? "opacity-50" : ""}`}
     >
       <CardContent className="flex flex-col gap-3">
@@ -120,8 +127,8 @@ const UploadJobCard = memo(function UploadJobCard({
             <p className="truncate text-sm font-semibold">{job.title}</p>
             <p className="truncate text-xs text-muted-foreground">
               {subtitle ? `${subtitle} · ` : ""}
-              {job.assets.length} files · {formatBytes(total)}
-              {position && ` · Queue position #${position}`}
+              {t.uploads.filesCount(job.assets.length)} · {formatBytes(total)}
+              {position && t.uploads.queuePosition(position)}
             </p>
           </div>
           <StatusBadge label={meta.label} tone={meta.tone} />
@@ -133,13 +140,13 @@ const UploadJobCard = memo(function UploadJobCard({
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {finalizing
-                  ? "Finalizing upload..."
+                  ? t.uploads.finalizingUpload
                   : job.status === "completed"
-                    ? "Validating bundle..."
+                    ? t.uploads.validatingBundle
                     : job.status === "offline"
-                      ? "Waiting for internet connection..."
+                      ? t.movies.externalUpload.waitingForConnection
                       : job.status === "paused"
-                        ? `Paused at ${percent}%`
+                        ? t.uploads.pausedAt(percent)
                         : formatSpeed(job.speedBps)}
               </span>
               <span className="tabular-nums">
@@ -150,19 +157,19 @@ const UploadJobCard = memo(function UploadJobCard({
         )}
 
         {job.status === "failed" && (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs text-destructive">
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 p-2.5 text-xs text-destructive">
             <AlertCircle className="size-3.5 shrink-0 translate-y-0.5" />
-            <span>{job.error ?? "Upload failed."}</span>
+            <span>{job.error ?? t.uploads.uploadFailedFallback}</span>
           </div>
         )}
 
         {job.needsReattach && (
-          <div className="flex items-center justify-between gap-3 rounded-lg border border-sky-500/30 bg-sky-500/10 p-2.5 text-xs">
-            <span className="text-sky-300">
-              This queue was restored after a refresh — re-select this folder to resume.
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-info/25 bg-info/10 p-2.5 text-xs">
+            <span className="text-info">
+              {t.uploads.needsReattachText}
             </span>
             <Button size="sm" variant="outline" onClick={() => onAttachClick(job.key)}>
-              Attach folder
+              {t.uploads.attachFolder}
             </Button>
           </div>
         )}
@@ -171,25 +178,25 @@ const UploadJobCard = memo(function UploadJobCard({
           {job.status === "ready_to_publish" && (
             <Button size="sm" onClick={() => onPublish(job)}>
               <Rocket className="size-3.5" />
-              Publish
+              {t.movies.publish}
             </Button>
           )}
           {job.status === "uploading" && (
             <Button variant="outline" size="sm" onClick={() => onPause(job.key)}>
               <Pause className="size-3.5" />
-              Pause
+              {t.uploads.pause}
             </Button>
           )}
           {job.status === "paused" && (
             <Button variant="outline" size="sm" onClick={() => onResume(job.key)}>
               <Play className="size-3.5" />
-              Resume
+              {t.uploads.resume}
             </Button>
           )}
           {job.status === "failed" && (
             <Button variant="outline" size="sm" onClick={() => onRetry(job.key)}>
               <RotateCcw className="size-3.5" />
-              Retry
+              {t.common.retry}
             </Button>
           )}
           {(job.status === "uploading" ||
@@ -198,12 +205,12 @@ const UploadJobCard = memo(function UploadJobCard({
             job.status === "offline") && (
             <Button variant="outline" size="sm" onClick={() => onCancel(job.key)}>
               <X className="size-3.5" />
-              Cancel
+              {t.common.cancel}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => onEdit(job)}>
             <Pencil className="size-3.5" />
-            Details
+            {t.uploads.details}
           </Button>
           <Button
             variant="ghost"
@@ -211,7 +218,7 @@ const UploadJobCard = memo(function UploadJobCard({
             className="text-muted-foreground hover:text-destructive"
             onClick={() => onRemove(job.key)}
           >
-            Remove
+            {t.uploads.remove}
           </Button>
           {job.status === "completed" && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
           {job.status === "ready_to_publish" && <CheckCircle2 className="size-4 text-success" />}
@@ -256,6 +263,7 @@ export function UploadQueueList({
   onEdit,
   onPublish,
 }: UploadQueueListProps) {
+  const { t } = useLanguage();
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
   const [reattachTarget, setReattachTarget] = useState<string | null>(null);
   const reattachInputRef = useRef<HTMLInputElement>(null);
@@ -297,7 +305,7 @@ export function UploadQueueList({
     const [folder] = foldersFromFileList(fileList);
     if (folder) {
       onReattach(reattachTarget, folder);
-      toast.success("Folder re-attached — it'll resume shortly.");
+      toast.success(t.uploads.reattachedToast);
     }
     setReattachTarget(null);
   };

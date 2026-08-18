@@ -21,6 +21,7 @@ import { uploadService } from "@/services/api/uploadService";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
 import type { PaymentAccountType } from "@/types/payment-account";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/context/language-context";
 
 /** Compact 40x40 click-to-upload logo picker used inline in each method row. */
 function MethodLogoPicker({
@@ -34,6 +35,7 @@ function MethodLogoPicker({
   onRemove: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -54,7 +56,7 @@ function MethodLogoPicker({
         type="button"
         disabled={disabled}
         onClick={() => inputRef.current?.click()}
-        className="flex size-10 items-center justify-center overflow-hidden rounded-lg border border-dashed border-white/15 bg-secondary/20 transition-colors hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex size-10 items-center justify-center overflow-hidden rounded-lg border border-dashed border-input bg-secondary/20 transition-colors hover:border-primary/50 hover:bg-primary/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {previewUrl ? (
           <Image src={previewUrl} alt="" width={40} height={40} className="size-full object-cover" unoptimized />
@@ -66,7 +68,7 @@ function MethodLogoPicker({
         <button
           type="button"
           onClick={onRemove}
-          aria-label="Remove logo"
+          aria-label={t.paymentAccounts.manageMethodsDialog.removeLogoAriaLabel}
           className="absolute -right-1.5 -top-1.5 flex size-4 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black"
         >
           <X className="size-2.5" />
@@ -87,6 +89,7 @@ function PaymentMethodRow({
   onSaved: (updated: PaymentAccountType, previousLabel: string) => void;
   onDeleted: (id: string) => void;
 }) {
+  const { t } = useLanguage();
   const [editing, setEditing] = useState(false);
   const [label, setLabel] = useState(type.label);
   const [requiresBankName, setRequiresBankName] = useState(type.requiresBankName);
@@ -122,16 +125,16 @@ function PaymentMethodRow({
         logoUrl: nextLogoUrl,
       });
       onSaved(updated, type.label);
-      toast.success("Payment method updated", {
+      toast.success(t.paymentAccounts.manageMethodsDialog.updatedToast, {
         description:
           trimmed !== type.label
-            ? `Renamed to "${trimmed}" — every account using "${type.label}" now shows the new name.`
-            : `"${trimmed}" was updated.`,
+            ? t.paymentAccounts.manageMethodsDialog.renamedDescription(trimmed, type.label)
+            : t.paymentAccounts.manageMethodsDialog.updatedDescription(trimmed),
       });
       setLogoFile(null);
       setEditing(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -142,10 +145,12 @@ function PaymentMethodRow({
     try {
       await paymentAccountService.deleteType(type.id);
       onDeleted(type.id);
-      toast.success("Payment method deleted", { description: `"${type.label}" was removed.` });
+      toast.success(t.paymentAccounts.manageMethodsDialog.deletedToast, {
+        description: t.paymentAccounts.manageMethodsDialog.deletedDescription(type.label),
+      });
       setConfirmDelete(false);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      toast.error(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
     } finally {
       setDeleting(false);
     }
@@ -174,7 +179,7 @@ function PaymentMethodRow({
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <Switch checked={requiresBankName} onCheckedChange={setRequiresBankName} size="sm" />
-            Requires bank name
+            {t.paymentAccounts.manageMethodsDialog.requiresBankName}
           </label>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon-sm" onClick={cancelEdit} disabled={saving}>
@@ -192,7 +197,7 @@ function PaymentMethodRow({
   return (
     <div className="flex items-center justify-between gap-2 rounded-lg border border-input p-3">
       <div className="flex items-center gap-3">
-        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/[0.08] bg-secondary/20">
+        <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary/40">
           {type.logoUrl ? (
             <Image src={type.logoUrl} alt="" width={40} height={40} className="size-full object-cover" unoptimized />
           ) : (
@@ -202,8 +207,10 @@ function PaymentMethodRow({
         <div>
           <p className="text-sm font-medium">{type.label}</p>
           <p className="text-xs text-muted-foreground">
-            {type.requiresBankName ? "Requires bank name" : "No bank name"} ·{" "}
-            {accountCount === 1 ? "1 account" : `${accountCount} accounts`}
+            {type.requiresBankName
+              ? t.paymentAccounts.manageMethodsDialog.requiresBankName
+              : t.paymentAccounts.manageMethodsDialog.noBankName}{" "}
+            · {t.paymentAccounts.manageMethodsDialog.accountCount(accountCount)}
           </p>
         </div>
       </div>
@@ -219,13 +226,13 @@ function PaymentMethodRow({
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Delete this payment method?"
+        title={t.paymentAccounts.manageMethodsDialog.deleteTitle}
         description={
           accountCount > 0
-            ? `"${type.label}" is used by ${accountCount} account(s). Delete or reassign them first.`
-            : `"${type.label}" will be permanently removed from the picker. This action cannot be undone.`
+            ? t.paymentAccounts.manageMethodsDialog.deleteInUseDescription(type.label, accountCount)
+            : t.paymentAccounts.manageMethodsDialog.deleteDescription(type.label)
         }
-        confirmLabel="Delete"
+        confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}
@@ -235,6 +242,7 @@ function PaymentMethodRow({
 }
 
 function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) => void }) {
+  const { t } = useLanguage();
   const [adding, setAdding] = useState(false);
   const [label, setLabel] = useState("");
   const [requiresBankName, setRequiresBankName] = useState(false);
@@ -261,10 +269,12 @@ function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) 
       const logoUrl = logoFile ? (await uploadService.uploadImage(logoFile)).url : undefined;
       const created = await paymentAccountService.createType({ label: trimmed, requiresBankName, logoUrl });
       onCreated(created);
-      toast.success("Payment method added", { description: `"${trimmed}" is ready to use.` });
+      toast.success(t.paymentAccounts.manageMethodsDialog.createdToast, {
+        description: t.paymentAccounts.manageMethodsDialog.createdDescription(trimmed),
+      });
       reset();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -274,7 +284,7 @@ function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) 
     return (
       <Button variant="outline" className="w-full" onClick={() => setAdding(true)}>
         <Plus className="size-4" />
-        Add payment method
+        {t.paymentAccounts.manageMethodsDialog.addPaymentMethod}
       </Button>
     );
   }
@@ -291,7 +301,7 @@ function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) 
         <Input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g. Wave Pay"
+          placeholder={t.paymentAccounts.manageMethodsDialog.labelPlaceholder}
           autoFocus
           className="flex-1"
         />
@@ -299,7 +309,7 @@ function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) 
       <div className="flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <Switch checked={requiresBankName} onCheckedChange={setRequiresBankName} size="sm" />
-          Requires bank name
+          {t.paymentAccounts.manageMethodsDialog.requiresBankName}
         </label>
         <div className="flex gap-1">
           <Button variant="ghost" size="icon-sm" onClick={reset} disabled={saving}>
@@ -329,15 +339,13 @@ export function ManagePaymentMethodsDialog({
   onTypesChanged: (types: PaymentAccountType[]) => void;
   onAccountsRenamed?: (previousLabel: string, nextLabel: string) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Manage payment methods</DialogTitle>
-          <DialogDescription>
-            Rename or remove the methods offered when adding a payment account. Renaming updates every
-            account already using that method.
-          </DialogDescription>
+          <DialogTitle>{t.paymentAccounts.manageMethodsDialog.title}</DialogTitle>
+          <DialogDescription>{t.paymentAccounts.manageMethodsDialog.description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2">

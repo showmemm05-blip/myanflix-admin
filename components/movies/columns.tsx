@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AccessType, Movie, MovieStatus } from "@/types/movie";
 
 export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
@@ -42,7 +43,31 @@ export function formatDuration(minutes: number) {
   return `${h}h ${m}m`;
 }
 
+/**
+ * Translated equivalents of `STATUS_TONE`/`ACCESS_TYPE_LABEL` above — kept as
+ * separate functions (rather than changing those exports' shape) because
+ * `ACCESS_TYPE_LABEL`/`STATUS_TONE` are also consumed by series/episode
+ * columns outside the movies page group, which don't have a `t` to pass in.
+ */
+export function getStatusLabel(t: TranslationShape, status: MovieStatus): string {
+  const labels: Record<MovieStatus, string> = {
+    PUBLISHED: t.movies.status.published,
+    PROCESSING: t.movies.status.processing,
+    DRAFT: t.movies.status.draft,
+    ARCHIVED: t.movies.status.archived,
+    UPLOADING: t.movies.status.uploading,
+    FAILED: t.movies.status.failed,
+    READY_TO_PUBLISH: t.movies.status.readyToPublish,
+  };
+  return labels[status];
+}
+
+export function getAccessTypeLabel(t: TranslationShape, accessType: AccessType): string {
+  return accessType === "FREE" ? t.movies.accessType.free : t.movies.accessType.subscription;
+}
+
 interface GetMovieColumnsOptions {
+  t: TranslationShape;
   canManage: boolean;
   onView: (movie: Movie) => void;
   onEdit: (movie: Movie) => void;
@@ -63,6 +88,7 @@ interface GetMovieColumnsOptions {
 }
 
 export function getMovieColumns({
+  t,
   canManage,
   onView,
   onEdit,
@@ -75,7 +101,7 @@ export function getMovieColumns({
   const columns: ColumnDef<Movie>[] = [
     {
       accessorKey: "title",
-      header: "Title",
+      header: t.movies.columns.title,
       cell: ({ row }) => {
         const movie = row.original;
         return (
@@ -91,7 +117,7 @@ export function getMovieColumns({
             </div>
             <div className="min-w-0">
               <p className="max-w-52 truncate font-medium">{movie.title}</p>
-              <p className="text-xs text-muted-foreground">{movie.releaseYear}</p>
+              <p className="text-xs tabular-nums text-muted-foreground">{movie.releaseYear}</p>
             </div>
           </div>
         );
@@ -99,7 +125,7 @@ export function getMovieColumns({
     },
     {
       accessorKey: "genre",
-      header: "Genre",
+      header: t.movies.columns.genre,
       cell: ({ row }) => (
         <Badge variant="secondary" className="font-normal">
           {row.original.genre}
@@ -110,29 +136,29 @@ export function getMovieColumns({
     },
     {
       accessorKey: "releaseYear",
-      header: "Year",
-      cell: ({ row }) => <span className="text-sm">{row.original.releaseYear}</span>,
+      header: t.movies.columns.year,
+      cell: ({ row }) => <span className="text-sm tabular-nums">{row.original.releaseYear}</span>,
     },
     {
       accessorKey: "duration",
-      header: "Duration",
+      header: t.movies.columns.duration,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{formatDuration(row.original.duration)}</span>
+        <span className="text-sm tabular-nums text-muted-foreground">{formatDuration(row.original.duration)}</span>
       ),
     },
     {
       accessorKey: "accessType",
-      header: "Access",
+      header: t.movies.columns.access,
       cell: ({ row }) => (
         <StatusBadge
-          label={ACCESS_TYPE_LABEL[row.original.accessType]}
+          label={getAccessTypeLabel(t, row.original.accessType)}
           tone={ACCESS_TYPE_TONE[row.original.accessType]}
         />
       ),
     },
     {
       accessorKey: "rating",
-      header: "Rating",
+      header: t.movies.columns.rating,
       cell: ({ row }) => (
         <span className="tabular-nums text-muted-foreground">
           {row.original.rating > 0 ? row.original.rating.toFixed(1) : "—"}
@@ -141,9 +167,9 @@ export function getMovieColumns({
     },
     {
       accessorKey: "status",
-      header: "Status",
+      header: t.movies.columns.status,
       cell: ({ row }) => (
-        <StatusBadge label={row.original.status} tone={STATUS_TONE[row.original.status]} />
+        <StatusBadge label={getStatusLabel(t, row.original.status)} tone={STATUS_TONE[row.original.status]} />
       ),
     },
   ];
@@ -162,7 +188,7 @@ export function getMovieColumns({
               ) : (
                 <Rocket className="size-3.5" />
               )}
-              Publish
+              {t.movies.publish}
             </Button>
           )}
           <DropdownMenu>
@@ -172,13 +198,13 @@ export function getMovieColumns({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => onView(movie)}>
                 <Eye className="size-4" />
-                View
+                {t.common.view}
               </DropdownMenuItem>
               {canManage && (
                 <>
                   <DropdownMenuItem onClick={() => onEdit(movie)}>
                     <Pencil className="size-4" />
-                    Edit
+                    {t.common.edit}
                   </DropdownMenuItem>
                   {movie.status === "DRAFT" && (
                     <DropdownMenuItem
@@ -186,12 +212,12 @@ export function getMovieColumns({
                       onClick={() => onReprocess(movie)}
                     >
                       <RefreshCw className={reprocessingId === movie.id ? "size-4 animate-spin" : "size-4"} />
-                      Reprocess video
+                      {t.movies.columns.reprocessVideo}
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
                     <Trash2 className="size-4" />
-                    Delete
+                    {t.common.delete}
                   </DropdownMenuItem>
                 </>
               )}

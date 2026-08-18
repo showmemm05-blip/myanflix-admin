@@ -8,6 +8,7 @@ import {
   Ban,
   CheckCircle2,
   Clapperboard,
+  Coins,
   History,
   ShieldCheck,
   ShoppingBag,
@@ -21,7 +22,9 @@ import { AccessRestricted } from "@/components/shared/AccessRestricted";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { AdjustBalanceDialog } from "@/components/users/AdjustBalanceDialog";
 import { EditRoleDialog } from "@/components/users/EditRoleDialog";
+import { WalletAdjustmentsSection } from "@/components/users/WalletAdjustmentsSection";
 import { WatchHistoryList } from "@/components/users/WatchHistoryList";
 import { PurchaseHistoryList } from "@/components/users/PurchaseHistoryList";
 import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
@@ -32,10 +35,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
+import { formatLocalPhone } from "@/lib/phone";
 import { userService } from "@/services/api/userService";
 import { paymentService } from "@/services/api/paymentService";
-import { STATUS_LABELS, type UserStatus } from "@/types/user";
+import type { UserStatus } from "@/types/user";
 import { toast } from "sonner";
 
 const STATUS_TONE: Record<UserStatus, StatusTone> = {
@@ -46,9 +51,15 @@ const STATUS_TONE: Record<UserStatus, StatusTone> = {
 
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { role, currentUser } = useRole();
+  const { role, currentUser, isSuperAdmin } = useRole();
+  const { t } = useLanguage();
   const canManage = role !== "USER";
   const isOwnProfile = currentUser.id === id;
+  const STATUS_LABELS: Record<UserStatus, string> = {
+    ACTIVE: t.common.active,
+    SUSPENDED: t.users.profile.statusSuspended,
+    BANNED: t.users.profile.statusBanned,
+  };
 
   const { data, isLoading, error, refetch } = useAsyncData(
     async () => {
@@ -67,11 +78,14 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const [editRoleOpen, setEditRoleOpen] = useState(false);
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [suspending, setSuspending] = useState(false);
+  const [adjustOpen, setAdjustOpen] = useState(false);
+  // Bumped after each saved adjustment so WalletAdjustmentsSection refetches.
+  const [adjustmentsVersion, setAdjustmentsVersion] = useState(0);
 
   if (!canManage && !isOwnProfile) {
     return (
       <div>
-        <PageHeader title="User Profile" />
+        <PageHeader title={t.users.profile.title} />
         <AccessRestricted role={role} />
       </div>
     );
@@ -80,12 +94,12 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   if (isLoading) {
     return (
       <div>
-        <PageHeader title="User Profile" />
+        <PageHeader title={t.users.profile.title} />
         <div className="flex flex-col gap-6">
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-lg" />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 rounded-xl" />
+              <Skeleton key={i} className="h-28 rounded-lg" />
             ))}
           </div>
         </div>
@@ -96,17 +110,17 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   if (error || !data?.user) {
     return (
       <div>
-        <PageHeader title="User Profile" />
+        <PageHeader title={t.users.profile.title} />
         {error ? (
-          <ErrorState description="We couldn't load this user." onRetry={refetch} />
+          <ErrorState description={t.users.profile.loadError} onRetry={refetch} />
         ) : (
           <EmptyState
             icon={UserX}
-            title="User not found"
-            description="This account may have been removed."
+            title={t.users.profile.notFoundTitle}
+            description={t.users.profile.notFoundDescription}
             action={
               <Button variant="outline" render={<Link href="/users" />} nativeButton={false}>
-                Back to Users
+                {t.users.profile.backToUsers}
               </Button>
             }
           />
@@ -124,28 +138,28 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
     await userService.updateUserStatus(user.id, nextStatus);
     setStatus(nextStatus);
     setSuspending(false);
-    toast.success(nextStatus === "SUSPENDED" ? "User suspended" : "User reactivated");
+    toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast);
     setSuspendOpen(false);
   };
 
   return (
     <div>
       <PageHeader
-        title="User Profile"
+        title={t.users.profile.title}
         actions={
           <Button variant="outline" render={<Link href="/users" />} nativeButton={false}>
             <ArrowLeft className="size-4" />
-            Back to Users
+            {t.users.profile.backToUsers}
           </Button>
         }
       />
 
       <div className="flex flex-col gap-6">
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-4">
               <Avatar className="size-16 border border-border">
-                <AvatarImage src={user.avatarUrl} alt={user.name} />
+                <AvatarImage src={user.avatarUrl ?? undefined} alt={user.name} />
                 <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
               </Avatar>
               <div>
@@ -154,9 +168,11 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                   <RoleBadge role={user.role} />
                   <StatusBadge label={STATUS_LABELS[currentStatus]} tone={STATUS_TONE[currentStatus]} />
                 </div>
-                <p className="text-sm text-muted-foreground">{user.email}</p>
+                {user.phone && (
+                  <p className="text-sm text-muted-foreground">{formatLocalPhone(user.phone)}</p>
+                )}
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Joined {format(new Date(user.joinDate), "MMM d, yyyy")}
+                  {t.users.profile.joinedOn(format(new Date(user.joinDate), "d MMM yyyy"))}
                 </p>
               </div>
             </div>
@@ -164,7 +180,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setEditRoleOpen(true)}>
                   <ShieldCheck className="size-4" />
-                  Edit Role
+                  {t.users.columns.editRole}
                 </Button>
                 <Button
                   variant={currentStatus === "SUSPENDED" ? "outline" : "destructive"}
@@ -175,7 +191,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                   ) : (
                     <Ban className="size-4" />
                   )}
-                  {currentStatus === "SUSPENDED" ? "Reactivate" : "Suspend"}
+                  {currentStatus === "SUSPENDED" ? t.users.reactivate : t.users.suspend}
                 </Button>
               </div>
             )}
@@ -183,36 +199,63 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         </Card>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DashboardCard title="Account Balance" value={formatKyat(user.balance)} icon={Wallet} />
+          <div className="relative">
+            <DashboardCard
+              title={t.dashboard.accountBalance}
+              value={formatKyat(user.balance)}
+              icon={Wallet}
+              // Extra bottom padding reserves room for the Super-Admin-only
+              // adjust button pinned to the card's bottom-left corner.
+              className={isSuperAdmin ? "h-full pb-9" : "h-full"}
+            />
+            {isSuperAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="absolute bottom-3 left-5 h-7 gap-1 px-2 text-xs"
+                onClick={() => setAdjustOpen(true)}
+              >
+                <Coins className="size-3.5" />
+                {t.walletAdjustments.adjustButton}
+              </Button>
+            )}
+          </div>
           <DashboardCard
-            title="Total Deposited"
+            title={t.dashboard.totalDeposited}
             value={formatKyat(user.totalDeposited)}
             icon={ShoppingBag}
+            iconClassName="bg-income/15 text-income"
           />
-          <DashboardCard title="Total Spent" value={formatKyat(user.totalSpent)} icon={History} />
           <DashboardCard
-            title="Subscription"
+            title={t.dashboard.totalSpent}
+            value={formatKyat(user.totalSpent)}
+            icon={History}
+            iconClassName="bg-outgoing/15 text-outgoing"
+          />
+          <DashboardCard
+            title={t.dashboard.subscription}
             value={
               user.isSubscribed && user.subscriptionExpiresAt
-                ? `Active · exp. ${format(new Date(user.subscriptionExpiresAt), "MMM d, yyyy")}`
-                : "Not subscribed"
+                ? t.users.profile.subscriptionActive(format(new Date(user.subscriptionExpiresAt), "d MMM yyyy"))
+                : t.dashboard.notSubscribed
             }
             icon={Clapperboard}
+            iconClassName="bg-chart-5/15 text-chart-5"
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Watch History</CardTitle>
+              <CardTitle>{t.users.profile.watchHistoryTitle}</CardTitle>
             </CardHeader>
             <CardContent>
               <WatchHistoryList entries={watchHistory.items} />
             </CardContent>
           </Card>
-          <Card className="glass-card border-white/[0.08]">
+          <Card className="glass-card">
             <CardHeader>
-              <CardTitle>Purchased Movies</CardTitle>
+              <CardTitle>{t.dashboard.purchasedMovies}</CardTitle>
             </CardHeader>
             <CardContent>
               <PurchaseHistoryList entries={purchases.items} />
@@ -220,14 +263,18 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
           </Card>
         </div>
 
-        <Card className="glass-card border-white/[0.08]">
+        <Card className="glass-card">
           <CardHeader>
-            <CardTitle>Payment History</CardTitle>
+            <CardTitle>{t.users.profile.paymentHistoryTitle}</CardTitle>
           </CardHeader>
           <CardContent>
             <RecentTransactionsTable transactions={transactions.items} />
           </CardContent>
         </Card>
+
+        {isSuperAdmin && (
+          <WalletAdjustmentsSection userId={user.id} refreshKey={adjustmentsVersion} />
+        )}
       </div>
 
       <EditRoleDialog
@@ -237,16 +284,29 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         onSaved={() => refetch()}
       />
 
+      {isSuperAdmin && (
+        <AdjustBalanceDialog
+          user={user}
+          open={adjustOpen}
+          onOpenChange={setAdjustOpen}
+          onSaved={() => {
+            // Refresh the profile (balance card) and the adjustments list.
+            refetch();
+            setAdjustmentsVersion((v) => v + 1);
+          }}
+        />
+      )}
+
       <ConfirmDialog
         open={suspendOpen}
         onOpenChange={setSuspendOpen}
-        title={currentStatus === "SUSPENDED" ? "Reactivate this user?" : "Suspend this user?"}
+        title={currentStatus === "SUSPENDED" ? t.users.reactivateTitle : t.users.suspendTitle}
         description={
           currentStatus === "SUSPENDED"
-            ? `${user.name} will regain access to their account.`
-            : `${user.name} will lose access to their account until reactivated.`
+            ? t.users.reactivateDescription(user.name)
+            : t.users.suspendDescription(user.name)
         }
-        confirmLabel={currentStatus === "SUSPENDED" ? "Reactivate" : "Suspend"}
+        confirmLabel={currentStatus === "SUSPENDED" ? t.users.reactivate : t.users.suspend}
         variant={currentStatus === "SUSPENDED" ? "default" : "destructive"}
         loading={suspending}
         onConfirm={handleToggleSuspend}

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatKyat } from "@/lib/currency";
+import { useLanguage } from "@/lib/context/language-context";
 import { depositService } from "@/services/api/depositService";
 import type { Deposit } from "@/types/deposit";
 import { toast } from "sonner";
@@ -27,13 +28,14 @@ function RejectDepositForm({
   onOpenChange: (open: boolean) => void;
   onRejected: (deposit: Deposit) => void;
 }) {
+  const { t } = useLanguage();
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleReject = async () => {
     if (!reason.trim()) {
-      setError("A rejection reason is required.");
+      setError(t.deposits.rejectDialog.reasonRequired);
       return;
     }
     setSaving(true);
@@ -41,10 +43,12 @@ function RejectDepositForm({
     try {
       const updated = await depositService.reject(deposit.id, reason.trim());
       onRejected(updated);
-      toast.success("Deposit rejected", { description: `${deposit.userName}'s deposit was rejected.` });
+      toast.success(t.deposits.rejectDialog.rejectedToast, {
+        description: t.deposits.rejectDialog.rejectedDescription(deposit.userName),
+      });
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject deposit");
+      setError(err instanceof Error ? err.message : t.deposits.rejectDialog.rejectFailedFallback);
     } finally {
       setSaving(false);
     }
@@ -53,15 +57,19 @@ function RejectDepositForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Reject deposit</DialogTitle>
+        <DialogTitle>{t.deposits.rejectDialog.title}</DialogTitle>
         <DialogDescription>
-          {deposit.userName} — {formatKyat(deposit.amount)} via {deposit.paymentMethod} (ref{" "}
-          {deposit.reference})
+          {t.deposits.rejectDialog.descriptionFor(
+            deposit.userName,
+            formatKyat(deposit.amount),
+            deposit.paymentMethod,
+            deposit.reference,
+          )}
         </DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="rejection-reason">Reason</Label>
+        <Label htmlFor="rejection-reason">{t.deposits.rejectDialog.reasonLabel}</Label>
         <Textarea
           id="rejection-reason"
           value={reason}
@@ -69,7 +77,7 @@ function RejectDepositForm({
             setReason(e.target.value);
             setError(null);
           }}
-          placeholder="e.g. Reference does not match our records"
+          placeholder={t.deposits.rejectDialog.reasonPlaceholder}
           maxLength={500}
         />
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -77,11 +85,11 @@ function RejectDepositForm({
 
       <DialogFooter>
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-          Cancel
+          {t.common.cancel}
         </Button>
         <Button variant="destructive" onClick={handleReject} disabled={saving}>
           {saving && <Loader2 className="size-4 animate-spin" />}
-          Reject deposit
+          {t.deposits.rejectDialog.reject}
         </Button>
       </DialogFooter>
     </>

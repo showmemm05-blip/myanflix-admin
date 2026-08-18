@@ -2,8 +2,10 @@
 
 import { AlertCircle, CheckCircle2, Loader2, RefreshCw, X } from "lucide-react";
 import { useUploads, type UploadTask } from "@/lib/context/upload-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import type { TranslationShape } from "@/lib/i18n/translations";
 
 function formatElapsed(totalSeconds: number): string {
   const seconds = Math.max(0, Math.round(totalSeconds));
@@ -13,28 +15,29 @@ function formatElapsed(totalSeconds: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-function stageLabel(task: UploadTask): string {
+function stageLabel(task: UploadTask, t: TranslationShape): string {
   switch (task.stage) {
     case "uploading-images":
-      return "Uploading images…";
+      return t.uploads.stage.uploadingImages;
     case "creating-movie":
-      return "Creating movie…";
+      return t.uploads.stage.creatingMovie;
     case "uploading-video":
-      return `Uploading video… ${task.videoProgress}%`;
+      return t.uploads.stage.uploadingVideo(task.videoProgress);
     case "processing":
-      return `Processing video… ${formatElapsed(task.processingElapsedSeconds)}`;
+      return t.uploads.stage.processing(formatElapsed(task.processingElapsedSeconds));
     case "published":
-      return "Published";
+      return t.uploads.stage.published;
     case "error":
-      return "Publish failed";
+      return t.uploads.stage.error;
   }
 }
 
 function UploadTaskCard({ task }: { task: UploadTask }) {
+  const { t } = useLanguage();
   const { retryUpload, dismissTask } = useUploads();
 
   return (
-    <div className="glass-card flex w-80 flex-col gap-2 rounded-xl border-white/[0.08] p-3 shadow-lg">
+    <div className="glass-card flex w-80 flex-col gap-2 rounded-xl p-3">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {task.stage === "published" ? (
@@ -45,14 +48,14 @@ function UploadTaskCard({ task }: { task: UploadTask }) {
             <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
           )}
           <div className="min-w-0">
-            <p className="text-sm font-medium">{stageLabel(task)}</p>
+            <p className="text-sm font-medium">{stageLabel(task, t)}</p>
             <p className="truncate text-xs text-muted-foreground">{task.title}</p>
           </div>
         </div>
         <button
           type="button"
           onClick={() => dismissTask(task.id)}
-          aria-label="Dismiss"
+          aria-label={t.uploads.dismiss}
           className="shrink-0 text-muted-foreground hover:text-foreground"
         >
           <X className="size-3.5" />
@@ -71,7 +74,7 @@ function UploadTaskCard({ task }: { task: UploadTask }) {
             onClick={() => retryUpload(task.id)}
           >
             <RefreshCw className="size-3" />
-            Retry
+            {t.common.retry}
           </Button>
         </div>
       )}

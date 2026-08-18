@@ -30,8 +30,10 @@ import { formatKyat } from "@/lib/currency";
 import { subscriptionService } from "@/services/api/subscriptionService";
 import type { SubscriptionPlan } from "@/types/subscription";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/context/language-context";
 
 function SubscriptionsPageContent() {
+  const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(subscriptionService.getPlans, []);
   const plans = data ?? [];
 
@@ -65,18 +67,18 @@ function SubscriptionsPageContent() {
           name: nameInput.trim(),
           price: Number(priceInput) || 0,
         });
-        toast.success("Plan updated");
+        toast.success(t.subscriptions.updatedToast);
       } else {
         await subscriptionService.createPlan({
           name: nameInput.trim(),
           price: Number(priceInput) || 0,
         });
-        toast.success("Plan created");
+        toast.success(t.subscriptions.createdToast);
       }
       setFormOpen(false);
       refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong");
+      toast.error(err instanceof Error ? err.message : t.common.somethingWentWrong);
     } finally {
       setSaving(false);
     }
@@ -86,12 +88,12 @@ function SubscriptionsPageContent() {
     setTogglingId(plan.id);
     try {
       await subscriptionService.updatePlan(plan.id, { isActive });
-      toast.success(isActive ? "Plan enabled" : "Plan disabled", {
-        description: `"${plan.name}" is now ${isActive ? "available to subscribe to" : "hidden from new subscribers"}.`,
+      toast.success(isActive ? t.subscriptions.toggleEnabledToast : t.subscriptions.toggleDisabledToast, {
+        description: t.subscriptions.toggleDescription(plan.name, isActive),
       });
       refetch();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't update the plan");
+      toast.error(err instanceof Error ? err.message : t.subscriptions.toggleFailedToast);
     } finally {
       setTogglingId(null);
     }
@@ -100,22 +102,22 @@ function SubscriptionsPageContent() {
   const columns: ColumnDef<SubscriptionPlan>[] = [
     {
       accessorKey: "name",
-      header: "Name",
+      header: t.subscriptions.columns.name,
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
     },
     {
       accessorKey: "price",
-      header: "Price",
+      header: t.subscriptions.columns.price,
       cell: ({ row }) => (
         <span className="tabular-nums text-muted-foreground">
           {formatKyat(row.original.price)}
-          <span className="ml-1 text-xs">/ 30 days</span>
+          <span className="ml-1 text-xs">{t.subscriptions.columns.perDays}</span>
         </span>
       ),
     },
     {
       accessorKey: "isActive",
-      header: "Status",
+      header: t.subscriptions.columns.status,
       cell: ({ row }) => {
         const plan = row.original;
         return (
@@ -126,7 +128,7 @@ function SubscriptionsPageContent() {
               onCheckedChange={(checked) => handleToggleActive(plan, checked)}
             />
             <span className="text-sm text-muted-foreground">
-              {plan.isActive ? "Active" : "Disabled"}
+              {plan.isActive ? t.common.active : t.subscriptions.columns.disabled}
             </span>
           </div>
         );
@@ -144,7 +146,7 @@ function SubscriptionsPageContent() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => openEdit(row.original)}>
                 <Pencil className="size-4" />
-                Edit
+                {t.common.edit}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -156,8 +158,8 @@ function SubscriptionsPageContent() {
   if (error) {
     return (
       <div>
-        <PageHeader title="Subscriptions" description="Manage monthly subscription plans." />
-        <ErrorState description="We couldn't load subscription plans." onRetry={refetch} />
+        <PageHeader title={t.subscriptions.page.title} description={t.subscriptions.page.description} />
+        <ErrorState description={t.subscriptions.page.loadError} onRetry={refetch} />
       </div>
     );
   }
@@ -165,12 +167,12 @@ function SubscriptionsPageContent() {
   return (
     <div>
       <PageHeader
-        title="Subscriptions"
-        description="Manage monthly subscription plans."
+        title={t.subscriptions.page.title}
+        description={t.subscriptions.page.description}
         actions={
           <Button onClick={openCreate}>
             <Plus className="size-4" />
-            Add Plan
+            {t.subscriptions.page.addPlan}
           </Button>
         }
       />
@@ -178,12 +180,12 @@ function SubscriptionsPageContent() {
       {!isLoading && plans.length === 0 ? (
         <EmptyState
           icon={CreditCard}
-          title="No subscription plans yet"
-          description="Create a plan so users can subscribe to premium content."
+          title={t.subscriptions.page.emptyTitle}
+          description={t.subscriptions.page.emptyDescription}
           action={
             <Button onClick={openCreate}>
               <Plus className="size-4" />
-              Add Plan
+              {t.subscriptions.page.addPlan}
             </Button>
           }
         />
@@ -194,20 +196,20 @@ function SubscriptionsPageContent() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editing ? "Edit plan" : "Add plan"}</DialogTitle>
+            <DialogTitle>{editing ? t.subscriptions.form.editTitle : t.subscriptions.form.createTitle}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="plan-name">Name</Label>
+              <Label htmlFor="plan-name">{t.subscriptions.form.nameLabel}</Label>
               <Input
                 id="plan-name"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="e.g. Premium"
+                placeholder={t.subscriptions.form.namePlaceholder}
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="plan-price">Price (Ks) — per 30 days</Label>
+              <Label htmlFor="plan-price">{t.subscriptions.form.priceLabel}</Label>
               <Input
                 id="plan-price"
                 type="number"
@@ -220,11 +222,11 @@ function SubscriptionsPageContent() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button onClick={handleSave} disabled={saving || !nameInput.trim()}>
               {saving && <Loader2 className="size-4 animate-spin" />}
-              {editing ? "Save" : "Create"}
+              {editing ? t.common.save : t.subscriptions.form.create}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -234,11 +236,12 @@ function SubscriptionsPageContent() {
 }
 
 export default function SubscriptionsPage() {
+  const { t } = useLanguage();
   return (
     <RequireRole
       allow={["SUPER_ADMIN", "ADMIN"]}
-      title="Subscriptions"
-      description="Manage monthly subscription plans."
+      title={t.subscriptions.page.title}
+      description={t.subscriptions.page.description}
     >
       <SubscriptionsPageContent />
     </RequireRole>

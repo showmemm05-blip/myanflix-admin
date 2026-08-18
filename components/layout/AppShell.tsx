@@ -39,7 +39,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex h-screen overflow-hidden bg-background">
       <aside
         className={cn(
-          "hidden shrink-0 border-r border-sidebar-border transition-[width] duration-200 md:flex",
+          "hidden shrink-0 border-r border-sidebar-border transition-[width] duration-[180ms] ease-[cubic-bezier(0.32,0.72,0,1)] md:flex",
           collapsed ? "w-[72px]" : "w-64"
         )}
       >

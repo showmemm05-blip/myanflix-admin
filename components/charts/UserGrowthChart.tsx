@@ -10,25 +10,28 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { useLanguage } from "@/lib/context/language-context";
 import type { UserGrowthPoint } from "@/types/analytics";
 
-const chartConfig = {
-  newUsers: {
-    label: "New Users",
-    color: "oklch(0.577 0.226 27.3)",
-  },
-  activeUsers: {
-    label: "Active Users",
-    color: "oklch(0.6 0.12 200)",
-  },
-} satisfies ChartConfig;
-
 export function UserGrowthChart({ data }: { data: UserGrowthPoint[] }) {
+  const { t } = useLanguage();
+
+  const chartConfig = {
+    newUsers: {
+      label: t.dashboard.newUsers,
+      color: "var(--chart-1)",
+    },
+    activeUsers: {
+      label: t.dashboard.activeUsers,
+      color: "var(--chart-2)",
+    },
+  } satisfies ChartConfig;
+
   return (
-    <Card className="glass-card border-white/[0.08]">
+    <Card className="glass-card">
       <CardHeader>
-        <CardTitle>User Growth</CardTitle>
-        <p className="text-sm text-muted-foreground">New signups vs. monthly active users</p>
+        <CardTitle>{t.dashboard.userGrowth}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t.dashboard.userGrowthDescription}</p>
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">

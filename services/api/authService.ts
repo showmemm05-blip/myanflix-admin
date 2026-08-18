@@ -3,7 +3,6 @@ import type { UserRole } from "@/types/user";
 
 export interface AuthUser {
   id: string;
-  email: string;
   username: string;
   role: UserRole;
 }
@@ -20,10 +19,10 @@ export const authService = {
     return apiClient.post<LoginResponse>("/auth/login", { username, password }, { skipAuth: true });
   },
 
-  register(username: string, email: string, password: string) {
+  register(username: string, password: string) {
     return apiClient.post<LoginResponse>(
       "/auth/register",
-      { username, email, password },
+      { username, password },
       { skipAuth: true },
     );
   },

@@ -24,28 +24,37 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLanguage } from "@/lib/context/language-context";
+import { cn } from "@/lib/utils";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
+  /** Rendered immediately beside the search input (e.g. a primary action button). */
+  searchActions?: ReactNode;
   toolbar?: ReactNode;
   pageSize?: number;
   isLoading?: boolean;
   emptyState?: ReactNode;
+  /** Extra classes per row — used to tint rows by category (e.g. transaction type). */
+  rowClassName?: (row: TData) => string | undefined;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
-  searchPlaceholder = "Search...",
+  searchPlaceholder,
+  searchActions,
   toolbar,
   pageSize = 10,
   isLoading = false,
   emptyState,
+  rowClassName,
 }: DataTableProps<TData, TValue>) {
+  const { t } = useLanguage();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
@@ -69,25 +78,37 @@ export function DataTable<TData, TValue>({
       {(searchKey || toolbar) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           {searchKey && (
-            <div className="relative w-full sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder={searchPlaceholder}
-                value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-                onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
-                className="bg-secondary/50 pl-9"
-              />
+            // With a toolbar occupying the right side, the actions hug the
+            // search box; without one, they spread to the far edge instead.
+            <div
+              className={cn(
+                "flex w-full items-center gap-2",
+                toolbar ? "sm:w-auto" : "justify-between",
+              )}
+            >
+              {/* w-80 = the old max-w-xs footprint, now fixed so the action
+                  button beside it sits at a stable position. */}
+              <div className="relative w-full sm:w-80">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder={searchPlaceholder ?? t.shared.searchPlaceholder}
+                  value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+                  onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
+                  className="bg-secondary/50 pl-9"
+                />
+              </div>
+              {searchActions}
             </div>
           )}
           {toolbar && <div className="flex flex-wrap items-center gap-2">{toolbar}</div>}
         </div>
       )}
 
-      <div className="glass-card overflow-hidden rounded-xl border-white/[0.08]">
+      <div className="glass-card overflow-hidden rounded-xl">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="border-white/[0.08] hover:bg-transparent">
+              <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   const sortable = header.column.getCanSort();
                   const sortDirection = header.column.getIsSorted();
@@ -115,17 +136,17 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               Array.from({ length: pageSize }).map((_, i) => (
-                <TableRow key={i} className="border-white/[0.08]">
+                <TableRow key={i} className="border-border">
                   {columns.map((_, j) => (
                     <TableCell key={j} className="px-4 py-3">
-                      <Skeleton className="h-5 w-full max-w-32" />
+                      <Skeleton className="h-5 w-full max-w-32 bg-secondary/60" />
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : rows.length ? (
               rows.map((row) => (
-                <TableRow key={row.id} className="border-white/[0.08]">
+                <TableRow key={row.id} className={cn("border-border", rowClassName?.(row.original))}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="px-4 py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -137,7 +158,7 @@ export function DataTable<TData, TValue>({
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length} className="h-48 text-center">
                   {emptyState ?? (
-                    <p className="text-sm text-muted-foreground">No results found.</p>
+                    <p className="text-sm text-muted-foreground">{t.shared.noResultsFound}</p>
                   )}
                 </TableCell>
               </TableRow>
@@ -148,23 +169,15 @@ export function DataTable<TData, TValue>({
 
       {!isLoading && rows.length > 0 && (
         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <p className="text-sm text-muted-foreground">
-            Showing{" "}
-            <span className="font-medium text-foreground">
-              {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1}
-            </span>{" "}
-            to{" "}
-            <span className="font-medium text-foreground">
-              {Math.min(
+          <p className="text-sm tabular-nums text-muted-foreground">
+            {t.shared.showingResults(
+              table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1,
+              Math.min(
                 (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
                 table.getFilteredRowModel().rows.length
-              )}
-            </span>{" "}
-            of{" "}
-            <span className="font-medium text-foreground">
-              {table.getFilteredRowModel().rows.length}
-            </span>{" "}
-            results
+              ),
+              table.getFilteredRowModel().rows.length
+            )}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -174,11 +187,10 @@ export function DataTable<TData, TValue>({
               disabled={!table.getCanPreviousPage()}
             >
               <ChevronLeft className="size-4" />
-              Previous
+              {t.shared.previous}
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {Math.max(table.getPageCount(), 1)}
+            <span className="text-sm tabular-nums text-muted-foreground">
+              {t.shared.pageOf(table.getState().pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
             </span>
             <Button
               variant="outline"
@@ -186,7 +198,7 @@ export function DataTable<TData, TValue>({
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              {t.shared.next}
               <ChevronRight className="size-4" />
             </Button>
           </div>

@@ -1,10 +1,13 @@
+"use client";
+
 import { format } from "date-fns";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Receipt } from "lucide-react";
 import { formatKyat } from "@/lib/currency";
+import { useLanguage } from "@/lib/context/language-context";
 import type { Transaction, TransactionStatus } from "@/types/transaction";
 
 const STATUS_TONE: Record<TransactionStatus, StatusTone> = {
@@ -14,12 +17,14 @@ const STATUS_TONE: Record<TransactionStatus, StatusTone> = {
 };
 
 export function RecentTransactionsTable({ transactions }: { transactions: Transaction[] }) {
+  const { t } = useLanguage();
+
   if (!transactions.length) {
     return (
       <EmptyState
         icon={Receipt}
-        title="No transactions yet"
-        description="Purchases and subscriptions will show up here as they happen."
+        title={t.finance.noTransactionsTitle}
+        description={t.finance.recentTable.emptyDescription}
       />
     );
   }
@@ -28,11 +33,11 @@ export function RecentTransactionsTable({ transactions }: { transactions: Transa
     <Table>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
-          <TableHead>User</TableHead>
-          <TableHead>Movie</TableHead>
-          <TableHead>Amount</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead>{t.finance.recentTable.user}</TableHead>
+          <TableHead>{t.finance.recentTable.movie}</TableHead>
+          <TableHead>{t.finance.recentTable.amount}</TableHead>
+          <TableHead>{t.finance.recentTable.date}</TableHead>
+          <TableHead>{t.finance.recentTable.status}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -41,7 +46,6 @@ export function RecentTransactionsTable({ transactions }: { transactions: Transa
             <TableCell>
               <div className="flex items-center gap-2">
                 <Avatar className="size-7">
-                  <AvatarImage src={txn.userAvatarUrl} alt={txn.userName} />
                   <AvatarFallback>{txn.userName.slice(0, 2)}</AvatarFallback>
                 </Avatar>
                 <span className="truncate text-sm font-medium">{txn.userName}</span>
@@ -56,7 +60,7 @@ export function RecentTransactionsTable({ transactions }: { transactions: Transa
               {formatKyat(txn.amount)}
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">
-              {format(new Date(txn.createdAt), "MMM d, yyyy")}
+              {format(new Date(txn.createdAt), "d MMM yyyy")}
             </TableCell>
             <TableCell>
               <StatusBadge label={txn.status} tone={STATUS_TONE[txn.status]} />

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import { useRole } from "@/lib/context/role-context";
+import { useLanguage } from "@/lib/context/language-context";
 import { getSocket } from "@/lib/socket";
 import { formatKyat } from "@/lib/currency";
 
@@ -26,6 +27,7 @@ interface DepositCreatedEvent {
  */
 export function AdminDepositNotifications() {
   const { isAdminOrAbove } = useRole();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!isAdminOrAbove) return;
@@ -33,8 +35,12 @@ export function AdminDepositNotifications() {
     if (!socket) return;
 
     const handleCreated = (event: DepositCreatedEvent) => {
-      toast.info("New deposit request", {
-        description: `${event.username} submitted ${formatKyat(event.amount)} via ${event.paymentMethod}.`,
+      toast.info(t.deposits.notifications.newRequestTitle, {
+        description: t.deposits.notifications.newRequestDescription(
+          event.username,
+          formatKyat(event.amount),
+          event.paymentMethod,
+        ),
       });
     };
 
@@ -42,7 +48,7 @@ export function AdminDepositNotifications() {
     return () => {
       socket.off("deposit.created", handleCreated);
     };
-  }, [isAdminOrAbove]);
+  }, [isAdminOrAbove, t]);
 
   return null;
 }

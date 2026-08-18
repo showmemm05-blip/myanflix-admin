@@ -10,6 +10,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { useLanguage } from "@/lib/context/language-context";
 import type { RevenuePoint } from "@/types/analytics";
 
 type RevenuePeriod = "daily" | "weekly" | "monthly";
@@ -20,30 +21,31 @@ interface RevenueChartProps {
   monthly: RevenuePoint[];
 }
 
-const chartConfig = {
-  revenue: {
-    label: "Revenue",
-    color: "oklch(0.577 0.226 27.3)",
-  },
-} satisfies ChartConfig;
-
 export function RevenueChart({ daily, weekly, monthly }: RevenueChartProps) {
+  const { t } = useLanguage();
   const [period, setPeriod] = useState<RevenuePeriod>("daily");
 
   const dataset = period === "daily" ? daily : period === "weekly" ? weekly : monthly;
 
+  const chartConfig = {
+    revenue: {
+      label: t.dashboard.revenue,
+      color: "var(--chart-1)",
+    },
+  } satisfies ChartConfig;
+
   return (
-    <Card className="glass-card border-white/[0.08]">
+    <Card className="glass-card">
       <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
         <div>
-          <CardTitle>Revenue</CardTitle>
-          <p className="text-sm text-muted-foreground">Income across purchases and subscriptions</p>
+          <CardTitle>{t.dashboard.revenue}</CardTitle>
+          <p className="text-sm text-muted-foreground">{t.dashboard.revenueDescription}</p>
         </div>
         <Tabs value={period} onValueChange={(v) => setPeriod(v as RevenuePeriod)}>
           <TabsList>
-            <TabsTrigger value="daily">Daily</TabsTrigger>
-            <TabsTrigger value="weekly">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
+            <TabsTrigger value="daily">{t.dashboard.daily}</TabsTrigger>
+            <TabsTrigger value="weekly">{t.dashboard.weekly}</TabsTrigger>
+            <TabsTrigger value="monthly">{t.dashboard.monthly}</TabsTrigger>
           </TabsList>
         </Tabs>
       </CardHeader>
