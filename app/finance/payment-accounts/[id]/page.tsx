@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowDownToLine, ArrowUpFromLine, Wallet } from "lucide-reac
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { DataTable } from "@/components/tables/DataTable";
 import {
@@ -18,6 +18,7 @@ import { RecordTransactionDialog } from "@/components/payment-accounts/RecordTra
 import { Button } from "@/components/ui/button";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 import { formatKyat } from "@/lib/currency";
 import { getSocket } from "@/lib/socket";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
@@ -25,6 +26,10 @@ import type { PaymentAccountTransaction } from "@/types/payment-account-transact
 
 function PaymentAccountDetailContent({ id }: { id: string }) {
   const { t } = useLanguage();
+  const { can } = useRole();
+  // Recording money in/out writes a ledger entry — LEDGER_MANAGE, not the
+  // plain VIEW that gets you onto this page.
+  const canRecordEntry = can("PAYMENT_ACCOUNTS.LEDGER_MANAGE");
   const { data, isLoading, error, refetch } = useAsyncData(async () => {
     const [account, transactions] = await Promise.all([
       paymentAccountService.getAccount(id),
@@ -80,7 +85,7 @@ function PaymentAccountDetailContent({ id }: { id: string }) {
         title={account?.accountName ?? ""}
         description={account?.subname ?? account?.type ?? undefined}
         actions={
-          account && (
+          account && canRecordEntry && (
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setDialogMode("remove")}>
                 <ArrowUpFromLine className="size-4" />
@@ -160,8 +165,8 @@ export default function PaymentAccountDetailPage({ params }: { params: Promise<{
   const { id } = use(params);
   const { t } = useLanguage();
   return (
-    <RequireRole allow={["SUPER_ADMIN"]} title={t.paymentAccountLedger.list.title} description={t.paymentAccountLedger.list.description}>
+    <RequirePermission permission="PAYMENT_ACCOUNTS.VIEW" title={t.paymentAccountLedger.list.title} description={t.paymentAccountLedger.list.description}>
       <PaymentAccountDetailContent id={id} />
-    </RequireRole>
+    </RequirePermission>
   );
 }

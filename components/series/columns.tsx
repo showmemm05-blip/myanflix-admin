@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Settings2, Trash2 } from "lucide-react";
+import { EyeOff, MoreHorizontal, Rocket, Settings2, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,19 +12,49 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StatusBadge } from "@/components/shared/StatusBadge";
+import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { ACCESS_TYPE_TONE, getAccessTypeLabel } from "@/components/movies/columns";
 import type { TranslationShape } from "@/lib/i18n/translations";
-import type { SeriesListItem } from "@/types/series";
+import type { SeriesListItem, SeriesStatus } from "@/types/series";
+
+/** Same idiom as movies' STATUS_TONE, but for show-level SeriesStatus — also consumed by the manage page header. */
+export const SERIES_STATUS_TONE: Record<SeriesStatus, StatusTone> = {
+  DRAFT: "neutral",
+  PUBLISHED: "success",
+  UNPUBLISHED: "warning",
+};
+
+export function getSeriesStatusLabel(t: TranslationShape, status: SeriesStatus): string {
+  const labels: Record<SeriesStatus, string> = {
+    DRAFT: t.movies.status.draft,
+    PUBLISHED: t.movies.status.published,
+    UNPUBLISHED: t.series.statusUnpublished,
+  };
+  return labels[status];
+}
 
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-series-poster/400/600";
 
 interface GetSeriesColumnsOptions {
   t: TranslationShape;
+  /** SERIES.DELETE. */
+  canDelete: boolean;
+  /** SERIES.PUBLISH / SERIES.UNPUBLISH — the row toggles between the two. */
+  canPublish: boolean;
+  canUnpublish: boolean;
   onDelete: (series: SeriesListItem) => void;
+  /** Publish when DRAFT/UNPUBLISHED, unpublish when PUBLISHED — the handler reads the row's current status. */
+  onToggleStatus: (series: SeriesListItem) => void;
 }
 
-export function getSeriesColumns({ t, onDelete }: GetSeriesColumnsOptions): ColumnDef<SeriesListItem>[] {
+export function getSeriesColumns({
+  t,
+  canDelete,
+  canPublish,
+  canUnpublish,
+  onDelete,
+  onToggleStatus,
+}: GetSeriesColumnsOptions): ColumnDef<SeriesListItem>[] {
   return [
     {
       accessorKey: "title",
@@ -86,27 +116,60 @@ export function getSeriesColumns({ t, onDelete }: GetSeriesColumnsOptions): Colu
       ),
     },
     {
+      accessorKey: "status",
+      header: t.movies.columns.status,
+      cell: ({ row }) => (
+        <StatusBadge
+          label={getSeriesStatusLabel(t, row.original.status)}
+          tone={SERIES_STATUS_TONE[row.original.status]}
+        />
+      ),
+    },
+    {
       id: "actions",
       header: "",
       cell: ({ row }) => {
         const series = row.original;
+        // Publishing and unpublishing are separate permissions, and this one
+        // control does whichever the row's current status calls for.
+        const canToggleStatus =
+          series.status === "PUBLISHED" ? canUnpublish : canPublish;
         return (
           <div className="flex items-center justify-end gap-2">
             <Button size="sm" render={<Link href={`/series/${series.id}`} />} nativeButton={false}>
               <Settings2 className="size-3.5" />
               {t.series.columns.manage}
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(series)}>
-                  <Trash2 className="size-4" />
-                  {t.common.delete}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {(canToggleStatus || canDelete) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                  <MoreHorizontal className="size-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canToggleStatus && (
+                    <DropdownMenuItem onClick={() => onToggleStatus(series)}>
+                      {series.status === "PUBLISHED" ? (
+                        <>
+                          <EyeOff className="size-4" />
+                          {t.series.unpublish}
+                        </>
+                      ) : (
+                        <>
+                          <Rocket className="size-4" />
+                          {t.movies.publish}
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete && (
+                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(series)}>
+                      <Trash2 className="size-4" />
+                      {t.common.delete}
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         );
       },

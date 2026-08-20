@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
+import { matchesUserSearch } from "@/lib/user-search";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { Transaction, TransactionStatus } from "@/types/transaction";
 
@@ -33,6 +34,14 @@ export function getTransactionColumns(t: TranslationShape): ColumnDef<Transactio
     {
       accessorKey: "userName",
       header: t.finance.columns.customer,
+      // The ledger renders the display label, so the search also matches the
+      // raw login identity behind it — otherwise an account named only by its
+      // username becomes unfindable the moment its owner picks a name.
+      filterFn: (row, _columnId, value) =>
+        matchesUserSearch(String(value), {
+          name: row.original.userName,
+          username: row.original.userUsername,
+        }),
       cell: ({ row }) => {
         const txn = row.original;
         return (

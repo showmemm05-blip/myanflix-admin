@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -29,8 +29,7 @@ import { toast } from "sonner";
  */
 export default function ReadyToPublishPage() {
   const { t } = useLanguage();
-  const { role } = useRole();
-  const canManage = role !== "USER";
+  const { can } = useRole();
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () => movieService.getMovies({ limit: 100, status: "READY_TO_PUBLISH" }),
@@ -92,7 +91,9 @@ export default function ReadyToPublishPage() {
 
   const columns = getMovieColumns({
     t,
-    canManage,
+    canEdit: can("MOVIES.EDIT"),
+    canDelete: can("MOVIES.DELETE"),
+    canPublish: can("MOVIES.PUBLISH"),
     onView: setViewMovie,
     onEdit: setEditMovie,
     onDelete: setDeleteMovie,
@@ -103,8 +104,8 @@ export default function ReadyToPublishPage() {
   });
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="MOVIES.PUBLISH"
       title={t.movies.readyToPublish.title}
       description={t.movies.readyToPublish.description}
     >
@@ -166,6 +167,6 @@ export default function ReadyToPublishPage() {
           />
         </div>
       )}
-    </RequireRole>
+    </RequirePermission>
   );
 }

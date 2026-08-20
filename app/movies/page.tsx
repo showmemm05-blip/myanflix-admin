@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Film, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -32,8 +33,8 @@ const ALL = "all";
 
 export default function MoviesPage() {
   const { t } = useLanguage();
-  const { role } = useRole();
-  const canManage = role !== "USER";
+  const { can } = useRole();
+  const canCreate = can("MOVIES.CREATE");
 
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
 
@@ -103,7 +104,8 @@ export default function MoviesPage() {
 
   const columns = getMovieColumns({
     t,
-    canManage,
+    canEdit: can("MOVIES.EDIT"),
+    canDelete: can("MOVIES.DELETE"),
     onView: setViewMovie,
     onEdit: setEditMovie,
     onDelete: setDeleteMovie,
@@ -113,20 +115,31 @@ export default function MoviesPage() {
 
   if (error) {
     return (
-      <div>
-        <PageHeader title={t.movies.page.title} description={t.movies.page.description} />
-        <ErrorState description={t.movies.page.loadError} onRetry={refetch} />
-      </div>
+      <RequirePermission
+        permission="MOVIES.VIEW"
+        title={t.movies.page.title}
+        description={t.movies.page.description}
+      >
+        <div>
+          <PageHeader title={t.movies.page.title} description={t.movies.page.description} />
+          <ErrorState description={t.movies.page.loadError} onRetry={refetch} />
+        </div>
+      </RequirePermission>
     );
   }
 
   return (
+    <RequirePermission
+      permission="MOVIES.VIEW"
+      title={t.movies.page.title}
+      description={t.movies.page.description}
+    >
     <div>
       <PageHeader
         title={t.movies.page.title}
         description={t.movies.page.description}
         actions={
-          canManage && (
+          canCreate && (
             <Button render={<Link href="/movies/upload" />} nativeButton={false}>
               <Plus className="size-4" />
               {t.movies.uploadMovie}
@@ -141,7 +154,7 @@ export default function MoviesPage() {
           title={t.movies.page.emptyTitle}
           description={t.movies.page.emptyDescription}
           action={
-            canManage && (
+            canCreate && (
               <Button render={<Link href="/movies/upload" />} nativeButton={false}>
                 <Plus className="size-4" />
                 {t.movies.uploadMovie}
@@ -180,5 +193,6 @@ export default function MoviesPage() {
         onConfirm={handleDelete}
       />
     </div>
+    </RequirePermission>
   );
 }

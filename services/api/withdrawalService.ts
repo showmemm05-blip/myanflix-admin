@@ -1,6 +1,7 @@
 import { apiClient } from "./apiClient";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
+import { userLabelOr } from "@/lib/user-label";
 
 interface BackendWithdrawal {
   id: string;
@@ -23,14 +24,15 @@ interface BackendWithdrawal {
   transferPaymentAccountId: string | null;
   createdAt: string;
   updatedAt: string;
-  user?: { id: string; username: string; phone: string | null } | null;
+  user?: { id: string; username: string; displayName: string | null; phone: string | null } | null;
 }
 
 function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
   return {
     id: w.id,
     userId: w.userId,
-    userName: w.user?.username ?? "Unknown user",
+    userName: userLabelOr(w.user, "Unknown user"),
+    userUsername: w.user?.username ?? null,
     userPhone: w.user?.phone ?? null,
     amount: w.amount,
     accountType: w.accountType,

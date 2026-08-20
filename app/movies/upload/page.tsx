@@ -10,6 +10,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { FileUploadField } from "@/components/movies/FileUploadField";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -71,7 +72,7 @@ function formatTimeRemaining(totalSeconds: number): string {
   return `${minutes}m ${remainingSeconds}s`;
 }
 
-export default function UploadMoviePage() {
+function UploadMovieForm() {
   const { t } = useLanguage();
   const { data: categories } = useAsyncData(movieService.getCategories, []);
   const { tasks, startPublish } = useUploads();
@@ -579,5 +580,18 @@ export default function UploadMoviePage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function UploadMoviePage() {
+  const { t } = useLanguage();
+  return (
+    <RequirePermission
+      permission="MOVIES.CREATE"
+      title={t.movies.uploadMovie}
+      description={t.movies.upload.description}
+    >
+      <UploadMovieForm />
+    </RequirePermission>
   );
 }

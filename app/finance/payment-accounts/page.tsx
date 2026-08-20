@@ -5,17 +5,19 @@ import Link from "next/link";
 import { ListTree, Wallet } from "lucide-react";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/tables/DataTable";
 import { getPaymentAccountLedgerColumns } from "@/components/payment-accounts/LedgerColumns";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 import { getSocket } from "@/lib/socket";
 
 function PaymentAccountsLedgerListContent() {
   const { t } = useLanguage();
+  const { can } = useRole();
   const { data, isLoading, error, refetch } = useAsyncData(
     () => paymentAccountService.getAccounts(),
     [],
@@ -53,7 +55,7 @@ function PaymentAccountsLedgerListContent() {
   }
 
   // Sits right beside the table's search input (DataTable searchActions slot).
-  const allTransactionsButton = (
+  const allTransactionsButton = can("PAYMENT_ACCOUNTS.LEDGER_MANAGE") ? (
     <Button
       variant="outline"
       className="shrink-0"
@@ -63,7 +65,7 @@ function PaymentAccountsLedgerListContent() {
       <ListTree className="size-4" />
       {t.paymentAccountLedger.list.allTransactionsLink}
     </Button>
-  );
+  ) : null;
 
   return (
     <div>
@@ -95,12 +97,12 @@ function PaymentAccountsLedgerListContent() {
 export default function PaymentAccountsLedgerListPage() {
   const { t } = useLanguage();
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN"]}
+    <RequirePermission
+      permission="PAYMENT_ACCOUNTS.VIEW"
       title={t.paymentAccountLedger.list.title}
       description={t.paymentAccountLedger.list.description}
     >
       <PaymentAccountsLedgerListContent />
-    </RequireRole>
+    </RequirePermission>
   );
 }

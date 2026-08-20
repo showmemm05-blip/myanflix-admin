@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
+import { ALL_PERMISSIONS } from "@/lib/permissions";
 import { ApiError } from "@/services/api/apiClient";
 import { staffService } from "@/services/api/staffService";
 import type { StaffMember, StaffRole } from "@/types/staff";
@@ -29,17 +31,28 @@ function CreateStaffForm({
   onCreated: (staff: StaffMember) => void;
 }) {
   const { t } = useLanguage();
+  const { can } = useRole();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<StaffRole>("CONTENT_UPLOADER");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * Only a Super Admin may create another one (the backend enforces it; this
+   * just stops us offering an option that would 403). Tested by permission,
+   * never by role name: the protected Super Admin role is the only one that
+   * resolves to the whole catalogue, so "holds everything" is what identifies
+   * it — and a custom role that somehow held everything would be allowed by
+   * the server anyway.
+   */
+  const isSuperAdmin = ALL_PERMISSIONS.every(can);
+
   const ROLE_ITEMS: Record<StaffRole, string> = {
-    SUPER_ADMIN: t.staff.roleOptions.superAdmin,
+    ...(isSuperAdmin ? { SUPER_ADMIN: t.staff.roleOptions.superAdmin } : {}),
     ADMIN: t.staff.roleOptions.admin,
     CONTENT_UPLOADER: t.staff.roleOptions.contentUploader,
-  };
+  } as Record<StaffRole, string>;
 
   const handleCreate = async () => {
     setError(null);
@@ -99,7 +112,7 @@ function CreateStaffForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="SUPER_ADMIN">{t.staff.roleOptions.superAdmin}</SelectItem>
+              {isSuperAdmin && <SelectItem value="SUPER_ADMIN">{t.staff.roleOptions.superAdmin}</SelectItem>}
               <SelectItem value="ADMIN">{t.staff.roleOptions.admin}</SelectItem>
               <SelectItem value="CONTENT_UPLOADER">{t.staff.roleOptions.contentUploader}</SelectItem>
             </SelectContent>

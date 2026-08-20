@@ -3,7 +3,9 @@ export type WalletAdjustmentDirection = "CREDIT" | "DEBIT";
 /** The staff member who performed the adjustment — null if that account was since deleted. */
 export interface WalletAdjustmentPerformedBy {
   id: string;
+  /** Login identity. Render `userLabel()` instead — never this raw. */
   username: string;
+  displayName: string | null;
 }
 
 export interface WalletAdjustment {

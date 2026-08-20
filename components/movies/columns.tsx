@@ -68,7 +68,10 @@ export function getAccessTypeLabel(t: TranslationShape, accessType: AccessType):
 
 interface GetMovieColumnsOptions {
   t: TranslationShape;
-  canManage: boolean;
+  /** MOVIES.EDIT — the Edit item and the reprocess-video retry. */
+  canEdit: boolean;
+  /** MOVIES.DELETE — the destructive item. */
+  canDelete: boolean;
   onView: (movie: Movie) => void;
   onEdit: (movie: Movie) => void;
   onDelete: (movie: Movie) => void;
@@ -85,11 +88,14 @@ interface GetMovieColumnsOptions {
   onPublish?: (movie: Movie) => void;
   /** Movie id currently publishing, if any — disables its own button to prevent a double-trigger. */
   publishingId?: string | null;
+  /** MOVIES.PUBLISH — required on top of `onPublish` for the button to show. */
+  canPublish?: boolean;
 }
 
 export function getMovieColumns({
   t,
-  canManage,
+  canEdit,
+  canDelete,
   onView,
   onEdit,
   onDelete,
@@ -97,6 +103,7 @@ export function getMovieColumns({
   reprocessingId,
   onPublish,
   publishingId,
+  canPublish = false,
 }: GetMovieColumnsOptions): ColumnDef<Movie>[] {
   const columns: ColumnDef<Movie>[] = [
     {
@@ -181,7 +188,7 @@ export function getMovieColumns({
       const movie = row.original;
       return (
         <div className="flex items-center justify-end gap-2">
-          {canManage && onPublish && movie.status === "READY_TO_PUBLISH" && (
+          {canPublish && onPublish && movie.status === "READY_TO_PUBLISH" && (
             <Button size="sm" disabled={publishingId === movie.id} onClick={() => onPublish(movie)}>
               {publishingId === movie.id ? (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -200,7 +207,7 @@ export function getMovieColumns({
                 <Eye className="size-4" />
                 {t.common.view}
               </DropdownMenuItem>
-              {canManage && (
+              {canEdit && (
                 <>
                   <DropdownMenuItem onClick={() => onEdit(movie)}>
                     <Pencil className="size-4" />
@@ -215,11 +222,13 @@ export function getMovieColumns({
                       {t.movies.columns.reprocessVideo}
                     </DropdownMenuItem>
                   )}
-                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
-                    <Trash2 className="size-4" />
-                    {t.common.delete}
-                  </DropdownMenuItem>
                 </>
+              )}
+              {canDelete && (
+                <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
+                  <Trash2 className="size-4" />
+                  {t.common.delete}
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

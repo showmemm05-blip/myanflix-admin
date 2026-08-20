@@ -3,6 +3,7 @@ import { tokenStore } from "@/lib/auth/token-store";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { FinanceSummary, RevenuePoint } from "@/types/analytics";
 import type { Transaction, TransactionStatus, TransactionType } from "@/types/transaction";
+import { userLabel, userLabelOr } from "@/lib/user-label";
 
 interface BackendTransactionSelf {
   id: string;
@@ -16,14 +17,25 @@ interface BackendTransactionSelf {
 }
 
 interface BackendTransactionAdmin extends BackendTransactionSelf {
-  user: { id: string; username: string } | null;
+  user: { id: string; username: string; displayName: string | null } | null;
 }
 
-function mapSelfTransaction(t: BackendTransactionSelf, selfUsername: string): Transaction {
+/**
+ * The self-service wallet endpoint returns no user relation — it IS the
+ * caller — so the label comes from the persisted session identity. That is
+ * still routed through the helper, so the moment `StoredUser` carries a
+ * display name this path picks it up with no further change.
+ */
+function mapSelfTransaction(
+  t: BackendTransactionSelf,
+  selfLabel: string,
+  selfUsername: string,
+): Transaction {
   return {
     id: t.id,
     userId: t.userId,
-    userName: selfUsername,
+    userName: selfLabel,
+    userUsername: selfUsername,
     movieId: t.movieId,
     movieTitle: t.movieTitle,
     type: t.type,
@@ -34,11 +46,11 @@ function mapSelfTransaction(t: BackendTransactionSelf, selfUsername: string): Tr
 }
 
 function mapAdminTransaction(t: BackendTransactionAdmin): Transaction {
-  const username = t.user?.username ?? "Unknown user";
   return {
     id: t.id,
     userId: t.userId,
-    userName: username,
+    userName: userLabelOr(t.user, "Unknown user"),
+    userUsername: t.user?.username ?? null,
     movieId: t.movieId,
     movieTitle: t.movieTitle,
     type: t.type,
@@ -76,7 +88,10 @@ export const paymentService = {
         "/wallet/transactions",
         { params: pagination },
       );
-      return { ...res, items: res.items.map((t) => mapSelfTransaction(t, self.username)) };
+      return {
+        ...res,
+        items: res.items.map((t) => mapSelfTransaction(t, userLabel(self), self.username)),
+      };
     }
 
     return paymentService.getTransactions({ ...pagination, userId });

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Moon, ShieldAlert } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -19,12 +19,18 @@ import { useLanguage } from "@/lib/context/language-context";
 
 export default function SettingsPage() {
   const { t } = useLanguage();
-  const { currentUser, role } = useRole();
+  const { currentUser, role, roleName, can, canAny } = useRole();
   const [name, setName] = useState(currentUser.name);
   const [phone, setPhone] = useState(currentUser.phone ?? "");
 
+  // Each notification toggle is offered only to someone who can actually act
+  // on what it announces — the alert is worthless otherwise.
+  const canReviewPayments = canAny(["DEPOSITS.VIEW", "WITHDRAWALS.VIEW"]);
+  const canReviewUsers = can("USERS.VIEW");
+  const canManageContent = can("MOVIES.VIEW");
+
   const [paymentAlerts, setPaymentAlerts] = useState(true);
-  const [newUserAlerts, setNewUserAlerts] = useState(role !== "USER");
+  const [newUserAlerts, setNewUserAlerts] = useState(true);
   const [contentAlerts, setContentAlerts] = useState(true);
 
   const handleSaveProfile = () => {
@@ -36,8 +42,8 @@ export default function SettingsPage() {
   };
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN", "USER"]}
+    <RequirePermission
+      permission="SETTINGS.VIEW"
       title={t.settings.page.title}
       description={t.settings.page.description}
     >
@@ -65,7 +71,7 @@ export default function SettingsPage() {
                   <AvatarFallback>{currentUser.name.slice(0, 2)}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <RoleBadge role={role} />
+                  <RoleBadge role={role} label={roleName} />
                   <p className="mt-1 text-xs text-muted-foreground">
                     {t.settings.profile.roleNote}
                   </p>
@@ -104,7 +110,7 @@ export default function SettingsPage() {
               <CardDescription>{t.settings.notifications.cardDescription}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col divide-y divide-border">
-              {role !== "USER" && (
+              {canReviewPayments && (
                 <div className="flex items-center justify-between py-3 first:pt-0">
                   <div>
                     <p className="text-sm font-medium">{t.settings.notifications.paymentAlertsLabel}</p>
@@ -115,7 +121,7 @@ export default function SettingsPage() {
                   <Switch checked={paymentAlerts} onCheckedChange={setPaymentAlerts} />
                 </div>
               )}
-              {role !== "USER" && (
+              {canReviewUsers && (
                 <div className="flex items-center justify-between py-3">
                   <div>
                     <p className="text-sm font-medium">{t.settings.notifications.newUserAlertsLabel}</p>
@@ -130,9 +136,9 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium">{t.settings.notifications.contentAlertsLabel}</p>
                   <p className="text-xs text-muted-foreground">
-                    {role === "USER"
-                      ? t.settings.notifications.contentAlertsDescriptionUser
-                      : t.settings.notifications.contentAlertsDescriptionStaff}
+                    {canManageContent
+                      ? t.settings.notifications.contentAlertsDescriptionStaff
+                      : t.settings.notifications.contentAlertsDescriptionUser}
                   </p>
                 </div>
                 <Switch checked={contentAlerts} onCheckedChange={setContentAlerts} />
@@ -198,8 +204,9 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
       </Tabs>
       </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }

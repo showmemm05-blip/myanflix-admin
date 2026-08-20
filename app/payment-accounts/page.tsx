@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { Landmark, Plus, Settings2 } from "lucide-react";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/tables/DataTable";
@@ -17,9 +17,19 @@ import { ApiError } from "@/services/api/apiClient";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 
 export default function PaymentAccountsPage() {
   const { t } = useLanguage();
+  const { can, canAny } = useRole();
+  const canCreate = can("PAYMENT_ACCOUNTS.CREATE");
+  // The "Manage methods" dialog is CRUD over the payment-method catalogue,
+  // a different module from the accounts this table lists.
+  const canManageMethods = canAny([
+    "PAYMENT_METHODS.CREATE",
+    "PAYMENT_METHODS.EDIT",
+    "PAYMENT_METHODS.DELETE",
+  ]);
   const { data, isLoading, error, refetch } = useAsyncData(
     () => paymentAccountService.getAccounts(),
     [],
@@ -100,6 +110,8 @@ export default function PaymentAccountsPage() {
 
   const columns = getPaymentAccountColumns({
     types: availableTypes,
+    canEdit: can("PAYMENT_ACCOUNTS.EDIT"),
+    canDelete: can("PAYMENT_ACCOUNTS.DELETE"),
     onEdit: (account) => {
       setEditTarget(account);
       setFormOpen(true);
@@ -113,25 +125,29 @@ export default function PaymentAccountsPage() {
   // (DataTable spreads search-left / actions-right when there is no toolbar).
   const pageActions = (
     <div className="flex shrink-0 items-center gap-2">
-      <Button variant="outline" onClick={() => setManageMethodsOpen(true)}>
-        <Settings2 className="size-4" />
-        {t.paymentAccounts.page.manageMethods}
-      </Button>
-      <Button
-        onClick={() => {
-          setEditTarget(null);
-          setFormOpen(true);
-        }}
-      >
-        <Plus className="size-4" />
-        {t.paymentAccounts.page.addAccount}
-      </Button>
+      {canManageMethods && (
+        <Button variant="outline" onClick={() => setManageMethodsOpen(true)}>
+          <Settings2 className="size-4" />
+          {t.paymentAccounts.page.manageMethods}
+        </Button>
+      )}
+      {canCreate && (
+        <Button
+          onClick={() => {
+            setEditTarget(null);
+            setFormOpen(true);
+          }}
+        >
+          <Plus className="size-4" />
+          {t.paymentAccounts.page.addAccount}
+        </Button>
+      )}
     </div>
   );
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN"]}
+    <RequirePermission
+      permission="PAYMENT_ACCOUNTS.VIEW"
       title={t.paymentAccounts.page.title}
       description={t.paymentAccounts.page.description}
     >
@@ -222,6 +238,6 @@ export default function PaymentAccountsPage() {
           />
         </div>
       )}
-    </RequireRole>
+    </RequirePermission>
   );
 }

@@ -27,21 +27,25 @@ const STATUS_TONE: Record<UserStatus, StatusTone> = {
 
 interface GetUserColumnsOptions {
   t: TranslationShape;
-  canManage: boolean;
+  /** USERS.EDIT — reassigning an account's role. */
+  canEditRole: boolean;
+  /** USERS.SUSPEND — suspending or reactivating an account. */
+  canSuspend: boolean;
   onEditRole: (user: AppUser) => void;
   onToggleSuspend: (user: AppUser) => void;
 }
 
 export function getUserColumns({
   t,
-  canManage,
+  canEditRole,
+  canSuspend,
   onEditRole,
   onToggleSuspend,
 }: GetUserColumnsOptions): ColumnDef<AppUser>[] {
   const columns: ColumnDef<AppUser>[] = [
     {
       accessorKey: "name",
-      header: t.users.columns.username,
+      header: t.users.columns.name,
       cell: ({ row }) => {
         const user = row.original;
         return (
@@ -124,24 +128,24 @@ export function getUserColumns({
               <UserRound className="size-4" />
               {t.users.columns.viewProfile}
             </DropdownMenuItem>
-            {canManage && (
-              <>
-                <DropdownMenuItem onClick={() => onEditRole(user)}>
-                  <ShieldCheck className="size-4" />
-                  {t.users.columns.editRole}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  variant={user.status === "SUSPENDED" ? undefined : "destructive"}
-                  onClick={() => onToggleSuspend(user)}
-                >
-                  {user.status === "SUSPENDED" ? (
-                    <CheckCircle2 className="size-4" />
-                  ) : (
-                    <Ban className="size-4" />
-                  )}
-                  {user.status === "SUSPENDED" ? t.users.columns.reactivateUser : t.users.columns.suspendUser}
-                </DropdownMenuItem>
-              </>
+            {canEditRole && (
+              <DropdownMenuItem onClick={() => onEditRole(user)}>
+                <ShieldCheck className="size-4" />
+                {t.users.columns.editRole}
+              </DropdownMenuItem>
+            )}
+            {canSuspend && (
+              <DropdownMenuItem
+                variant={user.status === "SUSPENDED" ? undefined : "destructive"}
+                onClick={() => onToggleSuspend(user)}
+              >
+                {user.status === "SUSPENDED" ? (
+                  <CheckCircle2 className="size-4" />
+                ) : (
+                  <Ban className="size-4" />
+                )}
+                {user.status === "SUSPENDED" ? t.users.columns.reactivateUser : t.users.columns.suspendUser}
+              </DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

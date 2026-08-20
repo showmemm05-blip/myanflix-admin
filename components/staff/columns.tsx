@@ -24,6 +24,10 @@ const STATUS_TONE: Record<StaffStatus, StatusTone> = {
 interface GetStaffColumnsOptions {
   t: TranslationShape;
   currentUserId: string;
+  /** STAFF.EDIT — edit, password reset and activate/deactivate. */
+  canEdit: boolean;
+  /** STAFF.DELETE. */
+  canDelete: boolean;
   onEdit: (staff: StaffMember) => void;
   onResetPassword: (staff: StaffMember) => void;
   onToggleStatus: (staff: StaffMember) => void;
@@ -33,6 +37,8 @@ interface GetStaffColumnsOptions {
 export function getStaffColumns({
   t,
   currentUserId,
+  canEdit,
+  canDelete,
   onEdit,
   onResetPassword,
   onToggleStatus,
@@ -54,7 +60,11 @@ export function getStaffColumns({
     {
       accessorKey: "role",
       header: t.staff.columns.role,
-      cell: ({ row }) => <RoleBadge role={row.original.role} />,
+      // The badge colour still comes from the account kind, but the text is
+      // the assigned role's own name so a custom role reads correctly.
+      cell: ({ row }) => (
+        <RoleBadge role={row.original.role} label={row.original.appRoleName ?? undefined} />
+      ),
     },
     {
       accessorKey: "status",
@@ -92,37 +102,44 @@ export function getStaffColumns({
       cell: ({ row }) => {
         const staff = row.original;
         const isSelf = staff.id === currentUserId;
+        if (!canEdit && !canDelete) return null;
         return (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(staff)}>
-                <Pencil className="size-4" />
-                {t.common.edit}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onResetPassword(staff)}>
-                <KeyRound className="size-4" />
-                {t.staff.columns.resetPassword}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={isSelf}
-                variant={staff.status === "SUSPENDED" ? undefined : "destructive"}
-                onClick={() => onToggleStatus(staff)}
-              >
-                {staff.status === "SUSPENDED" ? (
-                  <CheckCircle2 className="size-4" />
-                ) : (
-                  <Ban className="size-4" />
-                )}
-                {staff.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem disabled={isSelf} variant="destructive" onClick={() => onDelete(staff)}>
-                <Trash2 className="size-4" />
-                {t.common.delete}
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(staff)}>
+                    <Pencil className="size-4" />
+                    {t.common.edit}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onResetPassword(staff)}>
+                    <KeyRound className="size-4" />
+                    {t.staff.columns.resetPassword}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isSelf}
+                    variant={staff.status === "SUSPENDED" ? undefined : "destructive"}
+                    onClick={() => onToggleStatus(staff)}
+                  >
+                    {staff.status === "SUSPENDED" ? (
+                      <CheckCircle2 className="size-4" />
+                    ) : (
+                      <Ban className="size-4" />
+                    )}
+                    {staff.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canEdit && canDelete && <DropdownMenuSeparator />}
+              {canDelete && (
+                <DropdownMenuItem disabled={isSelf} variant="destructive" onClick={() => onDelete(staff)}>
+                  <Trash2 className="size-4" />
+                  {t.common.delete}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );

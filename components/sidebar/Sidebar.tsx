@@ -10,7 +10,7 @@ import {
   Clapperboard,
   LogOut,
 } from "lucide-react";
-import { filterNavByRole, navItems, type NavItem } from "@/lib/nav-config";
+import { filterNavByPermission, navItems, type NavItem } from "@/lib/nav-config";
 import { useRole } from "@/lib/context/role-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { useLanguage } from "@/lib/context/language-context";
@@ -114,11 +114,11 @@ const hasKids = (item: NavItem) => Boolean(item.children?.length);
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role, currentUser, logout } = useRole();
+  const { role, roleName, currentUser, can, logout } = useRole();
   const { collapsed, toggleCollapsed, setMobileOpen } = useSidebar();
   const { t } = useLanguage();
   const isCollapsed = !mobile && collapsed;
-  const items = filterNavByRole(navItems, role);
+  const items = filterNavByPermission(navItems, can);
 
   // Only the group holding the current route starts open: ~20 rows become 8
   // plus one group's children. User toggles win from then on, so a group never
@@ -574,6 +574,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
                   </p>
                   <RoleBadge
                     role={role}
+                    label={roleName}
                     className="mt-0.5 h-[18px] px-1.5 text-[10px]"
                   />
                 </div>

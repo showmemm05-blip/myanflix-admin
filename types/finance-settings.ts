@@ -1,6 +1,8 @@
 export interface FinanceSettingsStaffRef {
   id: string;
+  /** Login identity. Render `userLabel()` instead — never this raw. */
   username: string;
+  displayName: string | null;
 }
 
 export interface FinanceSettings {

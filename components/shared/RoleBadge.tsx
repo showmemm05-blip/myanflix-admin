@@ -12,14 +12,28 @@ const ROLE_STYLES: Record<UserRole, string> = {
   CONTENT_UPLOADER: "bg-chart-2/15 text-chart-2 border-chart-2/25",
 };
 
-export function RoleBadge({ role, className }: { role: UserRole; className?: string }) {
+/**
+ * Purely cosmetic — it never gates anything. `role` picks the colour (the
+ * account kind), while `label` lets a caller show the assigned AppRole's own
+ * name instead, which is the only way a custom role like "Movie Manager"
+ * reads correctly on a staff account whose enum role is still ADMIN.
+ */
+export function RoleBadge({
+  role,
+  label,
+  className,
+}: {
+  role: UserRole;
+  label?: string;
+  className?: string;
+}) {
   const { t } = useLanguage();
   return (
     <Badge
       variant="outline"
       className={cn("font-medium", ROLE_STYLES[role], className)}
     >
-      {t.common.roleLabels[role]}
+      {label ?? t.common.roleLabels[role]}
     </Badge>
   );
 }

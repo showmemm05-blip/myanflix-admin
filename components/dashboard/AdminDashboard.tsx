@@ -16,7 +16,7 @@ import { formatKyat } from "@/lib/currency";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
 import { userService } from "@/services/api/userService";
-import type { UserRole } from "@/types/user";
+import { useRole } from "@/lib/context/role-context";
 
 async function loadDashboardData() {
   const [summary, revenue, growth, movieAnalytics, transactions, users] = await Promise.all([
@@ -55,8 +55,9 @@ function DashboardSkeleton() {
   );
 }
 
-export function AdminDashboard({ role }: { role: UserRole }) {
+export function AdminDashboard() {
   const { t } = useLanguage();
+  const { can } = useRole();
   const { data, isLoading, error, refetch } = useAsyncData(loadDashboardData, []);
 
   if (isLoading) return <DashboardSkeleton />;
@@ -65,7 +66,10 @@ export function AdminDashboard({ role }: { role: UserRole }) {
   }
 
   const { summary, revenue, growth, movieAnalytics, recentTransactions, recentUsers } = data;
-  const canViewFinance = role === "SUPER_ADMIN";
+  // Revenue figures and the platform-wide transaction feed both come
+  // from FINANCE-gated endpoints — without the permission the cards would
+  // only ever render a 403.
+  const canViewFinance = can("FINANCE.VIEW");
 
   return (
     <div className="flex flex-col gap-6">

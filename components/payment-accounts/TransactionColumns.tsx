@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import { userLabel, userLabelOr } from "@/lib/user-label";
 import { CREDIT_TRANSACTION_TYPES } from "@/types/payment-account-transaction";
 import type { PaymentAccountTransaction } from "@/types/payment-account-transaction";
 import type { PaymentAccountType } from "@/types/payment-account";
@@ -121,8 +122,8 @@ export function getPaymentAccountTransactionColumns({
         if (!customer) return <span className="text-sm">—</span>;
         return (
           <div className="flex max-w-36 flex-col">
-            <span className="truncate text-sm" title={customer.username}>
-              {customer.username}
+            <span className="truncate text-sm" title={userLabel(customer)}>
+              {userLabel(customer)}
             </span>
             <span className="font-mono text-xs whitespace-nowrap text-muted-foreground">
               {formatLocalPhone(customer.phone ?? null) || "—"}
@@ -198,7 +199,7 @@ export function getPaymentAccountTransactionColumns({
       header: t.paymentAccountLedger.transactionColumns.performedBy,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.performedBy?.username ?? t.paymentAccountLedger.transactionColumns.system}
+          {userLabelOr(row.original.performedBy, t.paymentAccountLedger.transactionColumns.system)}
         </span>
       ),
     },

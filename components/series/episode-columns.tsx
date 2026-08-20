@@ -21,7 +21,12 @@ const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
 
 interface GetEpisodeColumnsOptions {
   t: TranslationShape;
-  canManage: boolean;
+  /** SERIES.EDIT — episodes are edited through their parent series. */
+  canEdit: boolean;
+  /** SERIES.DELETE. */
+  canDelete: boolean;
+  /** SERIES.PUBLISH — the inline publish button on a ready episode. */
+  canPublish: boolean;
   onEdit: (episode: AdminEpisode) => void;
   onDelete: (episode: AdminEpisode) => void;
   onPublish: (episode: AdminEpisode) => void;
@@ -31,7 +36,9 @@ interface GetEpisodeColumnsOptions {
 
 export function getEpisodeColumns({
   t,
-  canManage,
+  canEdit,
+  canDelete,
+  canPublish,
   onEdit,
   onDelete,
   onPublish,
@@ -105,7 +112,7 @@ export function getEpisodeColumns({
         const episode = row.original;
         return (
           <div className="flex items-center justify-end gap-2">
-            {canManage && episode.status === "READY_TO_PUBLISH" && (
+            {canPublish && episode.status === "READY_TO_PUBLISH" && (
               <Button size="sm" disabled={publishingId === episode.id} onClick={() => onPublish(episode)}>
                 {publishingId === episode.id ? (
                   <Loader2 className="size-3.5 animate-spin" />
@@ -115,20 +122,24 @@ export function getEpisodeColumns({
                 {t.movies.publish}
               </Button>
             )}
-            {canManage && (
+            {(canEdit || canDelete) && (
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
                   <MoreHorizontal className="size-4" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => onEdit(episode)}>
-                    <Pencil className="size-4" />
-                    {t.common.edit}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem variant="destructive" onClick={() => onDelete(episode)}>
-                    <Trash2 className="size-4" />
-                    {t.common.delete}
-                  </DropdownMenuItem>
+                  {canEdit && (
+                    <DropdownMenuItem onClick={() => onEdit(episode)}>
+                      <Pencil className="size-4" />
+                      {t.common.edit}
+                    </DropdownMenuItem>
+                  )}
+                  {canDelete && (
+                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(episode)}>
+                      <Trash2 className="size-4" />
+                      {t.common.delete}
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             )}

@@ -4,14 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import { useRole } from "@/lib/context/role-context";
 import { getSocket } from "@/lib/socket";
 import { depositService } from "@/services/api/depositService";
+import { userLabel } from "@/lib/user-label";
 import type { Deposit } from "@/types/deposit";
 
 const MAX_ITEMS = 8;
 
+/** Stable empty reference so consumers' memo/effect deps do not churn. */
+const EMPTY_ITEMS: Deposit[] = [];
+
 interface DepositCreatedEvent {
   id: string;
   userId: string;
+  /** Raw login identity, straight off the realtime payload. */
   username: string;
+  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
+  displayName: string | null;
   amount: number;
   paymentMethod: string;
   accountName: string | null;
@@ -33,22 +40,21 @@ interface DepositCreatedEvent {
  * opens rather than polling.
  */
 export function useAdminNotifications() {
-  const { isAdminOrAbove } = useRole();
+  const { can } = useRole();
+  // The bell lists pending deposits — the same read the Deposits page makes.
+  const canReviewDeposits = can("DEPOSITS.VIEW");
   const [items, setItems] = useState<Deposit[]>([]);
 
   const refresh = useCallback(() => {
-    if (!isAdminOrAbove) return;
+    if (!canReviewDeposits) return;
     depositService
       .getAll({ status: "PENDING", limit: MAX_ITEMS })
       .then((res) => setItems(res.items))
       .catch(() => {});
-  }, [isAdminOrAbove]);
+  }, [canReviewDeposits]);
 
   useEffect(() => {
-    if (!isAdminOrAbove) {
-      setItems([]);
-      return;
-    }
+    if (!canReviewDeposits) return;
 
     refresh();
 
@@ -61,7 +67,8 @@ export function useAdminNotifications() {
           {
             id: event.id,
             userId: event.userId,
-            userName: event.username,
+            userName: userLabel(event),
+            userUsername: event.username,
             userPhone: null,
             amount: event.amount,
             paymentMethod: event.paymentMethod,
@@ -92,9 +99,13 @@ export function useAdminNotifications() {
     return () => {
       socket.off("deposit.created", handleCreated);
     };
-    // refresh() intentionally excluded — it's stable per isAdminOrAbove and re-running it here would refetch on every render.
+    // refresh() intentionally excluded — it's stable per canReviewDeposits and re-running it here would refetch on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdminOrAbove]);
+  }, [canReviewDeposits]);
 
-  return { items, count: items.length, refresh };
+  // Filtered on read rather than cleared in the effect: if the permission is
+  // revoked mid-session the bell empties immediately, without a second render
+  // pass just to zero the list out.
+  const visible = canReviewDeposits ? items : EMPTY_ITEMS;
+  return { items: visible, count: visible.length, refresh };
 }

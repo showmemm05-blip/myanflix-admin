@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpFromLine, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
@@ -19,13 +19,17 @@ import { getSocket } from "@/lib/socket";
 import { withdrawalService } from "@/services/api/withdrawalService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
+import { userLabel } from "@/lib/user-label";
 import type { Withdrawal } from "@/types/withdrawal";
 import { toast } from "sonner";
 
 interface WithdrawalCreatedEvent {
   id: string;
   userId: string;
+  /** Raw login identity, straight off the realtime payload. */
   username: string;
+  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
+  displayName: string | null;
   amount: number;
   accountType: string;
   accountName: string;
@@ -54,7 +58,8 @@ interface WithdrawalUpdatedEvent {
 }
 
 export default function WithdrawalsPage() {
-  const { role } = useRole();
+  const { can } = useRole();
+  const canViewQueue = can("WITHDRAWALS.VIEW");
   const { t } = useLanguage();
 
   // Default to TODAY so the page opens on the current day's activity.
@@ -127,7 +132,7 @@ export default function WithdrawalsPage() {
   );
 
   useEffect(() => {
-    if (role === "USER") return;
+    if (!canViewQueue) return;
     const socket = getSocket();
     if (!socket) return;
 
@@ -143,7 +148,8 @@ export default function WithdrawalsPage() {
       const incoming: Withdrawal = {
         id: event.id,
         userId: event.userId,
-        userName: event.username,
+        userName: userLabel(event),
+        userUsername: event.username,
         userPhone: null,
         amount: event.amount,
         accountType: event.accountType,
@@ -205,7 +211,7 @@ export default function WithdrawalsPage() {
       socket.off("withdrawal.updated", handleUpdated);
     };
 
-  }, [role, data, range]);
+  }, [canViewQueue, data, range]);
 
   const handleApprove = async (withdrawal: Withdrawal) => {
     setApprovingId(withdrawal.id);
@@ -237,6 +243,8 @@ export default function WithdrawalsPage() {
     types: types ?? [],
     paymentAccounts: paymentAccounts ?? [],
     onView: setViewTarget,
+    canApprove: can("WITHDRAWALS.APPROVE"),
+    canReject: can("WITHDRAWALS.REJECT"),
     onApprove: handleApprove,
     onReject: setRejectTarget,
     onTransferSaved: handleAccountEdited,
@@ -262,8 +270,8 @@ export default function WithdrawalsPage() {
   );
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="WITHDRAWALS.VIEW"
       title={t.withdrawals.page.title}
       description={t.withdrawals.page.description}
     >
@@ -330,6 +338,6 @@ export default function WithdrawalsPage() {
           onRejected={handleRejected}
         />
       </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }

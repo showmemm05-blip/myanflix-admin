@@ -2,8 +2,18 @@ import { apiClient } from "./apiClient";
 import { tokenStore } from "@/lib/auth/token-store";
 import { movieService } from "./movieService";
 import { videoService } from "./videoService";
+import { toPermissions, type Permission } from "@/lib/permissions";
+import { userLabel } from "@/lib/user-label";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
-import type { AppUser, PurchaseEntry, UserRole, UserStatus, WatchHistoryEntry } from "@/types/user";
+import type {
+  AppUser,
+  AuthenticatedProfile,
+  PurchaseEntry,
+  UserRole,
+  UserStatus,
+  WatchHistoryEntry,
+} from "@/types/user";
+import { ROLE_LABELS } from "@/types/user";
 import type {
   CreateWalletAdjustmentValues,
   WalletAdjustment,
@@ -13,6 +23,7 @@ import type {
 interface BackendUser {
   id: string;
   username: string;
+  displayName: string | null;
   phone: string | null;
   avatarUrl: string | null;
   role: UserRole;
@@ -26,10 +37,25 @@ interface BackendUser {
   subscriptionExpiresAt?: string | null;
 }
 
+/**
+ * `GET /users/me` alone carries the caller's effective RBAC state — the
+ * users list/detail routes return the plain profile shape, so these two
+ * fields are optional on the wire type and only ever present here.
+ */
+interface BackendMe extends BackendUser {
+  permissions?: string[];
+  roleName?: string;
+}
+
 function mapUser(u: BackendUser): AppUser {
   return {
     id: u.id,
-    name: u.username,
+    // Phone signups carry a machine-generated username, so the label is the
+    // display name they set — `username` rides along untouched for the
+    // surfaces that must show the login identity.
+    name: userLabel(u),
+    username: u.username,
+    displayName: u.displayName,
     phone: u.phone,
     avatarUrl: u.avatarUrl,
     role: u.role,
@@ -43,18 +69,38 @@ function mapUser(u: BackendUser): AppUser {
   };
 }
 
+/**
+ * `GET /users` query. `search` is matched server-side against the login
+ * identity, the display name AND the phone number, so an account stays
+ * findable by whichever of the three the admin happens to have in hand — a
+ * client-side filter over the rendered label could only ever match one.
+ */
+export interface UsersQuery extends PaginationParams {
+  search?: string;
+}
+
 function isSelf(userId: string): boolean {
   return tokenStore.getUser()?.id === userId;
 }
 
 export const userService = {
-  async getMe(): Promise<AppUser> {
-    const user = await apiClient.get<BackendUser>("/users/me");
-    return mapUser(user);
+  /**
+   * The signed-in caller, enriched with the effective permission set the
+   * whole admin gates on. `permissions` is filtered through the local
+   * catalogue so a permission this build doesn't know about is ignored
+   * rather than trusted — the backend stays the real gate regardless.
+   */
+  async getMe(): Promise<AuthenticatedProfile> {
+    const user = await apiClient.get<BackendMe>("/users/me");
+    return {
+      ...mapUser(user),
+      permissions: toPermissions(user.permissions ?? []) as Permission[],
+      roleName: user.roleName ?? ROLE_LABELS[user.role],
+    };
   },
 
-  async getUsers(pagination: PaginationParams = {}): Promise<PaginatedResponse<AppUser>> {
-    const res = await apiClient.get<PaginatedResponse<BackendUser>>("/users", { params: pagination });
+  async getUsers(query: UsersQuery = {}): Promise<PaginatedResponse<AppUser>> {
+    const res = await apiClient.get<PaginatedResponse<BackendUser>>("/users", { params: query });
     return { ...res, items: res.items.map(mapUser) };
   },
 

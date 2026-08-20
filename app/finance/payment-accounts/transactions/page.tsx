@@ -5,7 +5,7 @@ import { ListTree } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import {
   getPaymentAccountTransactionColumns,
@@ -113,12 +113,12 @@ function AllTransactionsContent() {
 export default function AllPaymentAccountTransactionsPage() {
   const { t } = useLanguage();
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN"]}
+    <RequirePermission
+      permission="PAYMENT_ACCOUNTS.LEDGER_MANAGE"
       title={t.paymentAccountLedger.central.title}
       description={t.paymentAccountLedger.central.description}
     >
       <AllTransactionsContent />
-    </RequireRole>
+    </RequirePermission>
   );
 }

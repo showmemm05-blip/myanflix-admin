@@ -16,6 +16,7 @@ import {
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import { userLabel, userLabelOr } from "@/lib/user-label";
 import { useLanguage } from "@/lib/context/language-context";
 import { CREDIT_TRANSACTION_TYPES } from "@/types/payment-account-transaction";
 import type {
@@ -113,8 +114,11 @@ const USER_STATUS_TONE: Record<string, StatusTone> = {
 /**
  * Who the money actually came from or went to. Given its own section ahead of
  * the deposit/withdrawal detail because "who is this?" is the first thing an
- * admin reviewing a movement asks — and for a phone signup the generated
- * username answers it far less well than the phone number and avatar do.
+ * admin reviewing a movement asks.
+ *
+ * The heading is the name the customer set for themselves (`userLabel`), with
+ * the raw `@username` muted underneath — a display name must never hide which
+ * account this is. The phone keeps its own field in the grid below.
  */
 function CustomerSection({
   customer,
@@ -133,14 +137,12 @@ function CustomerSection({
 
       <div className="mb-2.5 flex items-center gap-3">
         <Avatar className="size-9">
-          <AvatarImage src={customer.avatarUrl ?? undefined} alt={customer.username} />
-          <AvatarFallback>{customer.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+          <AvatarImage src={customer.avatarUrl ?? undefined} alt={userLabel(customer)} />
+          <AvatarFallback>{userLabel(customer).slice(0, 2).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold">
-            {formatLocalPhone(customer.phone) ?? customer.username}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">{customer.username}</p>
+          <p className="truncate font-semibold">{userLabel(customer)}</p>
+          <p className="truncate text-xs text-muted-foreground">@{customer.username}</p>
         </div>
         <Button
           size="sm"
@@ -253,7 +255,7 @@ export function TransactionDetailsDialog({
                 }
               />
               <Field label={d.rejectionReason} value={deposit.rejectionReason} full />
-              <Field label={d.approvedBy} value={deposit.approvedBy?.username} />
+              <Field label={d.approvedBy} value={deposit.approvedBy && userLabel(deposit.approvedBy)} />
               <Field label={d.approvedAt} value={formatDateTime(deposit.approvedAt)} />
               <Field
                 label={d.depositWalletBalance}
@@ -298,7 +300,7 @@ export function TransactionDetailsDialog({
                 }
               />
               <Field label={d.rejectionReason} value={withdrawal.rejectionReason} full />
-              <Field label={d.approvedBy} value={withdrawal.approvedBy?.username} />
+              <Field label={d.approvedBy} value={withdrawal.approvedBy && userLabel(withdrawal.approvedBy)} />
               <Field label={d.approvedAt} value={formatDateTime(withdrawal.approvedAt)} />
               <Field
                 label={d.debitedAccount}
@@ -364,7 +366,7 @@ export function TransactionDetailsDialog({
           <Section title={d.performedBySection} icon={User}>
             <Field
               label={d.performedBy}
-              value={transaction.performedBy?.username ?? d.system}
+              value={userLabelOr(transaction.performedBy, d.system)}
             />
             <Field label={d.performerRole} value={transaction.performedBy?.role} />
             <Field label={d.performerId} value={transaction.performedBy?.id} mono full />

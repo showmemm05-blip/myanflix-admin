@@ -3,7 +3,15 @@ export type WithdrawalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export interface Withdrawal {
   id: string;
   userId: string;
+  /** The resolved label to render — `userLabel()` output, never the raw identity. */
   userName: string;
+  /**
+   * The customer's raw login identity, carried alongside the label so a
+   * self-chosen display name can never hide which account a payout belongs to
+   * — printed as `@username` in the detail dialog and matched by the queue
+   * search. Null when the user relation wasn't joined.
+   */
+  userUsername: string | null;
   userPhone: string | null;
   amount: number;
   /** The account the user provided to receive the money — never edited by admins. */

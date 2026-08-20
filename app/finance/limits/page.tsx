@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
+import { userLabel } from "@/lib/user-label";
 import { ApiError } from "@/services/api/apiClient";
 import { financeSettingsService } from "@/services/api/financeSettingsService";
 import type { FinanceSettings } from "@/types/finance-settings";
@@ -183,7 +184,7 @@ function LimitsPageContent() {
             <p className="text-xs text-muted-foreground">
               {settings?.updatedBy
                 ? t.finance.limits.lastUpdatedBy(
-                    settings.updatedBy.username,
+                    userLabel(settings.updatedBy),
                     format(new Date(settings.updatedAt), "d MMM yyyy, HH:mm:ss"),
                   )
                 : t.finance.limits.notCustomized}
@@ -202,12 +203,12 @@ function LimitsPageContent() {
 export default function LimitsPage() {
   const { t } = useLanguage();
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN"]}
+    <RequirePermission
+      permission="FINANCE.SETTINGS_MANAGE"
       title={t.finance.limits.title}
       description={t.finance.limits.description}
     >
       <LimitsPageContent />
-    </RequireRole>
+    </RequirePermission>
   );
 }

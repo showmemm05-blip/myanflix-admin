@@ -29,7 +29,7 @@ import { toast } from "sonner";
 
 export function Navbar() {
   const pathname = usePathname();
-  const { currentUser, role } = useRole();
+  const { currentUser, role, roleName } = useRole();
   const { mobileOpen, setMobileOpen } = useSidebar();
   const { items: notifications, count: notificationCount, refresh: refreshNotifications } = useAdminNotifications();
   const { t, language, setLanguage } = useLanguage();
@@ -57,7 +57,7 @@ export function Navbar() {
         <h1 className="truncate text-base font-semibold sm:text-lg">
           {getPageTitle(pathname, t)}
         </h1>
-        <RoleBadge role={role} className="hidden sm:inline-flex" />
+        <RoleBadge role={role} label={roleName} className="hidden sm:inline-flex" />
       </div>
 
       <div className="relative hidden w-full max-w-xs lg:block">

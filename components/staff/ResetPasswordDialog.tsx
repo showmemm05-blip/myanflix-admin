@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/context/language-context";
+import { userLabel } from "@/lib/user-label";
 import { ApiError } from "@/services/api/apiClient";
 import { staffService } from "@/services/api/staffService";
 import type { StaffMember } from "@/types/staff";
@@ -38,7 +39,7 @@ function ResetPasswordForm({
     try {
       await staffService.resetPassword(staff.id, newPassword);
       toast.success(t.staff.resetPasswordDialog.resetToast, {
-        description: t.staff.resetPasswordDialog.resetDescription(staff.username),
+        description: t.staff.resetPasswordDialog.resetDescription(userLabel(staff)),
       });
       onOpenChange(false);
     } catch (err) {
@@ -52,7 +53,7 @@ function ResetPasswordForm({
     <>
       <DialogHeader>
         <DialogTitle>{t.staff.resetPasswordDialog.title}</DialogTitle>
-        <DialogDescription>{t.staff.resetPasswordDialog.descriptionFor(staff.username)}</DialogDescription>
+        <DialogDescription>{t.staff.resetPasswordDialog.descriptionFor(userLabel(staff))}</DialogDescription>
       </DialogHeader>
 
       <div className="flex flex-col gap-3">

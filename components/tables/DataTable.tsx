@@ -31,6 +31,14 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
+  /**
+   * Server-driven search. When `onSearchChange` is supplied the box becomes a
+   * controlled input and the client-side column filter is bypassed entirely —
+   * the caller queries the API instead of filtering only the loaded page. Use
+   * it wherever the backend can search fields the table doesn't carry.
+   */
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
   searchPlaceholder?: string;
   /** Rendered immediately beside the search input (e.g. a primary action button). */
   searchActions?: ReactNode;
@@ -46,6 +54,8 @@ export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
+  searchValue,
+  onSearchChange,
   searchPlaceholder,
   searchActions,
   toolbar,
@@ -73,11 +83,16 @@ export function DataTable<TData, TValue>({
 
   const rows = table.getRowModel().rows;
 
+  // A caller that owns the search term drives the API; otherwise the box
+  // filters the single `searchKey` column client-side, as it always has.
+  const serverSearch = !!onSearchChange;
+  const showSearch = serverSearch || !!searchKey;
+
   return (
     <div className="flex flex-col gap-4">
-      {(searchKey || toolbar) && (
+      {(showSearch || toolbar) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {searchKey && (
+          {showSearch && (
             // With a toolbar occupying the right side, the actions hug the
             // search box; without one, they spread to the far edge instead.
             <div
@@ -92,8 +107,16 @@ export function DataTable<TData, TValue>({
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder={searchPlaceholder ?? t.shared.searchPlaceholder}
-                  value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
-                  onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
+                  value={
+                    serverSearch
+                      ? searchValue ?? ""
+                      : (searchKey ? (table.getColumn(searchKey)?.getFilterValue() as string) : "") ?? ""
+                  }
+                  onChange={(e) =>
+                    serverSearch
+                      ? onSearchChange(e.target.value)
+                      : searchKey && table.getColumn(searchKey)?.setFilterValue(e.target.value)
+                  }
                   className="bg-secondary/50 pl-9"
                 />
               </div>

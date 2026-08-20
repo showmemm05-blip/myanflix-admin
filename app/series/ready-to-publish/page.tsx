@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -41,8 +41,7 @@ const ALL = "all";
  */
 export default function SeriesReadyToPublishPage() {
   const { t } = useLanguage();
-  const { role } = useRole();
-  const canManage = role !== "USER";
+  const { can } = useRole();
 
   const [seriesFilter, setSeriesFilter] = useState<string>(ALL);
   const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
@@ -107,7 +106,9 @@ export default function SeriesReadyToPublishPage() {
 
   const columns = getEpisodeColumns({
     t,
-    canManage,
+    canEdit: can("SERIES.EDIT"),
+    canDelete: can("SERIES.DELETE"),
+    canPublish: can("SERIES.PUBLISH"),
     onEdit: setEditEpisode,
     onDelete: setDeleteEpisode,
     onPublish: handlePublish,
@@ -151,8 +152,8 @@ export default function SeriesReadyToPublishPage() {
   );
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="SERIES.PUBLISH"
       title={t.nav.readyToPublish}
       description={t.series.readyToPublish.description}
     >
@@ -204,6 +205,6 @@ export default function SeriesReadyToPublishPage() {
           />
         </div>
       )}
-    </RequireRole>
+    </RequirePermission>
   );
 }

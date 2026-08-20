@@ -5,15 +5,20 @@ import Link from "next/link";
 import { format } from "date-fns";
 import {
   ArrowLeft,
+  ArrowUpFromLine,
   Ban,
   CheckCircle2,
   Clapperboard,
+  Clock,
   Coins,
   History,
+  Hourglass,
+  Scale,
   ShieldCheck,
   ShoppingBag,
   UserX,
   Wallet,
+  XCircle,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -26,7 +31,8 @@ import { AdjustBalanceDialog } from "@/components/users/AdjustBalanceDialog";
 import { EditRoleDialog } from "@/components/users/EditRoleDialog";
 import { WalletAdjustmentsSection } from "@/components/users/WalletAdjustmentsSection";
 import { WatchHistoryList } from "@/components/users/WatchHistoryList";
-import { PurchaseHistoryList } from "@/components/users/PurchaseHistoryList";
+import { UserDepositsTable } from "@/components/users/UserDepositsTable";
+import { UserWithdrawalsTable } from "@/components/users/UserWithdrawalsTable";
 import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,8 +46,17 @@ import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
 import { userService } from "@/services/api/userService";
 import { paymentService } from "@/services/api/paymentService";
+import { depositService } from "@/services/api/depositService";
+import { withdrawalService } from "@/services/api/withdrawalService";
 import type { UserStatus } from "@/types/user";
 import { toast } from "sonner";
+
+/**
+ * How many deposit/withdrawal source documents we pull for the finance
+ * region. When a user has more, the summary says exactly how much it covers
+ * instead of pretending the numbers are complete.
+ */
+const FINANCE_FETCH_LIMIT = 100;
 
 const STATUS_TONE: Record<UserStatus, StatusTone> = {
   ACTIVE: "success",
@@ -51,9 +66,13 @@ const STATUS_TONE: Record<UserStatus, StatusTone> = {
 
 export default function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { role, currentUser, isSuperAdmin } = useRole();
+  const { role, currentUser, can } = useRole();
   const { t } = useLanguage();
-  const canManage = role !== "USER";
+  // Reading someone else's profile is USERS.VIEW; your own is always yours.
+  const canViewOthers = can("USERS.VIEW");
+  const canEditRole = can("USERS.EDIT");
+  const canSuspend = can("USERS.SUSPEND");
+  const canAdjustWallet = can("USERS.WALLET_ADJUST");
   const isOwnProfile = currentUser.id === id;
   const STATUS_LABELS: Record<UserStatus, string> = {
     ACTIVE: t.common.active,
@@ -63,13 +82,18 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
 
   const { data, isLoading, error, refetch } = useAsyncData(
     async () => {
-      const [user, watchHistory, purchases, transactions] = await Promise.all([
+      const [user, watchHistory, transactions, deposits, withdrawals] = await Promise.all([
         userService.getUserById(id),
         userService.getWatchHistory(id),
-        userService.getPurchaseHistory(id),
         paymentService.getTransactionsByUser(id),
+        // The source documents behind the wallet ledger. Both endpoints are
+        // admin-only (DEPOSIT/WITHDRAWAL_MANAGE) — a viewer without them
+        // (e.g. someone on their own profile) gets null and the finance
+        // region simply doesn't render, leaving the rest of the page intact.
+        depositService.getAll({ userId: id, limit: FINANCE_FETCH_LIMIT }).catch(() => null),
+        withdrawalService.getAll({ userId: id, limit: FINANCE_FETCH_LIMIT }).catch(() => null),
       ]);
-      return { user, watchHistory, purchases, transactions };
+      return { user, watchHistory, transactions, deposits, withdrawals };
     },
     [id]
   );
@@ -82,7 +106,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   // Bumped after each saved adjustment so WalletAdjustmentsSection refetches.
   const [adjustmentsVersion, setAdjustmentsVersion] = useState(0);
 
-  if (!canManage && !isOwnProfile) {
+  if (!canViewOthers && !isOwnProfile) {
     return (
       <div>
         <PageHeader title={t.users.profile.title} />
@@ -129,8 +153,33 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  const { user, watchHistory, purchases, transactions } = data;
+  const { user, watchHistory, transactions, deposits, withdrawals } = data;
   const currentStatus = status ?? user.status;
+
+  // Finance summary, computed from the fetched source documents. Total
+  // deposited comes server-computed on the user; withdrawn/pending/rejected
+  // figures come from the lists above and are capped by FINANCE_FETCH_LIMIT.
+  const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+  const finance =
+    deposits && withdrawals
+      ? (() => {
+          const pendingDeposits = deposits.items.filter((d) => d.status === "PENDING");
+          const pendingWithdrawals = withdrawals.items.filter((w) => w.status === "PENDING");
+          return {
+            approvedWithdrawn: sum(
+              withdrawals.items.filter((w) => w.status === "APPROVED").map((w) => w.amount)
+            ),
+            pendingDepositCount: pendingDeposits.length,
+            pendingDepositAmount: sum(pendingDeposits.map((d) => d.amount)),
+            pendingWithdrawalCount: pendingWithdrawals.length,
+            pendingWithdrawalAmount: sum(pendingWithdrawals.map((w) => w.amount)),
+            rejectedDeposits: deposits.items.filter((d) => d.status === "REJECTED").length,
+            rejectedWithdrawals: withdrawals.items.filter((w) => w.status === "REJECTED").length,
+            shown: deposits.items.length + withdrawals.items.length,
+            total: deposits.total + withdrawals.total,
+          };
+        })()
+      : null;
 
   const handleToggleSuspend = async () => {
     const nextStatus: UserStatus = currentStatus === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
@@ -168,6 +217,10 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                   <RoleBadge role={user.role} />
                   <StatusBadge label={STATUS_LABELS[currentStatus]} tone={STATUS_TONE[currentStatus]} />
                 </div>
+                {/* The heading is the name the user chose; this is the login
+                identity behind it, so a display name can never hide which
+                account is on screen. */}
+                <p className="text-sm text-muted-foreground">@{user.username}</p>
                 {user.phone && (
                   <p className="text-sm text-muted-foreground">{formatLocalPhone(user.phone)}</p>
                 )}
@@ -176,23 +229,27 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                 </p>
               </div>
             </div>
-            {canManage && !isOwnProfile && (
+            {!isOwnProfile && (canEditRole || canSuspend) && (
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setEditRoleOpen(true)}>
-                  <ShieldCheck className="size-4" />
-                  {t.users.columns.editRole}
-                </Button>
-                <Button
-                  variant={currentStatus === "SUSPENDED" ? "outline" : "destructive"}
-                  onClick={() => setSuspendOpen(true)}
-                >
-                  {currentStatus === "SUSPENDED" ? (
-                    <CheckCircle2 className="size-4" />
-                  ) : (
-                    <Ban className="size-4" />
-                  )}
-                  {currentStatus === "SUSPENDED" ? t.users.reactivate : t.users.suspend}
-                </Button>
+                {canEditRole && (
+                  <Button variant="outline" onClick={() => setEditRoleOpen(true)}>
+                    <ShieldCheck className="size-4" />
+                    {t.users.columns.editRole}
+                  </Button>
+                )}
+                {canSuspend && (
+                  <Button
+                    variant={currentStatus === "SUSPENDED" ? "outline" : "destructive"}
+                    onClick={() => setSuspendOpen(true)}
+                  >
+                    {currentStatus === "SUSPENDED" ? (
+                      <CheckCircle2 className="size-4" />
+                    ) : (
+                      <Ban className="size-4" />
+                    )}
+                    {currentStatus === "SUSPENDED" ? t.users.reactivate : t.users.suspend}
+                  </Button>
+                )}
               </div>
             )}
           </CardContent>
@@ -204,11 +261,11 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
               title={t.dashboard.accountBalance}
               value={formatKyat(user.balance)}
               icon={Wallet}
-              // Extra bottom padding reserves room for the Super-Admin-only
-              // adjust button pinned to the card's bottom-left corner.
-              className={isSuperAdmin ? "h-full pb-9" : "h-full"}
+              // Extra bottom padding reserves room for the wallet-adjust
+              // button pinned to the card's bottom-left corner.
+              className={canAdjustWallet ? "h-full pb-9" : "h-full"}
             />
-            {isSuperAdmin && (
+            {canAdjustWallet && (
               <Button
                 size="sm"
                 variant="outline"
@@ -244,24 +301,86 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>{t.users.profile.watchHistoryTitle}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WatchHistoryList entries={watchHistory.items} />
-            </CardContent>
-          </Card>
-          <Card className="glass-card">
-            <CardHeader>
-              <CardTitle>{t.dashboard.purchasedMovies}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <PurchaseHistoryList entries={purchases.items} />
-            </CardContent>
-          </Card>
-        </div>
+        <Card className="glass-card">
+          <CardHeader>
+            <CardTitle>{t.users.profile.watchHistoryTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WatchHistoryList entries={watchHistory.items} />
+          </CardContent>
+        </Card>
+
+        {finance && deposits && withdrawals && (
+          <>
+            <div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+                <DashboardCard
+                  title={t.users.financeSummary.totalWithdrawn}
+                  value={formatKyat(finance.approvedWithdrawn)}
+                  icon={ArrowUpFromLine}
+                  iconClassName="bg-outgoing/15 text-outgoing"
+                />
+                <DashboardCard
+                  title={t.users.financeSummary.pendingDeposits}
+                  value={t.users.financeSummary.countAndAmount(
+                    finance.pendingDepositCount,
+                    formatKyat(finance.pendingDepositAmount)
+                  )}
+                  icon={Hourglass}
+                  iconClassName="bg-warning/15 text-warning"
+                />
+                <DashboardCard
+                  title={t.users.financeSummary.pendingWithdrawals}
+                  value={t.users.financeSummary.countAndAmount(
+                    finance.pendingWithdrawalCount,
+                    formatKyat(finance.pendingWithdrawalAmount)
+                  )}
+                  icon={Clock}
+                  iconClassName="bg-warning/15 text-warning"
+                />
+                <DashboardCard
+                  title={t.users.financeSummary.rejected}
+                  value={t.users.financeSummary.rejectedValue(
+                    finance.rejectedDeposits,
+                    finance.rejectedWithdrawals
+                  )}
+                  icon={XCircle}
+                  iconClassName="bg-destructive/15 text-destructive"
+                />
+                {/* Server-computed total deposited minus approved withdrawals from the list. */}
+                <DashboardCard
+                  title={t.users.financeSummary.netFlow}
+                  value={formatKyat(user.totalDeposited - finance.approvedWithdrawn)}
+                  icon={Scale}
+                  iconClassName="bg-info/15 text-info"
+                />
+              </div>
+              {finance.total > finance.shown && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {t.users.financeSummary.partialNote(finance.shown, finance.total)}
+                </p>
+              )}
+            </div>
+
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>{t.users.depositsTable.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UserDepositsTable deposits={deposits.items} />
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card">
+              <CardHeader>
+                <CardTitle>{t.users.withdrawalsTable.title}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <UserWithdrawalsTable withdrawals={withdrawals.items} />
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         <Card className="glass-card">
           <CardHeader>
@@ -272,7 +391,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
           </CardContent>
         </Card>
 
-        {isSuperAdmin && (
+        {canAdjustWallet && (
           <WalletAdjustmentsSection userId={user.id} refreshKey={adjustmentsVersion} />
         )}
       </div>
@@ -284,7 +403,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         onSaved={() => refetch()}
       />
 
-      {isSuperAdmin && (
+      {canAdjustWallet && (
         <AdjustBalanceDialog
           user={user}
           open={adjustOpen}

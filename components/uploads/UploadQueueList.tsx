@@ -66,6 +66,10 @@ interface UploadJobCardProps {
   onRemove: (key: string) => void;
   onEdit: (job: MovieUploadJob) => void;
   onPublish: (job: MovieUploadJob) => void;
+  /** MOVIES.EDIT — the per-job "Details" dialog writes to the movie. */
+  canEdit: boolean;
+  /** MOVIES.PUBLISH — the inline publish button on a finished job. */
+  canPublish: boolean;
   onAttachClick: (key: string) => void;
 }
 
@@ -90,6 +94,8 @@ const UploadJobCard = memo(function UploadJobCard({
   onRemove,
   onEdit,
   onPublish,
+  canEdit,
+  canPublish,
   onAttachClick,
 }: UploadJobCardProps) {
   const { t } = useLanguage();
@@ -175,7 +181,7 @@ const UploadJobCard = memo(function UploadJobCard({
         )}
 
         <div className="flex items-center justify-end gap-2">
-          {job.status === "ready_to_publish" && (
+          {canPublish && job.status === "ready_to_publish" && (
             <Button size="sm" onClick={() => onPublish(job)}>
               <Rocket className="size-3.5" />
               {t.movies.publish}
@@ -208,10 +214,12 @@ const UploadJobCard = memo(function UploadJobCard({
               {t.common.cancel}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={() => onEdit(job)}>
-            <Pencil className="size-3.5" />
-            {t.uploads.details}
-          </Button>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={() => onEdit(job)}>
+              <Pencil className="size-3.5" />
+              {t.uploads.details}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -241,6 +249,8 @@ interface UploadQueueListProps {
   onReattach: (key: string, folder: DroppedFolder) => void;
   onEdit: (job: MovieUploadJob) => void;
   onPublish: (job: MovieUploadJob) => void;
+  canEdit: boolean;
+  canPublish: boolean;
 }
 
 /**
@@ -262,6 +272,8 @@ export function UploadQueueList({
   onReattach,
   onEdit,
   onPublish,
+  canEdit,
+  canPublish,
 }: UploadQueueListProps) {
   const { t } = useLanguage();
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
@@ -347,6 +359,8 @@ export function UploadQueueList({
           onRemove={onRemove}
           onEdit={onEdit}
           onPublish={onPublish}
+          canEdit={canEdit}
+          canPublish={canPublish}
           onAttachClick={handleAttachClick}
         />
       ))}

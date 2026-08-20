@@ -50,7 +50,22 @@ export function ViewWithdrawalDialog({
             </DialogHeader>
 
             <div className="flex flex-col">
-              <Row label={t.withdrawals.viewDialog.user} value={withdrawal.userName} />
+              {/* Label first, login identity underneath — two customers may
+                  both call themselves "Blake", and a payout must never be
+                  approved against a name that can't be tied to an account. */}
+              <Row
+                label={t.withdrawals.viewDialog.user}
+                value={
+                  <span className="flex flex-col items-end">
+                    <span>{withdrawal.userName}</span>
+                    {withdrawal.userUsername && (
+                      <span className="text-xs font-normal text-muted-foreground">
+                        @{withdrawal.userUsername}
+                      </span>
+                    )}
+                  </span>
+                }
+              />
               <Row label={t.withdrawals.viewDialog.phone} value={formatLocalPhone(withdrawal.userPhone) || "—"} />
               <Row label={t.withdrawals.viewDialog.amount} value={formatKyat(withdrawal.amount)} />
               <Row

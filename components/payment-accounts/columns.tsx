@@ -13,11 +13,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { userLabel } from "@/lib/user-label";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 import type { TranslationShape } from "@/lib/i18n/translations";
 
 interface GetPaymentAccountColumnsOptions {
   types: PaymentAccountType[];
+  /** PAYMENT_ACCOUNTS.EDIT — rename and the active/inactive toggle. */
+  canEdit: boolean;
+  /** PAYMENT_ACCOUNTS.DELETE. */
+  canDelete: boolean;
   onEdit: (account: PaymentAccount) => void;
   onToggleStatus: (account: PaymentAccount) => void;
   onDelete: (account: PaymentAccount) => void;
@@ -26,6 +31,8 @@ interface GetPaymentAccountColumnsOptions {
 
 export function getPaymentAccountColumns({
   types,
+  canEdit,
+  canDelete,
   onEdit,
   onToggleStatus,
   onDelete,
@@ -95,7 +102,7 @@ export function getPaymentAccountColumns({
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {format(new Date(row.original.updatedAt), "d MMM yyyy")}
-          {row.original.updatedBy && t.paymentAccounts.columns.updatedBySuffix(row.original.updatedBy.username)}
+          {row.original.updatedBy && t.paymentAccounts.columns.updatedBySuffix(userLabel(row.original.updatedBy))}
         </span>
       ),
     },
@@ -104,32 +111,39 @@ export function getPaymentAccountColumns({
       header: "",
       cell: ({ row }) => {
         const account = row.original;
+        if (!canEdit && !canDelete) return null;
         return (
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
               <MoreHorizontal className="size-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(account)}>
-                <Pencil className="size-4" />
-                {t.common.edit}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant={account.isActive ? "destructive" : undefined}
-                onClick={() => onToggleStatus(account)}
-              >
-                {account.isActive ? (
-                  <Ban className="size-4" />
-                ) : (
-                  <CheckCircle2 className="size-4" />
-                )}
-                {account.isActive ? t.paymentAccounts.toggleStatus.deactivate : t.paymentAccounts.toggleStatus.activate}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" onClick={() => onDelete(account)}>
-                <Trash2 className="size-4" />
-                {t.common.delete}
-              </DropdownMenuItem>
+              {canEdit && (
+                <>
+                  <DropdownMenuItem onClick={() => onEdit(account)}>
+                    <Pencil className="size-4" />
+                    {t.common.edit}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant={account.isActive ? "destructive" : undefined}
+                    onClick={() => onToggleStatus(account)}
+                  >
+                    {account.isActive ? (
+                      <Ban className="size-4" />
+                    ) : (
+                      <CheckCircle2 className="size-4" />
+                    )}
+                    {account.isActive ? t.paymentAccounts.toggleStatus.deactivate : t.paymentAccounts.toggleStatus.activate}
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canEdit && canDelete && <DropdownMenuSeparator />}
+              {canDelete && (
+                <DropdownMenuItem variant="destructive" onClick={() => onDelete(account)}>
+                  <Trash2 className="size-4" />
+                  {t.common.delete}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         );

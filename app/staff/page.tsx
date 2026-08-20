@@ -5,7 +5,7 @@ import { Plus, UserCog } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/tables/DataTable";
@@ -16,15 +16,30 @@ import { ResetPasswordDialog } from "@/components/staff/ResetPasswordDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
+import { userLabel, userLabelOr } from "@/lib/user-label";
+import { rolesService } from "@/services/api/rolesService";
 import { staffService } from "@/services/api/staffService";
 import { ApiError } from "@/services/api/apiClient";
 import type { StaffMember } from "@/types/staff";
 import { toast } from "sonner";
 
 export default function StaffPage() {
-  const { currentUser } = useRole();
+  const { currentUser, can } = useRole();
+  const canCreate = can("STAFF.CREATE");
   const { t } = useLanguage();
   const { data, isLoading, error, refetch } = useAsyncData(() => staffService.getStaff(), []);
+  // Null when the caller has no ROLES.VIEW (403) — the edit dialog then falls
+  // back to the three built-in roles rather than losing its role field.
+  const { data: assignableRoles } = useAsyncData(
+    () =>
+      rolesService
+        .getRoles()
+        // Custom roles are staff-tier by definition; the end-user role is the
+        // one thing a staff account may never be moved to (the backend 400s).
+        .then((roles) => roles.filter((role) => role.key !== "USER"))
+        .catch(() => null),
+    [],
+  );
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const activeStaff = staff ?? data ?? [];
 
@@ -46,8 +61,8 @@ export default function StaffPage() {
       toast.success(nextStatus === "SUSPENDED" ? t.staff.deactivatedToast : t.staff.activatedToast, {
         description:
           nextStatus === "SUSPENDED"
-            ? t.staff.deactivatedDescription(statusTarget.username)
-            : t.staff.activatedDescription(statusTarget.username),
+            ? t.staff.deactivatedDescription(userLabel(statusTarget))
+            : t.staff.activatedDescription(userLabel(statusTarget)),
       });
       setStatusTarget(null);
     } catch (err) {
@@ -63,7 +78,7 @@ export default function StaffPage() {
     try {
       await staffService.deleteStaff(deleteTarget.id);
       setStaff(activeStaff.filter((s) => s.id !== deleteTarget.id));
-      toast.success(t.staff.deletedToast, { description: t.staff.deletedDescription(deleteTarget.username) });
+      toast.success(t.staff.deletedToast, { description: t.staff.deletedDescription(userLabel(deleteTarget)) });
       setDeleteTarget(null);
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : t.login.genericError);
@@ -75,6 +90,8 @@ export default function StaffPage() {
   const columns = getStaffColumns({
     t,
     currentUserId: currentUser.id,
+    canEdit: can("STAFF.EDIT"),
+    canDelete: can("STAFF.DELETE"),
     onEdit: setEditTarget,
     onResetPassword: setResetTarget,
     onToggleStatus: setStatusTarget,
@@ -82,7 +99,7 @@ export default function StaffPage() {
   });
 
   return (
-    <RequireRole allow={["SUPER_ADMIN"]} title={t.staff.page.title} description={t.staff.page.descriptionShort}>
+    <RequirePermission permission="STAFF.VIEW" title={t.staff.page.title} description={t.staff.page.descriptionShort}>
       {error ? (
         <div>
           <PageHeader title={t.staff.page.title} description={t.staff.page.descriptionShort} />
@@ -94,10 +111,12 @@ export default function StaffPage() {
             title={t.staff.page.title}
             description={t.staff.page.description}
             actions={
-              <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="size-4" />
-                {t.staff.page.createStaff}
-              </Button>
+              canCreate && (
+                <Button onClick={() => setCreateOpen(true)}>
+                  <Plus className="size-4" />
+                  {t.staff.page.createStaff}
+                </Button>
+              )
             }
           />
 
@@ -126,6 +145,7 @@ export default function StaffPage() {
           <EditStaffDialog
             staff={editTarget}
             currentUserId={currentUser.id}
+            assignableRoles={assignableRoles ?? null}
             open={!!editTarget}
             onOpenChange={(o) => !o && setEditTarget(null)}
             onSaved={(updated) => setStaff(activeStaff.map((s) => (s.id === updated.id ? updated : s)))}
@@ -143,8 +163,8 @@ export default function StaffPage() {
             title={statusTarget?.status === "SUSPENDED" ? t.staff.activateTitle : t.staff.deactivateTitle}
             description={
               statusTarget?.status === "SUSPENDED"
-                ? t.staff.activateDescription(statusTarget?.username ?? "")
-                : t.staff.deactivateDescription(statusTarget?.username ?? "")
+                ? t.staff.activateDescription(userLabelOr(statusTarget, ""))
+                : t.staff.deactivateDescription(userLabelOr(statusTarget, ""))
             }
             confirmLabel={statusTarget?.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
             variant={statusTarget?.status === "SUSPENDED" ? "default" : "destructive"}
@@ -156,7 +176,7 @@ export default function StaffPage() {
             open={!!deleteTarget}
             onOpenChange={(o) => !o && setDeleteTarget(null)}
             title={t.staff.deleteTitle}
-            description={t.staff.deleteDescription(deleteTarget?.username ?? "")}
+            description={t.staff.deleteDescription(userLabelOr(deleteTarget, ""))}
             confirmLabel={t.common.delete}
             variant="destructive"
             loading={deleteSubmitting}
@@ -164,6 +184,6 @@ export default function StaffPage() {
           />
         </div>
       )}
-    </RequireRole>
+    </RequirePermission>
   );
 }

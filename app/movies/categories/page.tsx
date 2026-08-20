@@ -5,7 +5,7 @@ import { Loader2, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-reac
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,8 +35,10 @@ import { toast } from "sonner";
 
 export default function CategoriesPage() {
   const { t } = useLanguage();
-  const { role } = useRole();
-  const canManage = role !== "USER";
+  const { can } = useRole();
+  const canCreate = can("CATEGORIES.CREATE");
+  const canEdit = can("CATEGORIES.EDIT");
+  const canDelete = can("CATEGORIES.DELETE");
 
   const { data, isLoading, error, refetch } = useAsyncData(movieService.getCategories, []);
   const categories = data ?? [];
@@ -102,8 +104,8 @@ export default function CategoriesPage() {
   };
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="CATEGORIES.VIEW"
       title={t.movies.categories.title}
       description={t.movies.categories.description}
     >
@@ -118,7 +120,7 @@ export default function CategoriesPage() {
         title={t.movies.categories.title}
         description={t.movies.categories.description}
         actions={
-          canManage && (
+          canCreate && (
             <Button onClick={openCreate}>
               <Plus className="size-4" />
               {t.movies.categories.addCategory}
@@ -139,7 +141,7 @@ export default function CategoriesPage() {
           title={t.movies.categories.emptyTitle}
           description={t.movies.categories.emptyDescription}
           action={
-            canManage && (
+            canCreate && (
               <Button onClick={openCreate}>
                 <Plus className="size-4" />
                 {t.movies.categories.addCategory}
@@ -154,7 +156,7 @@ export default function CategoriesPage() {
               key={category.id}
               className="glass-card group relative overflow-hidden p-4"
             >
-              {canManage && (
+              {(canEdit || canDelete) && (
                 <div className="absolute right-2 top-2">
                   <DropdownMenu>
                     <DropdownMenuTrigger
@@ -163,14 +165,18 @@ export default function CategoriesPage() {
                       <MoreHorizontal className="size-4" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(category)}>
-                        <Pencil className="size-4" />
-                        {t.common.edit}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(category)}>
-                        <Trash2 className="size-4" />
-                        {t.common.delete}
-                      </DropdownMenuItem>
+                      {canEdit && (
+                        <DropdownMenuItem onClick={() => openEdit(category)}>
+                          <Pencil className="size-4" />
+                          {t.common.edit}
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(category)}>
+                          <Trash2 className="size-4" />
+                          {t.common.delete}
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -239,6 +245,6 @@ export default function CategoriesPage() {
       />
     </div>
       )}
-    </RequireRole>
+    </RequirePermission>
   );
 }

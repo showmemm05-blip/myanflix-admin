@@ -6,7 +6,7 @@ import { CreditCard, Loader2, MoreHorizontal, Pencil, Plus } from "lucide-react"
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,9 +31,13 @@ import { subscriptionService } from "@/services/api/subscriptionService";
 import type { SubscriptionPlan } from "@/types/subscription";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 
 function SubscriptionsPageContent() {
   const { t } = useLanguage();
+  const { can } = useRole();
+  const canCreate = can("SUBSCRIPTIONS.CREATE");
+  const canEdit = can("SUBSCRIPTIONS.EDIT");
   const { data, isLoading, error, refetch } = useAsyncData(subscriptionService.getPlans, []);
   const plans = data ?? [];
 
@@ -124,7 +128,7 @@ function SubscriptionsPageContent() {
           <div className="flex items-center gap-2.5">
             <Switch
               checked={plan.isActive}
-              disabled={togglingId === plan.id}
+              disabled={togglingId === plan.id || !canEdit}
               onCheckedChange={(checked) => handleToggleActive(plan, checked)}
             />
             <span className="text-sm text-muted-foreground">
@@ -137,21 +141,22 @@ function SubscriptionsPageContent() {
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openEdit(row.original)}>
-                <Pencil className="size-4" />
-                {t.common.edit}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+      cell: ({ row }) =>
+        canEdit ? (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openEdit(row.original)}>
+                  <Pencil className="size-4" />
+                  {t.common.edit}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null,
     },
   ];
 
@@ -170,10 +175,12 @@ function SubscriptionsPageContent() {
         title={t.subscriptions.page.title}
         description={t.subscriptions.page.description}
         actions={
-          <Button onClick={openCreate}>
-            <Plus className="size-4" />
-            {t.subscriptions.page.addPlan}
-          </Button>
+          canCreate && (
+            <Button onClick={openCreate}>
+              <Plus className="size-4" />
+              {t.subscriptions.page.addPlan}
+            </Button>
+          )
         }
       />
 
@@ -183,10 +190,12 @@ function SubscriptionsPageContent() {
           title={t.subscriptions.page.emptyTitle}
           description={t.subscriptions.page.emptyDescription}
           action={
-            <Button onClick={openCreate}>
-              <Plus className="size-4" />
-              {t.subscriptions.page.addPlan}
-            </Button>
+            canCreate && (
+              <Button onClick={openCreate}>
+                <Plus className="size-4" />
+                {t.subscriptions.page.addPlan}
+              </Button>
+            )
           }
         />
       ) : (
@@ -238,12 +247,12 @@ function SubscriptionsPageContent() {
 export default function SubscriptionsPage() {
   const { t } = useLanguage();
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="SUBSCRIPTIONS.VIEW"
       title={t.subscriptions.page.title}
       description={t.subscriptions.page.description}
     >
       <SubscriptionsPageContent />
-    </RequireRole>
+    </RequirePermission>
   );
 }

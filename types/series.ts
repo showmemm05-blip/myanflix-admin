@@ -1,5 +1,8 @@
 import type { AccessType, Movie } from "./movie";
 
+/** Show-level visibility — independent of episode MovieStatus. Users only ever see PUBLISHED series. */
+export type SeriesStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
+
 export interface Series {
   id: string;
   title: string;
@@ -11,6 +14,7 @@ export interface Series {
   releaseYear: number;
   /** One access type for the whole show — episodes are never gated individually. */
   accessType: AccessType;
+  status: SeriesStatus;
   categories: { id: string; name: string }[];
   createdAt: string;
   updatedAt: string;

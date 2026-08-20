@@ -28,7 +28,9 @@ export const CREDIT_TRANSACTION_TYPES: PaymentAccountTransactionType[] = [
 
 export interface PaymentAccountTransactionStaffRef {
   id: string;
+  /** Login identity. Render `userLabel()` instead — never this raw. */
   username: string;
+  displayName: string | null;
 }
 
 export interface PaymentAccountTransactionAccountRef {
@@ -52,9 +54,9 @@ export interface PaymentAccountTransactionPerformer extends PaymentAccountTransa
 
 /**
  * The customer on the other side of a linked deposit/withdrawal. Phone signups
- * carry a machine-generated username, so `phone` is usually the only
- * humanly-identifying field — the rest is what tells an admin whether the
- * account is in good standing.
+ * carry a machine-generated username, so the name to show is `displayName`
+ * (via `userLabel()`) — `phone` stays the identity anchor when they never set
+ * one, and the rest tells an admin whether the account is in good standing.
  */
 export interface PaymentAccountTransactionCustomer extends PaymentAccountTransactionStaffRef {
   phone: string | null;

@@ -2,17 +2,13 @@
 
 import { useEffect } from "react";
 import { Lock, Receipt, Wallet } from "lucide-react";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
-import { EmptyState } from "@/components/shared/EmptyState";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { DataTable } from "@/components/tables/DataTable";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { UserSpendingChart } from "@/components/finance/UserSpendingChart";
 import { getTransactionColumns } from "@/components/finance/columns";
-import { PurchaseHistoryList } from "@/components/users/PurchaseHistoryList";
-import { WatchHistoryList } from "@/components/users/WatchHistoryList";
-import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
@@ -22,7 +18,6 @@ import { formatKyat } from "@/lib/currency";
 import { getSocket } from "@/lib/socket";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
-import { userService } from "@/services/api/userService";
 
 /**
  * Every event that can change what this page shows — new/updated deposits
@@ -186,107 +181,24 @@ function AdminFinanceView() {
   );
 }
 
-function UserCashFlowView() {
-  const { t } = useLanguage();
-  const { currentUser } = useRole();
-
-  const { data, isLoading, error, refetch } = useAsyncData(
-    async () => {
-      const [transactions, purchases, watchHistory] = await Promise.all([
-        paymentService.getTransactionsByUser(currentUser.id),
-        userService.getPurchaseHistory(currentUser.id),
-        userService.getWatchHistory(currentUser.id),
-      ]);
-      return { transactions, purchases, watchHistory };
-    },
-    [currentUser.id]
-  );
-  // A USER-role socket only joins their own room, so deposit.updated /
-  // withdrawal.updated here can only ever be this viewer's own — no
-  // cross-user leakage risk from a blanket refetch.
-  useFinanceRealtimeRefresh(refetch);
-
-  if (isLoading) return <FinanceSkeleton />;
-  if (error || !data) {
-    return <ErrorState description={t.finance.loadErrorCashFlow} onRetry={refetch} />;
-  }
-
-  const { transactions, purchases, watchHistory } = data;
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DashboardCard title={t.finance.balance} value={formatKyat(currentUser.balance)} icon={Wallet} />
-        <DashboardCard
-          title={t.dashboard.totalDeposited}
-          value={formatKyat(currentUser.totalDeposited)}
-          icon={Wallet}
-          iconClassName="bg-income/15 text-income"
-        />
-        <DashboardCard
-          title={t.dashboard.totalSpent}
-          value={formatKyat(currentUser.totalSpent)}
-          icon={Receipt}
-          iconClassName="bg-outgoing/15 text-outgoing"
-        />
-        <DashboardCard
-          title={t.dashboard.subscription}
-          value={currentUser.isSubscribed ? t.dashboard.subscribed : t.dashboard.notSubscribed}
-          icon={Receipt}
-          iconClassName="bg-chart-5/15 text-chart-5"
-        />
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>{t.dashboard.purchasedMovies}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <PurchaseHistoryList entries={purchases.items} />
-          </CardContent>
-        </Card>
-        <Card className="glass-card">
-          <CardHeader>
-            <CardTitle>{t.users.profile.watchHistoryTitle}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <WatchHistoryList entries={watchHistory.items} />
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>{t.dashboard.transactionHistory}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {transactions.items.length ? (
-            <RecentTransactionsTable transactions={transactions.items} />
-          ) : (
-            <EmptyState icon={Receipt} title={t.finance.noTransactionsTitle} description={t.finance.noTransactionsDescription} />
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
 export default function FinancePage() {
-  const { role } = useRole();
+  const { can } = useRole();
   const { t } = useLanguage();
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN", "USER"]}
+    <RequirePermission
+      permission="FINANCE.VIEW"
       title={t.finance.page.title}
       description={t.finance.page.description}
     >
       <div>
-        {role === "SUPER_ADMIN" && <SuperAdminFinanceView />}
-        {role === "ADMIN" && <AdminFinanceView />}
-        {role === "USER" && <UserCashFlowView />}
+        {/* FINANCE.VIEW opens the summary and the transaction ledger;
+            FINANCE.EXPORT is what additionally unlocks the revenue
+            breakdown (trend chart + top spenders). Without it the page
+            keeps the same restricted-revenue notice it has always shown to
+            non-Super-Admins. */}
+        {can("FINANCE.EXPORT") ? <SuperAdminFinanceView /> : <AdminFinanceView />}
       </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }

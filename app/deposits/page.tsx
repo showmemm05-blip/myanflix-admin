@@ -5,7 +5,7 @@ import { ArrowDownToLine, CheckCircle2, Clock, Plus, XCircle } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
@@ -20,13 +20,17 @@ import { getSocket } from "@/lib/socket";
 import { depositService } from "@/services/api/depositService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
+import { userLabel } from "@/lib/user-label";
 import type { Deposit } from "@/types/deposit";
 import { toast } from "sonner";
 
 interface DepositCreatedEvent {
   id: string;
   userId: string;
+  /** Raw login identity, straight off the realtime payload. */
   username: string;
+  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
+  displayName: string | null;
   amount: number;
   paymentMethod: string;
   accountName: string | null;
@@ -52,7 +56,9 @@ interface DepositUpdatedEvent {
 }
 
 export default function DepositsPage() {
-  const { role } = useRole();
+  const { can } = useRole();
+  const canViewQueue = can("DEPOSITS.VIEW");
+  const canRecordDeposit = can("DEPOSITS.CREATE");
   const { t } = useLanguage();
 
   // Default to TODAY so the page opens on the current day's activity.
@@ -124,7 +130,7 @@ export default function DepositsPage() {
   );
 
   useEffect(() => {
-    if (role === "USER") return;
+    if (!canViewQueue) return;
     const socket = getSocket();
     if (!socket) return;
 
@@ -140,7 +146,8 @@ export default function DepositsPage() {
       const incoming: Deposit = {
         id: event.id,
         userId: event.userId,
-        userName: event.username,
+        userName: userLabel(event),
+        userUsername: event.username,
         userPhone: null,
         amount: event.amount,
         paymentMethod: event.paymentMethod,
@@ -203,7 +210,7 @@ export default function DepositsPage() {
       socket.off("deposit.updated", handleUpdated);
     };
 
-  }, [role, data, range]);
+  }, [canViewQueue, data, range]);
 
   const handleApprove = async (deposit: Deposit) => {
     setApprovingId(deposit.id);
@@ -245,6 +252,8 @@ export default function DepositsPage() {
     t,
     types: types ?? [],
     paymentAccounts: paymentAccounts ?? [],
+    canApprove: can("DEPOSITS.APPROVE"),
+    canReject: can("DEPOSITS.REJECT"),
     onApprove: handleApprove,
     onReject: setRejectTarget,
     onReceivingSaved: handleReceivingSaved,
@@ -270,16 +279,16 @@ export default function DepositsPage() {
   );
 
   // Lives right beside the table's search input (DataTable searchActions slot).
-  const recordButton = (
+  const recordButton = canRecordDeposit ? (
     <Button className="shrink-0" onClick={() => setRecordOpen(true)}>
       <Plus className="size-4" />
       {t.deposits.manualDeposit.recordButton}
     </Button>
-  );
+  ) : null;
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN"]}
+    <RequirePermission
+      permission="DEPOSITS.VIEW"
       title={t.deposits.page.title}
       description={t.deposits.page.description}
     >
@@ -363,6 +372,6 @@ export default function DepositsPage() {
           onRejected={handleRejected}
         />
       </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }

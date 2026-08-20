@@ -17,12 +17,12 @@
  * no-results.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronsUpDown, Network, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { GraphCanvas } from "@/components/user-relationships/GraphCanvas";
 import { GraphToolbar } from "@/components/user-relationships/GraphToolbar";
 import { NodeDetailsPanel } from "@/components/user-relationships/NodeDetailsPanel";
@@ -69,6 +69,23 @@ export default function UserRelationshipsPage() {
   /* The minimap toggle lives in the toolbar while the canvas draws the map, so
      the flag has to sit above both of them. */
   const [showMinimap, setShowMinimap] = useState(true);
+
+  /**
+   * Deep link: /users/relationships?phone=09... (the payout-number chips on a
+   * user profile) auto-runs the search once on mount. Read straight from
+   * window.location instead of useSearchParams so this stays additive — no
+   * Suspense boundary, no re-run when the param later changes.
+   */
+  useEffect(() => {
+    const phone = new URLSearchParams(window.location.search).get("phone")?.trim();
+    if (phone && isSearchablePhone(phone)) {
+      // Initializing state from an external system (the URL) on mount — the
+      // documented exception to the derived-state rule this lint guards.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setPhoneInput(phone);
+      setSubmittedPhone(phone);
+    }
+  }, []);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
@@ -185,8 +202,8 @@ export default function UserRelationshipsPage() {
   );
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN"]}
+    <RequirePermission
+      permission="USERS.VIEW"
       title={copy.page.title}
       description={copy.page.descriptionShort}
     >
@@ -329,6 +346,9 @@ export default function UserRelationshipsPage() {
             onClose={() => graph.select(null)}
             onSelectNode={(id) => graph.select(id)}
             onFocusNode={(id) => graph.focusNode(id)}
+            // A suspension changes data the graph itself renders (each account
+            // carries its status), so refetch rather than patch one row.
+            onUserStatusChanged={refetch}
             className="xl:sticky xl:top-4 xl:self-start"
           />
         </div>
@@ -344,6 +364,6 @@ export default function UserRelationshipsPage() {
           />
         )}
       </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }

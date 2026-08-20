@@ -18,7 +18,11 @@ interface FinanceDashboard {
   monthlyRevenue: number;
   dailyRevenue: number;
   topMovies: MovieAnalyticsEntry[];
-  topUsers: { user: { id: string; username: string } | null; totalSpent: number; purchaseCount: number }[];
+  topUsers: {
+    user: { id: string; username: string; displayName: string | null } | null;
+    totalSpent: number;
+    purchaseCount: number;
+  }[];
 }
 
 export const analyticsService = {

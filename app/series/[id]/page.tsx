@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
+  EyeOff,
   GripVertical,
   Loader2,
   Pause,
@@ -16,10 +17,12 @@ import {
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
+import { SERIES_STATUS_TONE, getSeriesStatusLabel } from "@/components/series/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { FileUploadField } from "@/components/movies/FileUploadField";
 import { Button } from "@/components/ui/button";
@@ -32,6 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 import {
   useBulkUploadQueue,
   MAX_BULK_MOVIES,
@@ -57,8 +61,17 @@ interface EpisodeRow {
 
 const ACTIVE_JOB_STATUSES = new Set(["waiting", "uploading", "paused", "offline", "completed", "failed"]);
 
-export default function SeriesManagePage() {
+function SeriesManageContent() {
   const { t } = useLanguage();
+  const { can } = useRole();
+  // Everything on this screen edits one show: episodes are created by
+  // uploading media into it, so they follow the parent series' permissions.
+  const canEdit = can("SERIES.EDIT");
+  const canDelete = can("SERIES.DELETE");
+  const canPublish = can("SERIES.PUBLISH");
+  const canUnpublish = can("SERIES.UNPUBLISH");
+  const canUploadMedia = can("MEDIA.UPLOAD");
+  const router = useRouter();
   const params = useParams<{ id: string }>();
   const seriesId = params.id;
 
@@ -269,6 +282,55 @@ export default function SeriesManagePage() {
     }
   };
 
+  // ---- Show-level publish/unpublish ----
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const handleToggleSeriesStatus = async () => {
+    if (!series) return;
+    const publishing = series.status !== "PUBLISHED";
+    setUpdatingStatus(true);
+    try {
+      await seriesService.updateStatus(seriesId, publishing ? "PUBLISHED" : "UNPUBLISHED");
+      if (publishing) {
+        toast.success(t.series.publishedToast, { description: t.series.publishedDescription(series.title) });
+      } else {
+        toast.success(t.series.unpublishedToast, { description: t.series.unpublishedDescription(series.title) });
+      }
+      refetchSeries();
+    } catch {
+      toast.error(t.series.statusUpdateFailedToast, { description: t.movies.pleaseTryAgain });
+    } finally {
+      setUpdatingStatus(false);
+      setStatusConfirmOpen(false);
+    }
+  };
+
+  // ---- Series deletion (whole show + all seasons/episodes + media files) ----
+  const [deleteSeriesOpen, setDeleteSeriesOpen] = useState(false);
+  const [deletingSeries, setDeletingSeries] = useState(false);
+
+  const handleDeleteSeries = async () => {
+    if (!series) return;
+    setDeletingSeries(true);
+    try {
+      const result = await seriesService.deleteSeries(seriesId);
+      if (result.storageCleanup === "partial") {
+        toast.warning(t.series.page.deletedPartialToast(result.failedObjects.length));
+      } else {
+        toast.success(t.series.page.deletedToast, {
+          description: t.series.page.deletedDescription(series.title),
+        });
+      }
+      router.push("/series");
+    } catch {
+      toast.error(t.series.page.deleteFailedToast, { description: t.movies.pleaseTryAgain });
+    } finally {
+      setDeletingSeries(false);
+      setDeleteSeriesOpen(false);
+    }
+  };
+
   // ---- Row actions ----
   const [editMovie, setEditMovie] = useState<Movie | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Movie | null>(null);
@@ -337,7 +399,43 @@ export default function SeriesManagePage() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <PageHeader title={series.title} description={t.series.manage.description} />
+      <PageHeader
+        title={series.title}
+        description={t.series.manage.description}
+        actions={
+          <>
+            <StatusBadge
+              label={getSeriesStatusLabel(t, series.status)}
+              tone={SERIES_STATUS_TONE[series.status]}
+            />
+            {(series.status === "PUBLISHED" ? canUnpublish : canPublish) && (
+              <Button disabled={updatingStatus} onClick={() => setStatusConfirmOpen(true)}>
+                {series.status === "PUBLISHED" ? (
+                  <>
+                    <EyeOff className="size-4" />
+                    {t.series.unpublish}
+                  </>
+                ) : (
+                  <>
+                    <Rocket className="size-4" />
+                    {t.movies.publish}
+                  </>
+                )}
+              </Button>
+            )}
+            {canDelete && (
+              <Button
+                variant="destructive"
+                disabled={deletingSeries}
+                onClick={() => setDeleteSeriesOpen(true)}
+              >
+                <Trash2 className="size-4" />
+                {t.series.manage.deleteSeries}
+              </Button>
+            )}
+          </>
+        }
+      />
 
       {!queue.isOnline && (
         <div className="flex items-center gap-3 rounded-lg border border-info/25 bg-info/10 px-4 py-3">
@@ -443,10 +541,12 @@ export default function SeriesManagePage() {
               onChange={setBannerFile}
             />
           </div>
-          <Button onClick={handleSaveInfo} disabled={savingInfo}>
-            {savingInfo && <Loader2 className="size-4 animate-spin" />}
-            {t.series.manage.saveInfo}
-          </Button>
+          {canEdit && (
+            <Button onClick={handleSaveInfo} disabled={savingInfo}>
+              {savingInfo && <Loader2 className="size-4 animate-spin" />}
+              {t.series.manage.saveInfo}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -468,18 +568,20 @@ export default function SeriesManagePage() {
         <Card key={seasonNumber} className="glass-card">
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle>{t.series.manage.seasonTitle(seasonNumber)}</CardTitle>
-            <Button
-              size="icon-sm"
-              variant="outline"
-              title={t.series.manage.addEpisodesTitle(seasonNumber)}
-              disabled={addingToSeason !== null}
-              onClick={() => {
-                pendingSeasonRef.current = seasonNumber;
-                folderInputRef.current?.click();
-              }}
-            >
-              {addingToSeason === seasonNumber ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
-            </Button>
+            {canUploadMedia && (
+              <Button
+                size="icon-sm"
+                variant="outline"
+                title={t.series.manage.addEpisodesTitle(seasonNumber)}
+                disabled={addingToSeason !== null}
+                onClick={() => {
+                  pendingSeasonRef.current = seasonNumber;
+                  folderInputRef.current?.click();
+                }}
+              >
+                {addingToSeason === seasonNumber ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {rows.length === 0 ? (
@@ -578,27 +680,31 @@ export default function SeriesManagePage() {
                             <X className="size-3.5" />
                           </Button>
                         )}
-                        {!liveJob && episode.status === "READY_TO_PUBLISH" && (
+                        {canPublish && !liveJob && episode.status === "READY_TO_PUBLISH" && (
                           <Button size="sm" onClick={() => handlePublish(episode)}>
                             <Rocket className="size-3.5" />
                             {t.movies.publish}
                           </Button>
                         )}
-                        <Button size="icon-sm" variant="ghost" title={t.series.manage.editDetails} onClick={() => setEditMovie(episode)}>
-                          <Pencil className="size-3.5" />
-                        </Button>
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          className="text-muted-foreground hover:text-destructive"
-                          title={t.series.manage.deleteEpisode}
-                          onClick={() => {
-                            if (liveJob) void handleRemoveJob(row);
-                            else setDeleteTarget(episode);
-                          }}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {canEdit && (
+                          <Button size="icon-sm" variant="ghost" title={t.series.manage.editDetails} onClick={() => setEditMovie(episode)}>
+                            <Pencil className="size-3.5" />
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            className="text-muted-foreground hover:text-destructive"
+                            title={t.series.manage.deleteEpisode}
+                            onClick={() => {
+                              if (liveJob) void handleRemoveJob(row);
+                              else setDeleteTarget(episode);
+                            }}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
 
@@ -613,13 +719,15 @@ export default function SeriesManagePage() {
         </Card>
       ))}
 
-      <Button
-        variant="outline"
-        onClick={() => setExtraSeasons((prev) => [...prev, nextSeasonNumber])}
-      >
-        <Plus className="size-4" />
-        {t.series.manage.addSeason(nextSeasonNumber)}
-      </Button>
+      {canUploadMedia && (
+        <Button
+          variant="outline"
+          onClick={() => setExtraSeasons((prev) => [...prev, nextSeasonNumber])}
+        >
+          <Plus className="size-4" />
+          {t.series.manage.addSeason(nextSeasonNumber)}
+        </Button>
+      )}
 
       <EditMovieDialog
         movie={editMovie}
@@ -632,6 +740,22 @@ export default function SeriesManagePage() {
       />
 
       <ConfirmDialog
+        open={statusConfirmOpen}
+        onOpenChange={setStatusConfirmOpen}
+        title={
+          series.status === "PUBLISHED" ? t.series.unpublishConfirmTitle : t.series.publishConfirmTitle
+        }
+        description={
+          series.status === "PUBLISHED"
+            ? t.series.unpublishConfirmDescription(series.title)
+            : t.series.publishConfirmDescription(series.title)
+        }
+        confirmLabel={series.status === "PUBLISHED" ? t.series.unpublish : t.movies.publish}
+        loading={updatingStatus}
+        onConfirm={handleToggleSeriesStatus}
+      />
+
+      <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         title={t.series.deleteEpisodeTitle}
@@ -641,6 +765,30 @@ export default function SeriesManagePage() {
         loading={deleting}
         onConfirm={handleDelete}
       />
+
+      <ConfirmDialog
+        open={deleteSeriesOpen}
+        onOpenChange={setDeleteSeriesOpen}
+        title={t.series.page.deleteTitle}
+        description={t.series.page.deleteDescription}
+        confirmLabel={t.common.delete}
+        variant="destructive"
+        loading={deletingSeries}
+        onConfirm={handleDeleteSeries}
+      />
     </div>
+  );
+}
+
+export default function SeriesManagePage() {
+  const { t } = useLanguage();
+  return (
+    <RequirePermission
+      permission="SERIES.VIEW"
+      title={t.nav.allSeries}
+      description={t.series.manage.description}
+    >
+      <SeriesManageContent />
+    </RequirePermission>
   );
 }

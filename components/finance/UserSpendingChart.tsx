@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/chart";
 import { formatKyat } from "@/lib/currency";
 import { useLanguage } from "@/lib/context/language-context";
+import { userLabel } from "@/lib/user-label";
 import type { FinanceSummary } from "@/types/analytics";
 
 export function UserSpendingChart({ topUsers }: { topUsers: FinanceSummary["topUsers"] }) {
@@ -21,9 +22,27 @@ export function UserSpendingChart({ topUsers }: { topUsers: FinanceSummary["topU
     },
   } satisfies ChartConfig;
 
-  const data = topUsers
+  const spenders = topUsers
     .filter((entry) => entry.user)
-    .map((entry) => ({ name: entry.user!.username, totalSpent: entry.totalSpent }));
+    .map((entry) => ({ user: entry.user!, totalSpent: entry.totalSpent }));
+
+  // Recharts keys the category axis BY THIS STRING, so two spenders who chose
+  // the same display name would collapse onto a single band with one bar
+  // hidden behind the other. Display names aren't unique (the usernames they
+  // replaced were), so the ambiguous ones — and only those — carry their login
+  // identity as a disambiguator.
+  const labelCounts = new Map<string, number>();
+  for (const entry of spenders) {
+    const label = userLabel(entry.user);
+    labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
+  const data = spenders.map(({ user, totalSpent }) => {
+    const label = userLabel(user);
+    return {
+      name: (labelCounts.get(label) ?? 0) > 1 ? `${label} @${user.username}` : label,
+      totalSpent,
+    };
+  });
 
   return (
     <Card className="glass-card">

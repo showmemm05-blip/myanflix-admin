@@ -3,7 +3,15 @@ export type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 export interface Deposit {
   id: string;
   userId: string;
+  /** The resolved label to render — `userLabel()` output, never the raw identity. */
   userName: string;
+  /**
+   * The customer's raw login identity, carried alongside the label so a
+   * self-chosen display name can never hide which account a row belongs to —
+   * it is what the detail dialogs print as `@username` and what the queue
+   * search still matches on. Null when the user relation wasn't joined.
+   */
+  userUsername: string | null;
   userPhone: string | null;
   amount: number;
   paymentMethod: string;

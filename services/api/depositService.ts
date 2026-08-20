@@ -1,6 +1,7 @@
 import { apiClient } from "./apiClient";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type { Deposit, DepositStatus } from "@/types/deposit";
+import { userLabelOr } from "@/lib/user-label";
 
 interface BackendDeposit {
   id: string;
@@ -24,14 +25,15 @@ interface BackendDeposit {
   walletBalanceAfter: number | null;
   createdAt: string;
   updatedAt: string;
-  user?: { id: string; username: string; phone: string | null } | null;
+  user?: { id: string; username: string; displayName: string | null; phone: string | null } | null;
 }
 
 function mapDeposit(d: BackendDeposit): Deposit {
   return {
     id: d.id,
     userId: d.userId,
-    userName: d.user?.username ?? "Unknown user",
+    userName: userLabelOr(d.user, "Unknown user"),
+    userUsername: d.user?.username ?? null,
     userPhone: d.user?.phone ?? null,
     amount: d.amount,
     paymentMethod: d.paymentMethod,

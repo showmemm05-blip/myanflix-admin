@@ -1,3 +1,4 @@
+import type { UserStatus } from "./user";
 /**
  * Wire types for `GET /api/users/relationships?phone=<string>`.
  *
@@ -24,11 +25,21 @@ export interface RelationshipSeedPhone {
 /** A user account discovered inside the network. */
 export interface RelationshipNetworkUser {
   id: string;
-  /** Display name — the backend sends the username here when no separate name exists. */
+  /**
+   * The label to render — resolved server-side as `displayName?.trim() ||
+   * username`, so it is never the machine-generated username when the account
+   * has a real name. Still route it through `userLabel()` on the way out so
+   * one helper owns the rule.
+   */
   name: string;
+  /** The name the user set for themselves; null until they set one. */
+  displayName: string | null;
+  /** The raw login identity — never replaced by `displayName`. */
   username: string;
   /** Profile phone as stored (may be +95-prefixed); null when the account has none. */
   profilePhone: string | null;
+  /** Account status — drives the inline suspend/reactivate control. */
+  status: UserStatus;
   depositCount: number;
   withdrawalCount: number;
   totalDepositedAmount: number;
@@ -116,6 +127,7 @@ export interface RelationshipActivityItem {
   id: string;
   type: RelationshipActivityType;
   userId: string;
+  /** Already the resolved label (backend `labelFor()`), not the raw username. */
   userName: string;
   amount: number;
   /** Deposit/withdrawal status string as stored (PENDING | APPROVED | REJECTED | …). */

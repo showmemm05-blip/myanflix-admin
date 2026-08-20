@@ -17,6 +17,8 @@
 
 import { useCallback, useMemo, useState } from "react";
 
+import { userLabel } from "@/lib/user-label";
+
 /* The wire shapes live in @/types/user-relationship — the single definition
  * shared with the page shell and the API service. Re-exported here only so
  * the graph components have one import site. */
@@ -304,7 +306,9 @@ function buildGraph(network: RelationshipNetwork | null): BuiltGraph {
       kind: "USER",
       depth: user.depth,
       isSeed: false,
-      label: user.name || user.username,
+      // Label = the name they set; sublabel stays the raw login identity,
+      // rendered as "@username" by the canvas and the tree.
+      label: userLabel(user),
       sublabel: user.username,
       meta: "",
       halfWidth: USER_NODE_SIZE.w / 2,

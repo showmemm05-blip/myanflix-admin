@@ -9,6 +9,7 @@ import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { TransferAccountCell } from "@/components/withdrawals/TransferAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import { matchesUserSearch } from "@/lib/user-search";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
@@ -23,6 +24,8 @@ export function getWithdrawalColumns({
   t,
   types,
   paymentAccounts,
+  canApprove,
+  canReject,
   onView,
   onApprove,
   onReject,
@@ -32,6 +35,10 @@ export function getWithdrawalColumns({
   t: TranslationShape;
   types: PaymentAccountType[];
   paymentAccounts: PaymentAccount[];
+  /** WITHDRAWALS.APPROVE. */
+  canApprove: boolean;
+  /** WITHDRAWALS.REJECT — a separate permission, so the two buttons gate apart. */
+  canReject: boolean;
   onView: (withdrawal: Withdrawal) => void;
   onApprove: (withdrawal: Withdrawal) => void;
   onReject: (withdrawal: Withdrawal) => void;
@@ -44,6 +51,13 @@ export function getWithdrawalColumns({
     {
       accessorKey: "userName",
       header: t.withdrawals.columns.customer,
+      // Label, raw login identity and phone all match — see deposits/columns.
+      filterFn: (row, _columnId, value) =>
+        matchesUserSearch(String(value), {
+          name: row.original.userName,
+          username: row.original.userUsername,
+          phone: row.original.userPhone,
+        }),
       cell: ({ row }) => (
         <div className="flex max-w-40 flex-col">
           <span className="truncate text-sm font-medium">{row.original.userName}</span>
@@ -136,24 +150,28 @@ export function getWithdrawalColumns({
             </Button>
             {withdrawal.status === "PENDING" && (
               <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1"
-                  disabled={isApproving}
-                  onClick={() => onApprove(withdrawal)}
-                >
-                  {isApproving ? (
-                    <Loader2 className="size-3.5 animate-spin" />
-                  ) : (
-                    <Check className="size-3.5 text-success" />
-                  )}
-                  {t.common.approve}
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(withdrawal)}>
-                  <X className="size-3.5 text-destructive" />
-                  {t.common.reject}
-                </Button>
+                {canApprove && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-1"
+                    disabled={isApproving}
+                    onClick={() => onApprove(withdrawal)}
+                  >
+                    {isApproving ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : (
+                      <Check className="size-3.5 text-success" />
+                    )}
+                    {t.common.approve}
+                  </Button>
+                )}
+                {canReject && (
+                  <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(withdrawal)}>
+                    <X className="size-3.5 text-destructive" />
+                    {t.common.reject}
+                  </Button>
+                )}
               </>
             )}
           </div>

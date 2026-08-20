@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Tv } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 import { seriesService } from "@/services/api/seriesService";
 import type { AccessType } from "@/types/movie";
 import type { Series, SeriesListItem } from "@/types/series";
@@ -26,8 +28,10 @@ import { toast } from "sonner";
 
 const ALL = "all";
 
-export default function SeriesPage() {
+function SeriesPageContent() {
   const { t } = useLanguage();
+  const { can } = useRole();
+  const canCreate = can("SERIES.CREATE");
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
 
   const { data, isLoading, error, refetch } = useAsyncData(
@@ -46,16 +50,49 @@ export default function SeriesPage() {
   const [editSeries] = useState<Series | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SeriesListItem | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<SeriesListItem | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+
+  const handleToggleStatus = async () => {
+    if (!statusTarget) return;
+    const publishing = statusTarget.status !== "PUBLISHED";
+    setUpdatingStatus(true);
+    try {
+      const updated = await seriesService.updateStatus(
+        statusTarget.id,
+        publishing ? "PUBLISHED" : "UNPUBLISHED",
+      );
+      setItems(activeItems.map((s) => (s.id === statusTarget.id ? { ...s, status: updated.status } : s)));
+      if (publishing) {
+        toast.success(t.series.publishedToast, {
+          description: t.series.publishedDescription(statusTarget.title),
+        });
+      } else {
+        toast.success(t.series.unpublishedToast, {
+          description: t.series.unpublishedDescription(statusTarget.title),
+        });
+      }
+    } catch {
+      toast.error(t.series.statusUpdateFailedToast, { description: t.movies.pleaseTryAgain });
+    } finally {
+      setUpdatingStatus(false);
+      setStatusTarget(null);
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await seriesService.deleteSeries(deleteTarget.id);
+      const result = await seriesService.deleteSeries(deleteTarget.id);
       setItems(activeItems.filter((s) => s.id !== deleteTarget.id));
-      toast.success(t.series.page.deletedToast, {
-        description: t.series.page.deletedDescription(deleteTarget.title),
-      });
+      if (result.storageCleanup === "partial") {
+        toast.warning(t.series.page.deletedPartialToast(result.failedObjects.length));
+      } else {
+        toast.success(t.series.page.deletedToast, {
+          description: t.series.page.deletedDescription(deleteTarget.title),
+        });
+      }
     } catch {
       toast.error(t.series.page.deleteFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
@@ -75,7 +112,14 @@ export default function SeriesPage() {
     </Select>
   );
 
-  const columns = getSeriesColumns({ t, onDelete: setDeleteTarget });
+  const columns = getSeriesColumns({
+    t,
+    canDelete: can("SERIES.DELETE"),
+    canPublish: can("SERIES.PUBLISH"),
+    canUnpublish: can("SERIES.UNPUBLISH"),
+    onDelete: setDeleteTarget,
+    onToggleStatus: setStatusTarget,
+  });
 
   if (error) {
     return (
@@ -92,10 +136,12 @@ export default function SeriesPage() {
         title={t.series.page.title}
         description={t.series.page.description}
         actions={
-          <Button onClick={() => setFormOpen(true)}>
-            <Plus className="size-4" />
-            {t.series.createSeries}
-          </Button>
+          canCreate && (
+            <Button onClick={() => setFormOpen(true)}>
+              <Plus className="size-4" />
+              {t.series.createSeries}
+            </Button>
+          )
         }
       />
 
@@ -105,10 +151,12 @@ export default function SeriesPage() {
           title={t.series.page.emptyTitle}
           description={t.series.page.emptyDescription}
           action={
-            <Button onClick={() => setFormOpen(true)}>
-              <Plus className="size-4" />
-              {t.series.createSeries}
-            </Button>
+            canCreate && (
+              <Button onClick={() => setFormOpen(true)}>
+                <Plus className="size-4" />
+                {t.series.createSeries}
+              </Button>
+            )
           }
         />
       ) : (
@@ -130,15 +178,48 @@ export default function SeriesPage() {
       />
 
       <ConfirmDialog
+        open={!!statusTarget}
+        onOpenChange={(o) => !o && setStatusTarget(null)}
+        title={
+          statusTarget?.status === "PUBLISHED"
+            ? t.series.unpublishConfirmTitle
+            : t.series.publishConfirmTitle
+        }
+        description={
+          statusTarget
+            ? statusTarget.status === "PUBLISHED"
+              ? t.series.unpublishConfirmDescription(statusTarget.title)
+              : t.series.publishConfirmDescription(statusTarget.title)
+            : ""
+        }
+        confirmLabel={statusTarget?.status === "PUBLISHED" ? t.series.unpublish : t.movies.publish}
+        loading={updatingStatus}
+        onConfirm={handleToggleStatus}
+      />
+
+      <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
         title={t.series.page.deleteTitle}
-        description={deleteTarget ? t.series.page.deleteDescription(deleteTarget.title) : ""}
+        description={t.series.page.deleteDescription}
         confirmLabel={t.common.delete}
         variant="destructive"
         loading={deleting}
         onConfirm={handleDelete}
       />
     </div>
+  );
+}
+
+export default function SeriesPage() {
+  const { t } = useLanguage();
+  return (
+    <RequirePermission
+      permission="SERIES.VIEW"
+      title={t.series.page.title}
+      description={t.series.page.description}
+    >
+      <SeriesPageContent />
+    </RequirePermission>
   );
 }

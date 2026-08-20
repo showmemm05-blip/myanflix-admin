@@ -13,6 +13,7 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
 import { cn } from "@/lib/utils";
 import { formatKyat, formatSignedKyat } from "@/lib/currency";
+import { userLabelOr } from "@/lib/user-label";
 import { userService } from "@/services/api/userService";
 import type { WalletAdjustment, WalletAdjustmentDirection } from "@/types/wallet-adjustment";
 
@@ -118,7 +119,7 @@ export function WalletAdjustmentsSection({
       header: t.walletAdjustments.section.columns.performedBy,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.performedBy?.username ?? "—"}
+          {userLabelOr(row.original.performedBy, "—")}
         </span>
       ),
     },

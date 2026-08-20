@@ -9,6 +9,7 @@ import { ReceivingAccountCell } from "@/components/deposits/ReceivingAccountCell
 import { UserDepositAccountCell } from "@/components/deposits/UserDepositAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
+import { matchesUserSearch } from "@/lib/user-search";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { Deposit, DepositStatus } from "@/types/deposit";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
@@ -23,6 +24,8 @@ export function getDepositColumns({
   t,
   types,
   paymentAccounts,
+  canApprove,
+  canReject,
   onApprove,
   onReject,
   onReceivingSaved,
@@ -31,6 +34,10 @@ export function getDepositColumns({
   t: TranslationShape;
   types: PaymentAccountType[];
   paymentAccounts: PaymentAccount[];
+  /** DEPOSITS.APPROVE. */
+  canApprove: boolean;
+  /** DEPOSITS.REJECT — a separate permission, so the two buttons gate apart. */
+  canReject: boolean;
   onApprove: (deposit: Deposit) => void;
   onReject: (deposit: Deposit) => void;
   onReceivingSaved: (deposit: Deposit) => void;
@@ -40,6 +47,15 @@ export function getDepositColumns({
     {
       accessorKey: "userName",
       header: t.deposits.columns.customer,
+      // The cell shows the label and the phone, and the row also carries the
+      // raw login identity — the search box matches all three, so an account
+      // stays findable by whichever one the admin has in hand.
+      filterFn: (row, _columnId, value) =>
+        matchesUserSearch(String(value), {
+          name: row.original.userName,
+          username: row.original.userUsername,
+          phone: row.original.userPhone,
+        }),
       cell: ({ row }) => (
         <div className="flex max-w-40 flex-col">
           <span className="truncate text-sm font-medium">{row.original.userName}</span>
@@ -111,30 +127,34 @@ export function getDepositColumns({
       header: t.deposits.columns.actions,
       cell: ({ row }) => {
         const deposit = row.original;
-        if (deposit.status !== "PENDING") {
+        if (deposit.status !== "PENDING" || (!canApprove && !canReject)) {
           return <span className="text-xs text-muted-foreground">—</span>;
         }
         const isApproving = approvingId === deposit.id;
         return (
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1"
-              disabled={isApproving}
-              onClick={() => onApprove(deposit)}
-            >
-              {isApproving ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Check className="size-3.5 text-success" />
-              )}
-              {t.common.approve}
-            </Button>
-            <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(deposit)}>
-              <X className="size-3.5 text-destructive" />
-              {t.common.reject}
-            </Button>
+            {canApprove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                disabled={isApproving}
+                onClick={() => onApprove(deposit)}
+              >
+                {isApproving ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Check className="size-3.5 text-success" />
+                )}
+                {t.common.approve}
+              </Button>
+            )}
+            {canReject && (
+              <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(deposit)}>
+                <X className="size-3.5 text-destructive" />
+                {t.common.reject}
+              </Button>
+            )}
           </div>
         );
       },

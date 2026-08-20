@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient";
-import type { AdminEpisode, SeasonSummary, Series, SeriesFormValues, SeriesListItem } from "@/types/series";
+import type { AdminEpisode, SeasonSummary, Series, SeriesFormValues, SeriesListItem, SeriesStatus } from "@/types/series";
 import type { AccessType, Movie, MovieStatus } from "@/types/movie";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 
@@ -11,6 +11,13 @@ export interface EpisodeQuery extends PaginationParams {
 
 export interface SeriesQuery extends PaginationParams {
   accessType?: AccessType;
+}
+
+/** Result of DELETE /series/:id — episodes are cascade-deleted with the show. */
+export interface SeriesRemovalResult {
+  deletedEpisodes: number;
+  storageCleanup: "complete" | "partial";
+  failedObjects: string[];
 }
 
 export const seriesService = {
@@ -47,8 +54,17 @@ export const seriesService = {
     return apiClient.put<Series>(`/series/${id}`, values);
   },
 
-  /** Removes only the show-level metadata — its episodes survive detached, still manageable from the movies table. */
+  /** Publish/unpublish the whole show — users only ever see PUBLISHED series. */
+  updateStatus(id: string, status: SeriesStatus) {
+    return apiClient.patch<Series>(`/series/${id}/status`, { status });
+  },
+
+  /**
+   * Permanently removes the show AND all of its seasons/episodes (DB cascade),
+   * then cleans up their MinIO objects. `storageCleanup` is "partial" when some
+   * storage objects could not be removed — the DB delete still succeeded.
+   */
   deleteSeries(id: string) {
-    return apiClient.delete<void>(`/series/${id}`);
+    return apiClient.delete<SeriesRemovalResult>(`/series/${id}`);
   },
 };

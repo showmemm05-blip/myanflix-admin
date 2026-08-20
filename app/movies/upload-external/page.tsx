@@ -3,12 +3,13 @@
 import { useCallback, useState } from "react";
 import { UploadCloud, WifiOff } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
-import { RequireRole } from "@/components/shared/RequireRole";
+import { RequirePermission } from "@/components/shared/RequirePermission";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { UploadQueueList } from "@/components/uploads/UploadQueueList";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBulkUploadQueue, type MovieUploadJob } from "@/lib/context/bulk-upload-context";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
 import { readDroppedFolders, foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { movieService } from "@/services/api/movieService";
 import type { Movie } from "@/types/movie";
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 
 export default function BulkUploadExternalPage() {
   const { t } = useLanguage();
+  const { can } = useRole();
   const {
     jobs,
     restoring,
@@ -88,8 +90,8 @@ export default function BulkUploadExternalPage() {
   );
 
   return (
-    <RequireRole
-      allow={["SUPER_ADMIN", "ADMIN", "CONTENT_UPLOADER"]}
+    <RequirePermission
+      permission="MOVIES.CREATE"
       title={t.movies.uploadMovie}
       description={t.movies.externalUpload.description}
     >
@@ -168,6 +170,8 @@ export default function BulkUploadExternalPage() {
         onRemove={remove}
         onReorder={moveWaitingToIndex}
         onReattach={reattachFolder}
+        canEdit={can("MOVIES.EDIT")}
+        canPublish={can("MOVIES.PUBLISH")}
         onEdit={handleEdit}
         onPublish={handlePublish}
       />
@@ -183,6 +187,6 @@ export default function BulkUploadExternalPage() {
         }}
       />
     </div>
-    </RequireRole>
+    </RequirePermission>
   );
 }
