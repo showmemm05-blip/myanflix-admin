@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadField } from "./FileUploadField";
+import { ActorPicker } from "@/components/actors/ActorPicker";
 import { movieService } from "@/services/api/movieService";
 import { videoService } from "@/services/api/videoService";
 import { uploadService } from "@/services/api/uploadService";
@@ -41,7 +42,11 @@ function EditMovieForm({
   const [description, setDescription] = useState(movie.description);
   const [genre, setGenre] = useState(movie.genre);
   const [categoryIds, setCategoryIds] = useState<string[]>(movie.categories.map((c) => c.id));
+  const [actorIds, setActorIds] = useState<string[]>(movie.actors.map((a) => a.id));
   const [releaseYear, setReleaseYear] = useState(String(movie.releaseYear));
+  // 0 is the API's "never measured" sentinel, so it shows as an empty field
+  // rather than a literal 0 the admin would have to notice and delete.
+  const [duration, setDuration] = useState(movie.duration > 0 ? String(movie.duration) : "");
   const [accessType, setAccessType] = useState<Movie["accessType"]>(movie.accessType);
   const [status, setStatus] = useState<Movie["status"]>(movie.status);
   const isEpisode = movie.seriesId !== null;
@@ -67,6 +72,11 @@ function EditMovieForm({
     [movie.id],
   );
 
+  // Sent only when >= 1: the API rejects 0 (@Min(1)), so clearing the field
+  // leaves the stored runtime untouched instead of zeroing it.
+  const durationMinutes = Math.round(Number(duration));
+  const durationPatch = durationMinutes >= 1 ? { duration: durationMinutes } : {};
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -81,7 +91,9 @@ function EditMovieForm({
         description,
         genre,
         categoryIds,
+        actorIds,
         releaseYear: Number(releaseYear) || movie.releaseYear,
+        ...durationPatch,
         accessType,
         status,
         posterUrl,
@@ -164,7 +176,7 @@ function EditMovieForm({
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t.movies.editDialog.genreLabel}</Label>
             <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
@@ -182,6 +194,21 @@ function EditMovieForm({
               value={releaseYear}
               onChange={(e) => setReleaseYear(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit-duration">{t.movies.editDialog.durationLabel}</Label>
+            <Input
+              id="edit-duration"
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+            />
+            {movie.duration === 0 && duration === "" && (
+              <p className="text-xs text-muted-foreground">{t.movies.editDialog.durationUnknownHint}</p>
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
@@ -206,6 +233,7 @@ function EditMovieForm({
             })}
           </div>
         </div>
+        <ActorPicker value={actorIds} onChange={setActorIds} disabled={saving} />
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t.movies.editDialog.accessTypeLabel}</Label>
@@ -240,6 +268,11 @@ function EditMovieForm({
 
         <div className="flex flex-col gap-1.5">
           <Label>{t.movies.editDialog.imagesLabel}</Label>
+          {/* Subtitles sit above the artwork on purpose: the poster fields are tall and
+              used to push this list below the fold, so an editor who had just uploaded
+              a track could not find it. */}
+          {!videoError && videoStatus && <SubtitleManager videoId={videoStatus.id} />}
+
           <div className="grid grid-cols-3 gap-4">
             <FileUploadField
               label={t.movies.editDialog.posterLabel}
@@ -284,7 +317,6 @@ function EditMovieForm({
           </div>
         )}
 
-        {!videoError && videoStatus && <SubtitleManager videoId={videoStatus.id} />}
       </div>
 
       <DialogFooter>

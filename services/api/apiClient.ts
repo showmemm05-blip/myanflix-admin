@@ -37,9 +37,12 @@ function buildUrl(path: string, params?: RequestOptions["params"]) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = new URL(`${API_BASE_URL}${normalizedPath}`);
   if (params) {
-    Object.entries(params as Record<string, unknown>).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
-    });
+    Object.entries(params as Record<string, unknown>).forEach(
+      ([key, value]) => {
+        if (value !== undefined && value !== null)
+          url.searchParams.set(key, String(value));
+      },
+    );
   }
   return url.toString();
 }
@@ -70,9 +73,14 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 }
 
-async function performFetch(path: string, options: RequestOptions, token: string | null) {
+async function performFetch(
+  path: string,
+  options: RequestOptions,
+  token: string | null,
+) {
   const { params, body, headers, skipAuth: _skipAuth, ...rest } = options;
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const isFormData =
+    typeof FormData !== "undefined" && body instanceof FormData;
 
   return fetch(buildUrl(path, params), {
     ...rest,
@@ -81,11 +89,18 @@ async function performFetch(path: string, options: RequestOptions, token: string
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: isFormData ? (body as FormData) : body !== undefined ? JSON.stringify(body) : undefined,
+    body: isFormData
+      ? (body as FormData)
+      : body !== undefined
+        ? JSON.stringify(body)
+        : undefined,
   });
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
   const token = options.skipAuth ? null : tokenStore.getAccessToken();
   let response = await performFetch(path, options, token);
 

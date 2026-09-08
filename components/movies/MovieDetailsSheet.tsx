@@ -14,11 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import {
   ACCESS_TYPE_TONE,
-  formatDuration,
   getAccessTypeLabel,
   getStatusLabel,
   STATUS_TONE,
 } from "@/components/movies/columns";
+import { formatDuration } from "@/lib/format";
 import { useLanguage } from "@/lib/context/language-context";
 import type { Movie } from "@/types/movie";
 
@@ -34,6 +34,8 @@ export function MovieDetailsSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLanguage();
+  // null when the runtime was never measured — the separator goes with it.
+  const runtime = movie ? formatDuration(movie.duration) : null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto scrollbar-thin sm:max-w-md">
@@ -53,7 +55,8 @@ export function MovieDetailsSheet({
               <SheetHeader className="p-0">
                 <SheetTitle className="text-lg">{movie.title}</SheetTitle>
                 <SheetDescription className="tabular-nums">
-                  {movie.releaseYear} &middot; {formatDuration(movie.duration)}
+                  {movie.releaseYear}
+                  {runtime && <> &middot; {runtime}</>}
                 </SheetDescription>
               </SheetHeader>
 

@@ -3,15 +3,8 @@
 import { format } from "date-fns";
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, ImageIcon, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { ImageIcon, Pencil, Power, Trash2 } from "lucide-react";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { userLabel } from "@/lib/user-label";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
@@ -113,39 +106,31 @@ export function getPaymentAccountColumns({
         const account = row.original;
         if (!canEdit && !canDelete) return null;
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canEdit && (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(account)}>
-                    <Pencil className="size-4" />
-                    {t.common.edit}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    variant={account.isActive ? "destructive" : undefined}
-                    onClick={() => onToggleStatus(account)}
-                  >
-                    {account.isActive ? (
-                      <Ban className="size-4" />
-                    ) : (
-                      <CheckCircle2 className="size-4" />
-                    )}
-                    {account.isActive ? t.paymentAccounts.toggleStatus.deactivate : t.paymentAccounts.toggleStatus.activate}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canEdit && canDelete && <DropdownMenuSeparator />}
-              {canDelete && (
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(account)}>
-                  <Trash2 className="size-4" />
-                  {t.common.delete}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActions>
+            {canEdit && (
+              <>
+                <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => onEdit(account)} />
+                <RowActionButton
+                  icon={Power}
+                  label={
+                    account.isActive
+                      ? t.paymentAccounts.toggleStatus.deactivate
+                      : t.paymentAccounts.toggleStatus.activate
+                  }
+                  destructive={account.isActive}
+                  onClick={() => onToggleStatus(account)}
+                />
+              </>
+            )}
+            {canDelete && (
+              <RowActionButton
+                icon={Trash2}
+                label={t.common.delete}
+                destructive
+                onClick={() => onDelete(account)}
+              />
+            )}
+          </RowActions>
         );
       },
     },

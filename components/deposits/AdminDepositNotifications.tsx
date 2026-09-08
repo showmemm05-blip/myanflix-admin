@@ -15,6 +15,8 @@ interface DepositCreatedEvent {
   username: string;
   /** The name the user set; null until they set one. Render via `userLabel(event)`. */
   displayName: string | null;
+  phone: string | null;
+  email: string | null;
   amount: number;
   paymentMethod: string;
   reference: string;

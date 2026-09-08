@@ -12,7 +12,10 @@ interface FileSystemFileEntry extends FileSystemEntry {
   file(success: (file: File) => void, error: (err: unknown) => void): void;
 }
 interface FileSystemDirectoryReader {
-  readEntries(success: (entries: FileSystemEntry[]) => void, error: (err: unknown) => void): void;
+  readEntries(
+    success: (entries: FileSystemEntry[]) => void,
+    error: (err: unknown) => void,
+  ): void;
 }
 interface FileSystemDirectoryEntry extends FileSystemEntry {
   createReader(): FileSystemDirectoryReader;
@@ -27,12 +30,16 @@ function readFile(entry: FileSystemFileEntry): Promise<File> {
   return new Promise((resolve, reject) => entry.file(resolve, reject));
 }
 
-function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+function readAllEntries(
+  reader: FileSystemDirectoryReader,
+): Promise<FileSystemEntry[]> {
   return new Promise((resolve, reject) => reader.readEntries(resolve, reject));
 }
 
 /** Chrome's readEntries() only returns up to 100 entries per call — must keep calling until it returns empty. */
-async function readDirectoryFully(entry: FileSystemDirectoryEntry): Promise<FileSystemEntry[]> {
+async function readDirectoryFully(
+  entry: FileSystemDirectoryEntry,
+): Promise<FileSystemEntry[]> {
   const reader = entry.createReader();
   const all: FileSystemEntry[] = [];
   for (;;) {
@@ -43,13 +50,18 @@ async function readDirectoryFully(entry: FileSystemDirectoryEntry): Promise<File
   return all;
 }
 
-async function walk(entry: FileSystemEntry, prefix: string): Promise<{ relativePath: string; file: File }[]> {
+async function walk(
+  entry: FileSystemEntry,
+  prefix: string,
+): Promise<{ relativePath: string; file: File }[]> {
   if (entry.isFile) {
     const file = await readFile(entry as FileSystemFileEntry);
     return [{ relativePath: `${prefix}${entry.name}`, file }];
   }
   if (entry.isDirectory) {
-    const children = await readDirectoryFully(entry as FileSystemDirectoryEntry);
+    const children = await readDirectoryFully(
+      entry as FileSystemDirectoryEntry,
+    );
     const results: { relativePath: string; file: File }[] = [];
     for (const child of children) {
       results.push(...(await walk(child, `${prefix}${entry.name}/`)));
@@ -66,15 +78,24 @@ async function walk(entry: FileSystemEntry, prefix: string): Promise<{ relativeP
  * folder's own root — the folder's own name is stripped, matching how the
  * classic `<input webkitdirectory>` picker's webkitRelativePath is handled.
  */
-export async function readDroppedFolders(dataTransfer: DataTransfer): Promise<DroppedFolder[]> {
+export async function readDroppedFolders(
+  dataTransfer: DataTransfer,
+): Promise<DroppedFolder[]> {
   const items = Array.from(dataTransfer.items);
   const topLevelEntries = items
     .map((item) =>
       item.kind === "file" && "webkitGetAsEntry" in item
-        ? ((item as DataTransferItem & { webkitGetAsEntry(): FileSystemEntry | null }).webkitGetAsEntry() as FileSystemEntry | null)
+        ? ((
+            item as DataTransferItem & {
+              webkitGetAsEntry(): FileSystemEntry | null;
+            }
+          ).webkitGetAsEntry() as FileSystemEntry | null)
         : null,
     )
-    .filter((entry): entry is FileSystemDirectoryEntry => entry !== null && entry.isDirectory);
+    .filter(
+      (entry): entry is FileSystemDirectoryEntry =>
+        entry !== null && entry.isDirectory,
+    );
 
   const folders: DroppedFolder[] = [];
   for (const entry of topLevelEntries) {
@@ -103,7 +124,8 @@ export function foldersFromFileList(fileList: FileList): DroppedFolder[] {
   const groups = new Map<string, { relativePath: string; file: File }[]>();
 
   for (const file of Array.from(fileList)) {
-    const webkitPath = (file as File & { webkitRelativePath: string }).webkitRelativePath;
+    const webkitPath = (file as File & { webkitRelativePath: string })
+      .webkitRelativePath;
     if (!webkitPath) continue;
     const parts = webkitPath.split("/");
     const folderName = parts[0] || "movie";
@@ -112,7 +134,10 @@ export function foldersFromFileList(fileList: FileList): DroppedFolder[] {
     groups.get(folderName)!.push({ relativePath, file });
   }
 
-  return Array.from(groups.entries()).map(([folderName, files]) => ({ folderName, files }));
+  return Array.from(groups.entries()).map(([folderName, files]) => ({
+    folderName,
+    files,
+  }));
 }
 
 /** "Episode 3" / "S01E03" / "Ep_03" / "The Finale 12" -> 3/3/3/12; null when the name carries no usable number. */
@@ -128,7 +153,10 @@ export function parseEpisodeNumber(folderName: string): number | null {
 
 /** "the_great_escape" / "The-Great-Escape" -> "The Great Escape". */
 export function extractTitleFromFolderName(folderName: string): string {
-  const cleaned = folderName.replace(/[_\-.]+/g, " ").replace(/\s+/g, " ").trim();
+  const cleaned = folderName
+    .replace(/[_\-.]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
   return cleaned || folderName;
 }
 

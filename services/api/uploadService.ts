@@ -13,23 +13,9 @@ export interface ReprocessResponse {
   status: string;
 }
 
-export interface ValidateExternalBundleResponse {
-  missing: string[];
-  /** Bundle doesn't match the fixed folder-structure contract (e.g. no original.mp4, no rendition folder) — distinct from files simply not having arrived yet. */
-  structureErrors: string[];
-  valid: boolean;
-}
-
 export interface FinalizeExternalUploadResponse {
   videoId: string;
   status: string;
-}
-
-export interface UploadStatusResponse {
-  uploadedChunks: number[];
-  remainingChunks: number;
-  totalChunks: number;
-  status: "IN_PROGRESS" | "COMPLETED" | "FAILED";
 }
 
 export interface CompleteUploadResponse {
@@ -101,10 +87,6 @@ export const uploadService = {
     return apiClient.post<void>(`/uploads/${uploadId}/chunk`, formData, { signal });
   },
 
-  getStatus(uploadId: string) {
-    return apiClient.get<UploadStatusResponse>(`/uploads/${uploadId}/status`);
-  },
-
   complete(uploadId: string, signal?: AbortSignal) {
     return apiClient.post<CompleteUploadResponse>(`/uploads/${uploadId}/complete`, undefined, { signal });
   },
@@ -112,11 +94,6 @@ export const uploadService = {
   /** Retries transcoding for a movie whose video failed — no re-upload required. */
   reprocess(movieId: string) {
     return apiClient.post<ReprocessResponse>(`/uploads/${movieId}/reprocess`);
-  },
-
-  /** Cross-checks an externally-pre-transcoded bundle's uploaded files against what's actually in storage. */
-  validateExternalBundle(movieId: string, relativePaths: string[]) {
-    return apiClient.post<ValidateExternalBundleResponse>(`/uploads/${movieId}/validate-external`, { relativePaths });
   },
 
   /**

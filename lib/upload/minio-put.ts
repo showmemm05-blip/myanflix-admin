@@ -21,12 +21,19 @@ export interface MinioPutResult {
  * `TypeError` straight from `fetch()` itself, exactly like every other
  * network call in this app already does.
  */
-export async function putToMinio(url: string, body: Blob, signal?: AbortSignal): Promise<MinioPutResult> {
+export async function putToMinio(
+  url: string,
+  body: Blob,
+  signal?: AbortSignal,
+): Promise<MinioPutResult> {
   const response = await fetch(url, { method: "PUT", body, signal });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new ApiError(text || `MinIO PUT failed with status ${response.status}`, response.status);
+    throw new ApiError(
+      text || `MinIO PUT failed with status ${response.status}`,
+      response.status,
+    );
   }
 
   return { etag: response.headers.get("ETag") };

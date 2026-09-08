@@ -1,3 +1,5 @@
+import type { ActorRef } from "@/types/actor";
+
 export type MovieStatus =
   | "DRAFT"
   | "PROCESSING"
@@ -33,6 +35,8 @@ export interface Movie {
   seasonNumber: number | null;
   episodeNumber: number | null;
   categories: MovieCategoryRef[];
+  /** The cast. Managed under Movies › Actors; see types/actor.ts. */
+  actors: ActorRef[];
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +53,11 @@ export interface MovieUploadFormValues {
   description: string;
   genre: string;
   categoryIds: string[];
+  /**
+   * The whole cast, not a delta: the backend `set`s this list, so anyone
+   * left out is removed from the film.
+   */
+  actorIds: string[];
   language: string;
   releaseYear: number;
   duration: number;

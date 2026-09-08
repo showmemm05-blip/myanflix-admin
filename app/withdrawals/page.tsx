@@ -30,6 +30,8 @@ interface WithdrawalCreatedEvent {
   username: string;
   /** The name the user set; null until they set one. Render via `userLabel(event)`. */
   displayName: string | null;
+  phone: string | null;
+  email: string | null;
   amount: number;
   accountType: string;
   accountName: string;
@@ -150,7 +152,8 @@ export default function WithdrawalsPage() {
         userId: event.userId,
         userName: userLabel(event),
         userUsername: event.username,
-        userPhone: null,
+        userPhone: event.phone ?? null,
+        userEmail: event.email ?? null,
         amount: event.amount,
         accountType: event.accountType,
         accountName: event.accountName,

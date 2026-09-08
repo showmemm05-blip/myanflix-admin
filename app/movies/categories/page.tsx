@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MoreHorizontal, Pencil, Plus, Tags, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Tags, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -20,12 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
@@ -157,29 +152,19 @@ export default function CategoriesPage() {
               className="glass-card group relative overflow-hidden p-4"
             >
               {(canEdit || canDelete) && (
-                <div className="absolute right-2 top-2">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={<Button variant="ghost" size="icon-sm" />}
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {canEdit && (
-                        <DropdownMenuItem onClick={() => openEdit(category)}>
-                          <Pencil className="size-4" />
-                          {t.common.edit}
-                        </DropdownMenuItem>
-                      )}
-                      {canDelete && (
-                        <DropdownMenuItem variant="destructive" onClick={() => setDeleteTarget(category)}>
-                          <Trash2 className="size-4" />
-                          {t.common.delete}
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                <RowActions className="absolute right-2 top-2">
+                  {canEdit && (
+                    <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => openEdit(category)} />
+                  )}
+                  {canDelete && (
+                    <RowActionButton
+                      icon={Trash2}
+                      label={t.common.delete}
+                      destructive
+                      onClick={() => setDeleteTarget(category)}
+                    />
+                  )}
+                </RowActions>
               )}
               <div className="flex items-center gap-2">
                 <Tags className="size-4 text-muted-foreground" />

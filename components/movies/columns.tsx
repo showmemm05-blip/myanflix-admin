@@ -2,18 +2,14 @@
 
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Loader2, MoreHorizontal, Pencil, RefreshCw, Rocket, Trash2 } from "lucide-react";
+import { Eye, Loader2, Pencil, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AccessType, Movie, MovieStatus } from "@/types/movie";
+import { formatDuration, UNKNOWN_DURATION } from "@/lib/format";
 
 export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
   PUBLISHED: "success",
@@ -30,23 +26,12 @@ export const ACCESS_TYPE_TONE: Record<AccessType, StatusTone> = {
   SUBSCRIPTION: "info",
 };
 
-export const ACCESS_TYPE_LABEL: Record<AccessType, string> = {
-  FREE: "Free",
-  SUBSCRIPTION: "Subscription",
-};
-
 const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
 
-export function formatDuration(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h}h ${m}m`;
-}
-
 /**
- * Translated equivalents of `STATUS_TONE`/`ACCESS_TYPE_LABEL` above — kept as
+ * Translated equivalents of `STATUS_TONE`/`ACCESS_TYPE_TONE` above — kept as
  * separate functions (rather than changing those exports' shape) because
- * `ACCESS_TYPE_LABEL`/`STATUS_TONE` are also consumed by series/episode
+ * `ACCESS_TYPE_TONE`/`STATUS_TONE` are also consumed by series/episode
  * columns outside the movies page group, which don't have a `t` to pass in.
  */
 export function getStatusLabel(t: TranslationShape, status: MovieStatus): string {
@@ -68,15 +53,15 @@ export function getAccessTypeLabel(t: TranslationShape, accessType: AccessType):
 
 interface GetMovieColumnsOptions {
   t: TranslationShape;
-  /** MOVIES.EDIT — the Edit item and the reprocess-video retry. */
+  /** MOVIES.EDIT — the Edit button and the reprocess-video retry. */
   canEdit: boolean;
-  /** MOVIES.DELETE — the destructive item. */
+  /** MOVIES.DELETE — the destructive button. */
   canDelete: boolean;
   onView: (movie: Movie) => void;
   onEdit: (movie: Movie) => void;
   onDelete: (movie: Movie) => void;
   onReprocess: (movie: Movie) => void;
-  /** Movie id currently reprocessing, if any — disables its own dropdown item to prevent a double-trigger. */
+  /** Movie id currently reprocessing, if any — disables its own button to prevent a double-trigger. */
   reprocessingId: string | null;
   /**
    * Opt-in only — omitting this leaves the actions column exactly as it is
@@ -150,7 +135,9 @@ export function getMovieColumns({
       accessorKey: "duration",
       header: t.movies.columns.duration,
       cell: ({ row }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">{formatDuration(row.original.duration)}</span>
+        <span className="text-sm tabular-nums text-muted-foreground">
+          {formatDuration(row.original.duration) ?? UNKNOWN_DURATION}
+        </span>
       ),
     },
     {
@@ -198,40 +185,30 @@ export function getMovieColumns({
               {t.movies.publish}
             </Button>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onView(movie)}>
-                <Eye className="size-4" />
-                {t.common.view}
-              </DropdownMenuItem>
-              {canEdit && (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(movie)}>
-                    <Pencil className="size-4" />
-                    {t.common.edit}
-                  </DropdownMenuItem>
-                  {movie.status === "DRAFT" && (
-                    <DropdownMenuItem
-                      disabled={reprocessingId === movie.id}
-                      onClick={() => onReprocess(movie)}
-                    >
-                      <RefreshCw className={reprocessingId === movie.id ? "size-4 animate-spin" : "size-4"} />
-                      {t.movies.columns.reprocessVideo}
-                    </DropdownMenuItem>
-                  )}
-                </>
-              )}
-              {canDelete && (
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(movie)}>
-                  <Trash2 className="size-4" />
-                  {t.common.delete}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActions>
+            <RowActionButton icon={Eye} label={t.common.view} onClick={() => onView(movie)} />
+            {canEdit && (
+              <>
+                <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => onEdit(movie)} />
+                {movie.status === "DRAFT" && (
+                  <RowActionButton
+                    icon={RefreshCw}
+                    label={t.movies.columns.reprocessVideo}
+                    loading={reprocessingId === movie.id}
+                    onClick={() => onReprocess(movie)}
+                  />
+                )}
+              </>
+            )}
+            {canDelete && (
+              <RowActionButton
+                icon={Trash2}
+                label={t.common.delete}
+                destructive
+                onClick={() => onDelete(movie)}
+              />
+            )}
+          </RowActions>
         </div>
       );
     },

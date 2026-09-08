@@ -27,10 +27,6 @@ export const rolesService = {
     return apiClient.get<PermissionCatalogue>("/roles/catalogue");
   },
 
-  getRoleById(id: string): Promise<AppRole> {
-    return apiClient.get<AppRole>(`/roles/${id}`);
-  },
-
   /** `key` is derived server-side from `name` (uppercase snake, deduped). */
   createRole(values: CreateRoleValues): Promise<AppRole> {
     return apiClient.post<AppRole>("/roles", values);

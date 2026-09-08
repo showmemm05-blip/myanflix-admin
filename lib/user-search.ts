@@ -39,6 +39,8 @@ export interface UserSearchFields {
   /** The raw login identity. */
   username?: string | null;
   phone?: string | null;
+  /** Optional e-mail (Google sign-ins have one and no phone). */
+  email?: string | null;
 }
 
 export function matchesUserSearch(term: string, fields: UserSearchFields): boolean {
@@ -47,6 +49,7 @@ export function matchesUserSearch(term: string, fields: UserSearchFields): boole
 
   if (fields.name?.toLowerCase().includes(needle)) return true;
   if (fields.username?.toLowerCase().includes(needle)) return true;
+  if (fields.email?.toLowerCase().includes(needle)) return true;
 
   const digits = normalizePhoneDigits(needle);
   if (fields.phone && digits.length >= MIN_PHONE_MATCH_DIGITS) {

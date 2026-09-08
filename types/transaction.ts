@@ -1,4 +1,13 @@
-export type TransactionType = "DEPOSIT" | "PURCHASE" | "REFUND";
+/** Mirrors the backend's `TransactionType` Prisma enum — keep in sync. */
+export type TransactionType =
+  | "DEPOSIT"
+  | "PURCHASE"
+  | "REFUND"
+  | "SUBSCRIPTION"
+  | "WITHDRAWAL"
+  /** Admin-initiated wallet correction (see WalletAdjustment). */
+  | "ADJUSTMENT_CREDIT"
+  | "ADJUSTMENT_DEBIT";
 
 export type TransactionStatus = "PENDING" | "COMPLETED" | "FAILED";
 

@@ -2,15 +2,8 @@
 
 import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, KeyRound, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { KeyRound, Pencil, Power, Trash2 } from "lucide-react";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import type { TranslationShape } from "@/lib/i18n/translations";
@@ -102,46 +95,37 @@ export function getStaffColumns({
       cell: ({ row }) => {
         const staff = row.original;
         const isSelf = staff.id === currentUserId;
+        const suspended = staff.status === "SUSPENDED";
         if (!canEdit && !canDelete) return null;
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {canEdit && (
-                <>
-                  <DropdownMenuItem onClick={() => onEdit(staff)}>
-                    <Pencil className="size-4" />
-                    {t.common.edit}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onResetPassword(staff)}>
-                    <KeyRound className="size-4" />
-                    {t.staff.columns.resetPassword}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={isSelf}
-                    variant={staff.status === "SUSPENDED" ? undefined : "destructive"}
-                    onClick={() => onToggleStatus(staff)}
-                  >
-                    {staff.status === "SUSPENDED" ? (
-                      <CheckCircle2 className="size-4" />
-                    ) : (
-                      <Ban className="size-4" />
-                    )}
-                    {staff.status === "SUSPENDED" ? t.staff.activate : t.staff.deactivate}
-                  </DropdownMenuItem>
-                </>
-              )}
-              {canEdit && canDelete && <DropdownMenuSeparator />}
-              {canDelete && (
-                <DropdownMenuItem disabled={isSelf} variant="destructive" onClick={() => onDelete(staff)}>
-                  <Trash2 className="size-4" />
-                  {t.common.delete}
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <RowActions>
+            {canEdit && (
+              <>
+                <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => onEdit(staff)} />
+                <RowActionButton
+                  icon={KeyRound}
+                  label={t.staff.columns.resetPassword}
+                  onClick={() => onResetPassword(staff)}
+                />
+                <RowActionButton
+                  icon={Power}
+                  label={suspended ? t.staff.activate : t.staff.deactivate}
+                  destructive={!suspended}
+                  disabled={isSelf}
+                  onClick={() => onToggleStatus(staff)}
+                />
+              </>
+            )}
+            {canDelete && (
+              <RowActionButton
+                icon={Trash2}
+                label={t.common.delete}
+                destructive
+                disabled={isSelf}
+                onClick={() => onDelete(staff)}
+              />
+            )}
+          </RowActions>
         );
       },
     },

@@ -21,8 +21,13 @@ export const PERMISSION_CATALOGUE = [
     key: "SERIES",
     actions: ["VIEW", "CREATE", "EDIT", "DELETE", "PUBLISH", "UNPUBLISH"],
   },
+  {
+    key: "BOOKS",
+    actions: ["VIEW", "CREATE", "EDIT", "DELETE", "PUBLISH", "UNPUBLISH"],
+  },
   { key: "MEDIA", actions: ["VIEW", "UPLOAD", "DELETE"] },
   { key: "CATEGORIES", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
+  { key: "ACTORS", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
   { key: "USERS", actions: ["VIEW", "EDIT", "SUSPEND", "WALLET_ADJUST"] },
   { key: "STAFF", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
   { key: "ROLES", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
@@ -55,9 +60,6 @@ export const PERMISSION_CATALOGUE = [
 ] as const;
 
 type CatalogueEntry = (typeof PERMISSION_CATALOGUE)[number];
-
-/** Every module key, as a literal union. */
-export type PermissionModule = CatalogueEntry["key"];
 
 type PermissionsOf<T extends CatalogueEntry> = T extends {
   key: infer K extends string;

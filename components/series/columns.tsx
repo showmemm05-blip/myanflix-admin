@@ -3,15 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ColumnDef } from "@tanstack/react-table";
-import { EyeOff, MoreHorizontal, Rocket, Settings2, Trash2 } from "lucide-react";
+import { EyeOff, Rocket, Settings2, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { ACCESS_TYPE_TONE, getAccessTypeLabel } from "@/components/movies/columns";
 import type { TranslationShape } from "@/lib/i18n/translations";
@@ -141,34 +136,23 @@ export function getSeriesColumns({
               {t.series.columns.manage}
             </Button>
             {(canToggleStatus || canDelete) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                  <MoreHorizontal className="size-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {canToggleStatus && (
-                    <DropdownMenuItem onClick={() => onToggleStatus(series)}>
-                      {series.status === "PUBLISHED" ? (
-                        <>
-                          <EyeOff className="size-4" />
-                          {t.series.unpublish}
-                        </>
-                      ) : (
-                        <>
-                          <Rocket className="size-4" />
-                          {t.movies.publish}
-                        </>
-                      )}
-                    </DropdownMenuItem>
-                  )}
-                  {canDelete && (
-                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(series)}>
-                      <Trash2 className="size-4" />
-                      {t.common.delete}
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <RowActions>
+                {canToggleStatus && (
+                  <RowActionButton
+                    icon={series.status === "PUBLISHED" ? EyeOff : Rocket}
+                    label={series.status === "PUBLISHED" ? t.series.unpublish : t.movies.publish}
+                    onClick={() => onToggleStatus(series)}
+                  />
+                )}
+                {canDelete && (
+                  <RowActionButton
+                    icon={Trash2}
+                    label={t.common.delete}
+                    destructive
+                    onClick={() => onDelete(series)}
+                  />
+                )}
+              </RowActions>
             )}
           </div>
         );

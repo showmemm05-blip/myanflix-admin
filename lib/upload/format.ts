@@ -14,6 +14,15 @@ export function formatSpeed(bytesPerSecond: number): string {
   return bytesPerSecond > 0 ? `${formatBytes(bytesPerSecond)}/s` : "—";
 }
 
+/** "42s" / "3m 07s"-style clock for elapsed or remaining time (no "remaining" suffix — see formatEta). */
+export function formatMinutesSeconds(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes === 0) return `${remainingSeconds}s`;
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 export function formatEta(seconds: number | null): string {
   if (seconds === null) return "Estimating...";
   if (seconds < 60) return `${Math.round(seconds)}s remaining`;

@@ -3,22 +3,17 @@
 import { format } from "date-fns";
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Check, Eye, ImageIcon, Loader2, X } from "lucide-react";
+import { ArrowUpRight, Check, Eye, ImageIcon, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TransferAccountCell } from "@/components/withdrawals/TransferAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
+import { REVIEW_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { matchesUserSearch } from "@/lib/user-search";
 import type { TranslationShape } from "@/lib/i18n/translations";
-import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
+import type { Withdrawal } from "@/types/withdrawal";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
-
-const STATUS_TONE: Record<WithdrawalStatus, StatusTone> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
 
 export function getWithdrawalColumns({
   t,
@@ -57,12 +52,18 @@ export function getWithdrawalColumns({
           name: row.original.userName,
           username: row.original.userUsername,
           phone: row.original.userPhone,
+          email: row.original.userEmail,
         }),
       cell: ({ row }) => (
         <div className="flex max-w-40 flex-col">
           <span className="truncate text-sm font-medium">{row.original.userName}</span>
-          <span className="text-xs text-muted-foreground">
-            {formatLocalPhone(row.original.userPhone) ?? "—"}
+          {/* Phone when the account has one; e-mail for accounts without
+              (Google sign-ins); a dash only when it has neither. */}
+          <span
+            className="truncate text-xs tabular-nums text-muted-foreground"
+            title={formatLocalPhone(row.original.userPhone) ?? row.original.userEmail ?? undefined}
+          >
+            {formatLocalPhone(row.original.userPhone) ?? row.original.userEmail ?? "—"}
           </span>
         </div>
       ),
@@ -70,8 +71,10 @@ export function getWithdrawalColumns({
     {
       accessorKey: "amount",
       header: t.withdrawals.columns.amount,
+      meta: { align: "right" },
       cell: ({ row }) => (
-        <span className="text-base font-semibold tabular-nums text-outgoing">
+        <span className="inline-flex items-center gap-1.5 text-[15px] font-semibold tabular-nums text-outgoing">
+          <ArrowUpRight className="size-3.5 shrink-0 text-outgoing" />
           {formatSignedKyat(row.original.amount, "out")}
         </span>
       ),
@@ -95,7 +98,10 @@ export function getWithdrawalColumns({
             </div>
             <div className="flex flex-col">
               <span className="text-sm">{row.original.accountName}</span>
-              <span className="font-mono text-xs text-muted-foreground">{row.original.accountNumber}</span>
+              {/* Masked render-only; the full number stays a hover away. */}
+              <span className="font-mono text-xs text-muted-foreground">
+                {row.original.accountNumber}
+              </span>
               {/* The bank the user named on this request — may differ from any bank on their profile. */}
               {row.original.bankName && (
                 <span className="text-xs text-muted-foreground">{row.original.bankName}</span>
@@ -109,7 +115,7 @@ export function getWithdrawalColumns({
       accessorKey: "createdAt",
       header: t.withdrawals.columns.dateTime,
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm tabular-nums text-muted-foreground">
           {format(new Date(row.original.createdAt), "d MMM yyyy, HH:mm:ss")}
         </span>
       ),

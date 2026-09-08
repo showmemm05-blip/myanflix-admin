@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Film, Plus } from "lucide-react";
+import { Film, Loader2, Plus, Timer } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -35,6 +35,7 @@ export default function MoviesPage() {
   const { t } = useLanguage();
   const { can } = useRole();
   const canCreate = can("MOVIES.CREATE");
+  const canEdit = can("MOVIES.EDIT");
 
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
 
@@ -91,6 +92,32 @@ export default function MoviesPage() {
     }
   };
 
+  // Server-side, idempotent: fills Movie.duration only where it is still 0
+  // (bulk-uploaded titles whose runtime was never measured), 100 titles per
+  // click — a larger backlog is cleared by clicking again.
+  const [backfilling, setBackfilling] = useState(false);
+  const handleBackfillDurations = async () => {
+    setBackfilling(true);
+    try {
+      const result = await movieService.backfillDurations();
+      if (result.scanned === 0) {
+        toast.info(t.movies.page.backfillNothingToast, { description: t.movies.page.backfillNothingDescription });
+      } else {
+        toast.success(t.movies.page.backfillDoneToast, {
+          description:
+            t.movies.page.backfillDoneDescription(result.updated, result.scanned) +
+            (result.failed.length ? ` ${t.movies.page.backfillPartialDescription(result.failed.length)}` : ""),
+        });
+      }
+      setMovies(null);
+      refetch();
+    } catch {
+      toast.error(t.movies.page.backfillFailedToast, { description: t.movies.pleaseTryAgain });
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
   const filters = (
     <Select value={accessTypeFilter} onValueChange={(v) => v && handleAccessTypeFilterChange(v)}>
       <SelectTrigger className="w-40"><SelectValue placeholder={t.movies.page.accessTypeFilterPlaceholder} /></SelectTrigger>
@@ -104,7 +131,7 @@ export default function MoviesPage() {
 
   const columns = getMovieColumns({
     t,
-    canEdit: can("MOVIES.EDIT"),
+    canEdit,
     canDelete: can("MOVIES.DELETE"),
     onView: setViewMovie,
     onEdit: setEditMovie,
@@ -139,11 +166,26 @@ export default function MoviesPage() {
         title={t.movies.page.title}
         description={t.movies.page.description}
         actions={
-          canCreate && (
-            <Button render={<Link href="/movies/upload" />} nativeButton={false}>
-              <Plus className="size-4" />
-              {t.movies.uploadMovie}
-            </Button>
+          (canEdit || canCreate) && (
+            <div className="flex items-center gap-2">
+              {canEdit && (
+                <Button
+                  variant="outline"
+                  onClick={handleBackfillDurations}
+                  disabled={backfilling}
+                  title={t.movies.page.backfillButton}
+                >
+                  {backfilling ? <Loader2 className="size-4 animate-spin" /> : <Timer className="size-4" />}
+                  {t.movies.page.backfillButton}
+                </Button>
+              )}
+              {canCreate && (
+                <Button render={<Link href="/movies/upload" />} nativeButton={false}>
+                  <Plus className="size-4" />
+                  {t.movies.uploadMovie}
+                </Button>
+              )}
+            </div>
           )
         }
       />

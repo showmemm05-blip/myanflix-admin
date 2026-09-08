@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import {
   type ColumnDef,
   type ColumnFiltersState,
+  type RowData,
   type SortingState,
   flexRender,
   getCoreRowModel,
@@ -27,6 +28,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/lib/context/language-context";
 import { cn } from "@/lib/utils";
 
+declare module "@tanstack/react-table" {
+  // Render-only styling metadata — never structure. `align: "right"` marks
+  // numeric/amount columns; DataTable appends `text-right` to the header and
+  // body cells (accessors, filters, and sorting are untouched).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    align?: "right";
+  }
+}
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
@@ -48,6 +59,12 @@ interface DataTableProps<TData, TValue> {
   emptyState?: ReactNode;
   /** Extra classes per row — used to tint rows by category (e.g. transaction type). */
   rowClassName?: (row: TData) => string | undefined;
+  /**
+   * Drop the "Showing x–y of z / Previous / Next" footer. For fixed-size
+   * widgets (a dashboard's six most recent rows) the footer is pure noise —
+   * the caller already capped the data and there is never a second page.
+   */
+  hideFooter?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -60,6 +77,7 @@ export function DataTable<TData, TValue>({
   searchActions,
   toolbar,
   pageSize = 10,
+  hideFooter = false,
   isLoading = false,
   emptyState,
   rowClassName,
@@ -131,20 +149,25 @@ export function DataTable<TData, TValue>({
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="border-border hover:bg-transparent">
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => {
                   const sortable = header.column.getCanSort();
                   const sortDirection = header.column.getIsSorted();
+                  const alignRight = header.column.columnDef.meta?.align === "right";
                   return (
-                    <TableHead key={header.id} className="h-11 px-4 text-xs uppercase tracking-wide text-muted-foreground">
+                    <TableHead key={header.id} className={cn(alignRight && "text-right")}>
                       {header.isPlaceholder ? null : sortable ? (
                         <button
-                          className="flex items-center gap-1.5 transition-colors hover:text-foreground"
+                          className={cn(
+                            "flex items-center gap-1.5 transition-colors hover:text-foreground",
+                            sortDirection && "text-foreground",
+                            alignRight && "w-full justify-end"
+                          )}
                           onClick={header.column.getToggleSortingHandler()}
                         >
                           {flexRender(header.column.columnDef.header, header.getContext())}
-                          {sortDirection === "asc" && <ArrowUp className="size-3.5" />}
-                          {sortDirection === "desc" && <ArrowDown className="size-3.5" />}
+                          {sortDirection === "asc" && <ArrowUp className="size-3.5 text-primary" />}
+                          {sortDirection === "desc" && <ArrowDown className="size-3.5 text-primary" />}
                           {!sortDirection && <ArrowUpDown className="size-3.5 opacity-40" />}
                         </button>
                       ) : (
@@ -159,19 +182,33 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               Array.from({ length: pageSize }).map((_, i) => (
-                <TableRow key={i} className="border-border">
+                <TableRow key={i}>
                   {columns.map((_, j) => (
-                    <TableCell key={j} className="px-4 py-3">
+                    <TableCell key={j}>
                       <Skeleton className="h-5 w-full max-w-32 bg-secondary/60" />
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : rows.length ? (
-              rows.map((row) => (
-                <TableRow key={row.id} className={cn("border-border", rowClassName?.(row.original))}>
+              rows.map((row, index) => (
+                <TableRow
+                  key={row.id}
+                  // Zebra lives HERE, not in the primitive: rowClassName's
+                  // status tints (pending deposits etc.) must beat the stripe,
+                  // and cn()'s twMerge keeps whichever bg- class comes last —
+                  // a primitive-level even: variant would out-specificity the
+                  // tint instead and erase exactly the rows that matter most.
+                  className={cn(
+                    index % 2 === 1 && "bg-foreground/[0.02]",
+                    rowClassName?.(row.original),
+                  )}
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="px-4 py-3">
+                    <TableCell
+                      key={cell.id}
+                      className={cn(cell.column.columnDef.meta?.align === "right" && "text-right")}
+                    >
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -190,7 +227,7 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {!isLoading && rows.length > 0 && (
+      {!hideFooter && !isLoading && rows.length > 0 && (
         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="text-sm tabular-nums text-muted-foreground">
             {t.shared.showingResults(
@@ -212,7 +249,7 @@ export function DataTable<TData, TValue>({
               <ChevronLeft className="size-4" />
               {t.shared.previous}
             </Button>
-            <span className="text-sm tabular-nums text-muted-foreground">
+            <span className="text-sm font-medium tabular-nums text-foreground">
               {t.shared.pageOf(table.getState().pagination.pageIndex + 1, Math.max(table.getPageCount(), 1))}
             </span>
             <Button

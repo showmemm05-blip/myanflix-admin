@@ -57,7 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b border-border transition-colors hover:bg-foreground/[0.035] has-aria-expanded:bg-foreground/[0.06] data-[state=selected]:bg-foreground/[0.06] data-[state=selected]:shadow-[inset_2px_0_0_var(--primary)]",
+        "border-b border-border transition-colors hover:bg-foreground/[0.055] has-aria-expanded:bg-foreground/[0.06] data-[state=selected]:bg-foreground/[0.06] data-[state=selected]:shadow-[inset_2px_0_0_var(--primary)]",
         className
       )}
       {...props}
@@ -70,7 +70,11 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 bg-muted px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap text-muted-foreground uppercase [&:has([role=checkbox])]:pr-0",
+        // bg-background, not bg-muted: muted (L 0.22) sat almost on the card
+        // (L 0.205) and the "band" was invisible — background (L 0.165) is the
+        // darkest token in the theme, so the header now reads as its own
+        // surface at a glance instead of a slightly different row.
+        "h-12 bg-background/80 px-3 text-left align-middle text-[11px] font-bold uppercase tracking-[0.14em] whitespace-nowrap text-muted-foreground first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -83,7 +87,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        "px-3 py-3.5 align-middle whitespace-nowrap first:pl-5 last:pr-5 [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

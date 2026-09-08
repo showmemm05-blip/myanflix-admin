@@ -16,6 +16,7 @@ import { ApiError } from "@/services/api/apiClient";
 import { useNetworkStatus } from "@/lib/hooks/use-network-status";
 import { putToMinio } from "@/lib/upload/minio-put";
 import { PresignedPartUrlPool } from "@/lib/upload/presigned-part-pool";
+import { probeBundleDurationSeconds, secondsToMinutes } from "@/lib/upload/probe-duration";
 import {
   extractTitleFromFolderName,
   mapLocalPathToRelativePath,
@@ -787,15 +788,24 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
    */
   const addFolders = useCallback(
     async (queueKey: string, folders: DroppedFolder[], series?: AddFoldersSeries): Promise<number> => {
+      // Measure every bundle's runtime up front, in parallel, so the
+      // placeholder is born with it. Each probe is self-timeboxed and never
+      // rejects, so a batch of N folders waits at most one timeout (and ~0 ms
+      // on the normal playlist path). A failed probe just omits the field —
+      // the placeholder is created exactly as before.
+      const probedSeconds = await Promise.all(folders.map((f) => probeBundleDurationSeconds(f.files)));
+
       let added = 0;
       for (const [index, folder] of folders.entries()) {
         const title = extractTitleFromFolderName(folder.folderName);
+        const duration = secondsToMinutes(probedSeconds[index]);
         try {
           const movie = await movieService.createUploadPlaceholder(
             title,
             series
               ? { seriesId: series.seriesId, seasonNumber: series.seasonNumber, episodeNumber: series.episodeNumbers[index] }
               : undefined,
+            duration !== null ? { duration } : undefined,
           );
           const assets: BulkAsset[] = folder.files.map((f) => ({
             relativePath: mapLocalPathToRelativePath(f.relativePath),

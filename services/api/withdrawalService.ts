@@ -24,7 +24,7 @@ interface BackendWithdrawal {
   transferPaymentAccountId: string | null;
   createdAt: string;
   updatedAt: string;
-  user?: { id: string; username: string; displayName: string | null; phone: string | null } | null;
+  user?: { id: string; username: string; displayName: string | null; phone: string | null; email: string | null } | null;
 }
 
 function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
@@ -34,6 +34,7 @@ function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
     userName: userLabelOr(w.user, "Unknown user"),
     userUsername: w.user?.username ?? null,
     userPhone: w.user?.phone ?? null,
+    userEmail: w.user?.email ?? null,
     amount: w.amount,
     accountType: w.accountType,
     accountName: w.accountName,

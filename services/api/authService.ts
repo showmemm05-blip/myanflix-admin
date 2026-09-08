@@ -19,14 +19,6 @@ export const authService = {
     return apiClient.post<LoginResponse>("/auth/login", { username, password }, { skipAuth: true });
   },
 
-  register(username: string, password: string) {
-    return apiClient.post<LoginResponse>(
-      "/auth/register",
-      { username, password },
-      { skipAuth: true },
-    );
-  },
-
   logout(refreshToken: string) {
     return apiClient.post<{ loggedOut: boolean }>(
       "/auth/logout",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -12,6 +12,7 @@ import {
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { FileUploadField } from "@/components/movies/FileUploadField";
+import { ActorPicker } from "@/components/actors/ActorPicker";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,11 +28,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useObjectUrl } from "@/lib/hooks/use-object-url";
 import { useUploads, type PublishInput } from "@/lib/context/upload-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
+import { probeVideoFileDurationSeconds, secondsToMinutes } from "@/lib/upload/probe-duration";
+import { formatMinutesSeconds } from "@/lib/upload/format";
 import type { UploadStage } from "@/types/movie";
 import { toast } from "sonner";
 
@@ -46,30 +50,12 @@ const STAGE_ORDER: UploadStage[] = [
 /** Rough multiplier of the source video's own length — sequential multi-tier HLS transcoding on typical dev hardware. */
 const PROCESSING_ESTIMATE_MULTIPLIER = 1;
 
-function useObjectUrl(file: File | null) {
-  const url = useMemo(() => (file ? URL.createObjectURL(file) : null), [file]);
-  useEffect(() => {
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [url]);
-  return url;
-}
-
 function formatUploadSpeed(bytesPerSecond: number): string {
   if (bytesPerSecond >= 1024 * 1024)
     return `${(bytesPerSecond / (1024 * 1024)).toFixed(1)} MB/s`;
   if (bytesPerSecond >= 1024)
     return `${(bytesPerSecond / 1024).toFixed(0)} KB/s`;
   return `${Math.round(bytesPerSecond)} B/s`;
-}
-
-function formatTimeRemaining(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.round(totalSeconds));
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes === 0) return `${remainingSeconds}s`;
-  return `${minutes}m ${remainingSeconds}s`;
 }
 
 function UploadMovieForm() {
@@ -91,16 +77,46 @@ function UploadMovieForm() {
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState<string | null>(null);
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [actorIds, setActorIds] = useState<string[]>([]);
   const [language, setLanguage] = useState("English");
   const [releaseYear, setReleaseYear] = useState(
     String(new Date().getFullYear()),
   );
   const [durationMinutes, setDurationMinutes] = useState("120");
+  // Who last set the Duration field. The probe below only pre-fills while the
+  // field is untouched — the moment the admin types, its result is discarded.
+  const [durationSource, setDurationSource] = useState<"default" | "detected" | "user">("default");
+  // A stale probe from a previously selected file must not land on the field.
+  const probeTokenRef = useRef(0);
+  const durationSourceRef = useRef(durationSource);
+  useEffect(() => {
+    durationSourceRef.current = durationSource;
+  }, [durationSource]);
   const [accessType, setAccessType] = useState<"FREE" | "SUBSCRIPTION">("SUBSCRIPTION");
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
+
+  // Read the runtime off the selected file so the admin doesn't have to type
+  // it. The helper never rejects and never blocks (8 s ceiling), and the
+  // typed/submitted value stays human-owned: it is only replaced while the
+  // field still holds the default.
+  useEffect(() => {
+    const token = ++probeTokenRef.current;
+    if (!videoFile) return;
+    void probeVideoFileDurationSeconds(videoFile).then((seconds) => {
+      if (token !== probeTokenRef.current) return;
+      const minutes = secondsToMinutes(seconds);
+      if (minutes === null) return;
+      // Read the latest source from a ref (kept in sync below) rather than
+      // from inside a state updater: updaters must stay pure, and StrictMode
+      // double-invokes them in dev.
+      if (durationSourceRef.current === "user") return;
+      setDurationMinutes(String(minutes));
+      setDurationSource("detected");
+    });
+  }, [videoFile]);
 
   const posterPreview = useObjectUrl(posterFile);
   const coverPreview = useObjectUrl(coverFile);
@@ -126,9 +142,11 @@ function UploadMovieForm() {
     setDescription("");
     setGenre(null);
     setCategoryIds([]);
+    setActorIds([]);
     setLanguage("English");
     setReleaseYear(String(new Date().getFullYear()));
     setDurationMinutes("120");
+    setDurationSource("default");
     setAccessType("SUBSCRIPTION");
     setPosterFile(null);
     setCoverFile(null);
@@ -155,6 +173,7 @@ function UploadMovieForm() {
       description,
       genre,
       categoryIds,
+      actorIds,
       language,
       releaseYear: Number(releaseYear),
       duration: Number(durationMinutes),
@@ -194,6 +213,7 @@ function UploadMovieForm() {
         description,
         genre,
         categoryIds,
+        actorIds,
         language,
         releaseYear: Number(releaseYear),
         duration: Number(durationMinutes),
@@ -341,6 +361,7 @@ function UploadMovieForm() {
                   </div>
                 </div>
               )}
+              <ActorPicker value={actorIds} onChange={setActorIds} disabled={isBusy} />
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>{t.movies.upload.languageLabel}</Label>
@@ -378,8 +399,14 @@ function UploadMovieForm() {
                     type="number"
                     value={durationMinutes}
                     disabled={isBusy}
-                    onChange={(e) => setDurationMinutes(e.target.value)}
+                    onChange={(e) => {
+                      setDurationMinutes(e.target.value);
+                      setDurationSource("user");
+                    }}
                   />
+                  {durationSource === "detected" && (
+                    <p className="text-xs text-muted-foreground">{t.movies.upload.durationDetectedHint}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -520,7 +547,7 @@ function UploadMovieForm() {
                       </span>
                       <span className="tabular-nums">
                         {activeTask?.etaSeconds != null
-                          ? t.movies.upload.timeLeft(formatTimeRemaining(activeTask.etaSeconds))
+                          ? t.movies.upload.timeLeft(formatMinutesSeconds(activeTask.etaSeconds))
                           : t.movies.upload.estimatingTime}
                       </span>
                     </div>
@@ -531,7 +558,7 @@ function UploadMovieForm() {
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{t.movies.upload.elapsedLabel}</span>
                       <span className="tabular-nums">
-                        {formatTimeRemaining(activeTask?.processingElapsedSeconds ?? 0)}
+                        {formatMinutesSeconds(activeTask?.processingElapsedSeconds ?? 0)}
                       </span>
                     </div>
                     <Progress
@@ -542,7 +569,7 @@ function UploadMovieForm() {
                       <span>{t.movies.upload.estimatedTotalLabel}</span>
                       <span className="tabular-nums">
                         {estimatedProcessingSeconds !== null
-                          ? t.movies.upload.estimatedApprox(formatTimeRemaining(estimatedProcessingSeconds))
+                          ? t.movies.upload.estimatedApprox(formatMinutesSeconds(estimatedProcessingSeconds))
                           : t.movies.upload.calculating}
                       </span>
                     </div>

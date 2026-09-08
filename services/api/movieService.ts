@@ -1,7 +1,6 @@
 import { apiClient } from "./apiClient";
 import type { AccessType, Movie, MovieCategory, MovieStatus, MovieUploadFormValues } from "@/types/movie";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
-import type { PurchaseEntry } from "@/types/user";
 
 export interface MovieQuery extends PaginationParams {
   status?: MovieStatus;
@@ -9,26 +8,6 @@ export interface MovieQuery extends PaginationParams {
   genre?: string;
   categoryId?: string;
   search?: string;
-}
-
-interface BackendPurchaseEntry {
-  id: string;
-  movieId: string;
-  movieTitle: string;
-  posterUrl: string | null;
-  amount: number;
-  createdAt: string;
-}
-
-function mapPurchase(entry: BackendPurchaseEntry): PurchaseEntry {
-  return {
-    id: entry.id,
-    movieId: entry.movieId,
-    movieTitle: entry.movieTitle,
-    posterUrl: entry.posterUrl,
-    price: entry.amount,
-    purchasedAt: entry.createdAt,
-  };
 }
 
 export const movieService = {
@@ -62,15 +41,41 @@ export const movieService = {
 
   /**
    * Bootstraps a movie (or, with `series` set, an episode of a series) for
-   * the bulk pre-transcoded upload flow — title only, status UPLOADING.
-   * Everything else is filled in later via updateMovie().
+   * the bulk pre-transcoded upload flow — title (plus the runtime the browser
+   * probed from the bundle, when it could), status UPLOADING. Everything else
+   * is filled in later via updateMovie().
+   *
+   * `options.duration` is whole minutes and is only sent when >= 1: 0 is the
+   * API's unknown sentinel and the DTO rejects it, so an unmeasured bundle
+   * simply omits the field and the row is born with 0.
    */
   createUploadPlaceholder(
     title: string,
     series?: { seriesId: string; seasonNumber: number; episodeNumber: number },
+    options?: { duration?: number },
     signal?: AbortSignal,
   ) {
-    return apiClient.post<Movie>("/movies/upload-placeholder", { title, ...series }, { signal });
+    return apiClient.post<Movie>(
+      "/movies/upload-placeholder",
+      { title, ...series, ...(options?.duration ? { duration: options.duration } : {}) },
+      { signal },
+    );
+  },
+
+  /**
+   * Fills Movie.duration for every title still at 0 that has a READY HLS
+   * video, by summing the rendition playlist on the server. Idempotent —
+   * only unknown values are written — and capped at 100 titles per call, so
+   * a larger backlog is cleared by clicking again (`remaining` says how many
+   * are left).
+   */
+  backfillDurations(limit?: number) {
+    return apiClient.post<{
+      scanned: number;
+      updated: number;
+      failed: { movieId: string; reason: string }[];
+      remaining: number;
+    }>("/movies/durations/backfill", limit ? { limit } : {});
   },
 
   updateMovie(
@@ -88,24 +93,5 @@ export const movieService = {
 
   deleteMovie(id: string) {
     return apiClient.delete<void>(`/movies/${id}`);
-  },
-
-  purchaseMovie(id: string) {
-    return apiClient.post<{ id: string }>(`/movies/${id}/purchase`);
-  },
-
-  async getMyPurchases(pagination: PaginationParams = {}): Promise<PaginatedResponse<PurchaseEntry>> {
-    const res = await apiClient.get<PaginatedResponse<BackendPurchaseEntry>>("/movies/me/purchases", {
-      params: pagination,
-    });
-    return { ...res, items: res.items.map(mapPurchase) };
-  },
-
-  async getUserPurchases(userId: string, pagination: PaginationParams = {}): Promise<PaginatedResponse<PurchaseEntry>> {
-    const res = await apiClient.get<PaginatedResponse<BackendPurchaseEntry>>(
-      `/users/${userId}/purchases`,
-      { params: pagination },
-    );
-    return { ...res, items: res.items.map(mapPurchase) };
   },
 };

@@ -31,9 +31,13 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1.5 font-medium capitalize", TONE_STYLES[tone], className)}
+      className={cn(
+        "h-[22px] gap-1.5 px-2 text-[11px] font-semibold capitalize tracking-wide",
+        TONE_STYLES[tone],
+        className
+      )}
     >
-      <span className={cn("size-1.5 rounded-full", DOT_STYLES[tone])} />
+      <span className={cn("size-1.5 shrink-0 rounded-full", DOT_STYLES[tone])} />
       {label}
     </Badge>
   );

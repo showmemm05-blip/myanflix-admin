@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CreditCard, Loader2, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { CreditCard, Loader2, Pencil, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { formatKyat } from "@/lib/currency";
 import { subscriptionService } from "@/services/api/subscriptionService";
@@ -32,6 +27,11 @@ import type { SubscriptionPlan } from "@/types/subscription";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
+
+const DEFAULT_DURATION_DAYS = 30;
+const MIN_DURATION_DAYS = 1;
+const MAX_DURATION_DAYS = 3650;
+const DURATION_PRESETS = [7, 30, 90, 180, 365];
 
 function SubscriptionsPageContent() {
   const { t } = useLanguage();
@@ -45,13 +45,23 @@ function SubscriptionsPageContent() {
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [priceInput, setPriceInput] = useState("");
+  const [durationInput, setDurationInput] = useState(String(DEFAULT_DURATION_DAYS));
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const durationDays = Number(durationInput);
+  const durationValid =
+    durationInput.trim() !== "" &&
+    Number.isInteger(durationDays) &&
+    durationDays >= MIN_DURATION_DAYS &&
+    durationDays <= MAX_DURATION_DAYS;
+  const showDurationError = durationInput.trim() !== "" && !durationValid;
 
   const openCreate = () => {
     setEditing(null);
     setNameInput("");
     setPriceInput("");
+    setDurationInput(String(DEFAULT_DURATION_DAYS));
     setFormOpen(true);
   };
 
@@ -59,23 +69,26 @@ function SubscriptionsPageContent() {
     setEditing(plan);
     setNameInput(plan.name);
     setPriceInput(String(plan.price));
+    setDurationInput(String(plan.durationDays));
     setFormOpen(true);
   };
 
   const handleSave = async () => {
-    if (!nameInput.trim()) return;
+    if (!nameInput.trim() || !durationValid) return;
     setSaving(true);
     try {
       if (editing) {
         await subscriptionService.updatePlan(editing.id, {
           name: nameInput.trim(),
           price: Number(priceInput) || 0,
+          durationDays,
         });
         toast.success(t.subscriptions.updatedToast);
       } else {
         await subscriptionService.createPlan({
           name: nameInput.trim(),
           price: Number(priceInput) || 0,
+          durationDays,
         });
         toast.success(t.subscriptions.createdToast);
       }
@@ -113,9 +126,15 @@ function SubscriptionsPageContent() {
       accessorKey: "price",
       header: t.subscriptions.columns.price,
       cell: ({ row }) => (
+        <span className="tabular-nums text-muted-foreground">{formatKyat(row.original.price)}</span>
+      ),
+    },
+    {
+      accessorKey: "durationDays",
+      header: t.subscriptions.columns.duration,
+      cell: ({ row }) => (
         <span className="tabular-nums text-muted-foreground">
-          {formatKyat(row.original.price)}
-          <span className="ml-1 text-xs">{t.subscriptions.columns.perDays}</span>
+          {t.subscriptions.durationLabel(row.original.durationDays)}
         </span>
       ),
     },
@@ -143,19 +162,9 @@ function SubscriptionsPageContent() {
       header: "",
       cell: ({ row }) =>
         canEdit ? (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => openEdit(row.original)}>
-                  <Pencil className="size-4" />
-                  {t.common.edit}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <RowActions>
+            <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => openEdit(row.original)} />
+          </RowActions>
         ) : null,
     },
   ];
@@ -228,12 +237,55 @@ function SubscriptionsPageContent() {
                 onChange={(e) => setPriceInput(e.target.value)}
               />
             </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="plan-duration">{t.subscriptions.form.durationLabel}</Label>
+              <Input
+                id="plan-duration"
+                type="number"
+                min={MIN_DURATION_DAYS}
+                max={MAX_DURATION_DAYS}
+                step="1"
+                inputMode="numeric"
+                value={durationInput}
+                onChange={(e) => setDurationInput(e.target.value)}
+                aria-invalid={showDurationError || undefined}
+                aria-describedby={
+                  showDurationError ? "plan-duration-hint plan-duration-error" : "plan-duration-hint"
+                }
+              />
+              <p id="plan-duration-hint" className="text-xs text-muted-foreground">
+                {t.subscriptions.form.durationHint}
+              </p>
+              {showDurationError && (
+                <p id="plan-duration-error" className="text-xs text-destructive">
+                  {t.subscriptions.form.durationInvalid}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <span className="text-xs text-muted-foreground">{t.subscriptions.form.durationPresets}</span>
+                {DURATION_PRESETS.map((n) => {
+                  const selected = durationDays === n;
+                  return (
+                    <Button
+                      key={n}
+                      type="button"
+                      variant={selected ? "secondary" : "outline"}
+                      size="sm"
+                      aria-pressed={selected}
+                      onClick={() => setDurationInput(String(n))}
+                    >
+                      {t.subscriptions.durationLabel(n)}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>
               {t.common.cancel}
             </Button>
-            <Button onClick={handleSave} disabled={saving || !nameInput.trim()}>
+            <Button onClick={handleSave} disabled={saving || !nameInput.trim() || !durationValid}>
               {saving && <Loader2 className="size-4 animate-spin" />}
               {editing ? t.common.save : t.subscriptions.form.create}
             </Button>

@@ -2,70 +2,25 @@
 
 import { useState } from "react";
 import type { KeyboardEvent } from "react";
-import { format } from "date-fns";
 import Image from "next/image";
 import { AlertCircle, Check, Clock, ImageIcon, Loader2, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/lib/context/language-context";
+import {
+  TIME_OF_DAY_PATTERN,
+  formatSavedDisplay,
+  initialDateValue,
+  initialTimeValue,
+  normalizeTime,
+  previewDateTime,
+  toDateTimeLocalValue,
+} from "@/lib/datetime-local";
 import { depositService } from "@/services/api/depositService";
 import type { Deposit } from "@/types/deposit";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 import { toast } from "sonner";
-
-const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/;
-
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** "YYYY-MM-DDTHH:MM:SS" in local time, the value a `datetime-local` input expects. */
-function toDateTimeLocalValue(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
-/**
- * Only `receivingTransactionTime` (time-of-day, e.g. "06:56:28") is actually
- * persisted today — the backend has no date column yet. Date and time are
- * kept as two separate native inputs (rather than one `datetime-local`)
- * specifically so the date can be pre-filled while the time is left
- * genuinely blank — a single `datetime-local` input's value is all-or-
- * nothing, so there's no way to default just one half of it.
- */
-function initialDateValue(savedTime: string | null, approvedAt: string | null) {
-  // Nothing saved yet — default to today so the admin isn't forced to type
-  // it every time; they can still change it.
-  if (!savedTime) return toDateTimeLocalValue(new Date()).slice(0, 10);
-  // Already saved — pair it with the deposit's approval date (the best
-  // available proxy for "when this probably happened"), exactly as before.
-  const day = approvedAt ? new Date(approvedAt) : new Date();
-  return toDateTimeLocalValue(day).slice(0, 10);
-}
-
-/** Blank until the admin fills it in (or uses "Now") — unchanged from before. */
-function initialTimeValue(savedTime: string | null) {
-  return savedTime ?? "";
-}
-
-function normalizeTime(time: string) {
-  const [h = "00", m = "00", s = "00"] = time.split(":");
-  return `${pad(Number(h))}:${pad(Number(m))}:${pad(Number(s))}`;
-}
-
-function formatSavedDisplay(savedTime: string | null, approvedAt: string | null) {
-  if (!savedTime) return null;
-  const datePart = approvedAt ? format(new Date(approvedAt), "d MMM yyyy") : null;
-  return datePart ? `${datePart}, ${savedTime}` : savedTime;
-}
-
-/** Live "12 Aug 2026, 06:56:28"-style preview of whatever the pickers currently hold. */
-function previewDateTime(date: string, time: string) {
-  if (!date || !time) return null;
-  const parsed = new Date(`${date}T${time}`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return `${format(parsed, "d MMM yyyy")}, ${normalizeTime(time)}`;
-}
 
 /**
  * A plain admin-typed RECORD of the account the user says they sent the
@@ -295,7 +250,11 @@ export function UserDepositAccountCell({
             </span>
           )}
         </div>
-        <span className="font-mono text-muted-foreground">{deposit.receivingAccountNumber}</span>
+        {/* Masked render-only; the full number stays a hover away. The edit
+            Input above always holds the raw value — never mask an input. */}
+        <span className="font-mono text-muted-foreground">
+          {deposit.receivingAccountNumber}
+        </span>
         {deposit.receivingTransactionTime && (
           <span className="inline-flex items-center gap-1 text-muted-foreground" title={t.deposits.userAccountCell.onlyTimeStoredTitle}>
             <Clock className="size-2.5 shrink-0" />

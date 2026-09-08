@@ -8,17 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
+import { REVIEW_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { useLanguage } from "@/lib/context/language-context";
-import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
-
-const STATUS_TONE: Record<WithdrawalStatus, StatusTone> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
+import type { Withdrawal } from "@/types/withdrawal";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -66,7 +61,11 @@ export function ViewWithdrawalDialog({
                   </span>
                 }
               />
-              <Row label={t.withdrawals.viewDialog.phone} value={formatLocalPhone(withdrawal.userPhone) || "—"} />
+              {withdrawal.userPhone || !withdrawal.userEmail ? (
+                <Row label={t.withdrawals.viewDialog.phone} value={formatLocalPhone(withdrawal.userPhone) || "—"} />
+              ) : (
+                <Row label={t.withdrawals.viewDialog.email} value={withdrawal.userEmail} />
+              )}
               <Row label={t.withdrawals.viewDialog.amount} value={formatKyat(withdrawal.amount)} />
               <Row
                 label={t.withdrawals.viewDialog.status}

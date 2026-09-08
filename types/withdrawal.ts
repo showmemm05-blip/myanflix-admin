@@ -13,6 +13,8 @@ export interface Withdrawal {
    */
   userUsername: string | null;
   userPhone: string | null;
+  /** Shown in place of the phone for accounts without one (e.g. Google sign-ins). */
+  userEmail: string | null;
   amount: number;
   /** The account the user provided to receive the money — never edited by admins. */
   accountType: string;

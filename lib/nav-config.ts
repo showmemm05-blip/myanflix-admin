@@ -1,17 +1,21 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
-  Gauge,
   ArrowDownToLine,
   ArrowUpFromLine,
   Banknote,
-  CreditCard,
+  BookOpen,
+  BookPlus,
   Clock,
+  CreditCard,
+  Feather,
   Film,
   Fingerprint,
   FolderInput,
+  Gauge,
   Landmark,
   LayoutDashboard,
+  Medal,
   ListVideo,
   MessageSquare,
   MessageSquareWarning,
@@ -21,6 +25,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Tags,
   Tv,
   UserCog,
   Users,
@@ -91,6 +96,12 @@ export const navItems: NavItem[] = [
         icon: ListVideo,
         permission: "CATEGORIES.VIEW",
       },
+      {
+        labelKey: "actors",
+        href: "/movies/actors",
+        icon: Users,
+        permission: "ACTORS.VIEW",
+      },
     ],
   },
   {
@@ -111,6 +122,48 @@ export const navItems: NavItem[] = [
         href: "/series/ready-to-publish",
         icon: Rocket,
         permission: "SERIES.PUBLISH",
+      },
+    ],
+  },
+  {
+    labelKey: "books",
+    href: "/books",
+    icon: BookOpen,
+    children: [
+      {
+        labelKey: "allBooks",
+        href: "/books",
+        icon: BookOpen,
+        permission: "BOOKS.VIEW",
+      },
+      {
+        // The type picker (write vs upload PDF) creates the book row, so
+        // it is gated on BOOKS.CREATE rather than on being able to view.
+        labelKey: "createBook",
+        href: "/books/new",
+        icon: BookPlus,
+        permission: "BOOKS.CREATE",
+      },
+      {
+        labelKey: "booksReadyToPublish",
+        href: "/books/ready-to-publish",
+        icon: Rocket,
+        permission: "BOOKS.PUBLISH",
+      },
+      {
+        // The books' own shelves, separate from the movie categories —
+        // gated on BOOKS.VIEW like the rest of the section.
+        labelKey: "bookCategories",
+        href: "/books/categories",
+        icon: Tags,
+        permission: "BOOKS.VIEW",
+      },
+      {
+        // The author list is book metadata too, gated exactly like categories.
+        labelKey: "bookAuthors",
+        href: "/books/authors",
+        icon: Feather,
+        permission: "BOOKS.VIEW",
       },
     ],
   },
@@ -137,6 +190,14 @@ export const navItems: NavItem[] = [
         href: "/users/peak-users",
         icon: Gauge,
         permission: "PEAK_USERS.VIEW",
+      },
+      {
+        // Membership levels are user-domain configuration — same gate as the
+        // page's RequirePermission (USERS.VIEW), no dedicated module.
+        labelKey: "userLevels",
+        href: "/users/levels",
+        icon: Medal,
+        permission: "USERS.VIEW",
       },
       {
         labelKey: "staff",

@@ -79,9 +79,9 @@ export interface TrackedUser {
   phone: string | null;
 }
 
-export type TrackedTitleKind = "MOVIE" | "SERIES";
+export type TrackedTitleKind = "MOVIE" | "SERIES" | "BOOK";
 
-/** The movie or series a comment is attached to. */
+/** The movie, series or book a comment is attached to. */
 export interface TrackedTitle {
   id: string;
   kind: TrackedTitleKind;
@@ -366,10 +366,6 @@ export interface TrackingSessionsQuery extends TrackingPagedRangeParams {
 }
 
 // ---------------------------------------------------------------- payloads
-
-export interface ModerateCommentPayload {
-  status: CommentStatus;
-}
 
 export interface UpdateFeedbackStatusPayload {
   status: FeedbackStatus;

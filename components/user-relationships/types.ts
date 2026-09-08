@@ -31,8 +31,7 @@
  * ---------------------------------------------------------------------------
  * Node ids carry a kind prefix so a user and a phone can never collide inside
  * the same Map/Set: `u:<userId>` and `p:<normalizedDigits>`. Always build them
- * with `userNodeId` / `phoneNodeId` (re-exported below) and take them apart
- * with `parseNodeId`.
+ * with `userNodeId` / `phoneNodeId` (re-exported below).
  */
 import type {
   RelationshipEdgeKind,
@@ -145,24 +144,6 @@ export type {
 /* -------------------------------------------------------------------------- */
 /* Node id helpers                                                             */
 /* -------------------------------------------------------------------------- */
-
-export type ParsedNodeId =
-  | { kind: "USER"; userId: string }
-  | { kind: "PHONE"; normalized: string }
-  | null;
-
-/** Inverse of `userNodeId` / `phoneNodeId`; null for anything unrecognized. */
-export function parseNodeId(id: string | null | undefined): ParsedNodeId {
-  if (!id) return null;
-  const separator = id.indexOf(":");
-  if (separator === -1) return null;
-  const value = id.slice(separator + 1);
-  if (!value) return null;
-  const prefix = id.slice(0, separator);
-  if (prefix === "u") return { kind: "USER", userId: value };
-  if (prefix === "p") return { kind: "PHONE", normalized: value };
-  return null;
-}
 
 /** Narrowing helpers so consumers don't re-test `node.kind` and `node.user` separately. */
 export function isUserNode(

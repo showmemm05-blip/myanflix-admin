@@ -3,15 +3,10 @@
 import Image from "next/image";
 import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Loader2, MoreHorizontal, Pencil, Rocket, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Rocket, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import type { TranslationShape } from "@/lib/i18n/translations";
@@ -123,25 +118,19 @@ export function getEpisodeColumns({
               </Button>
             )}
             {(canEdit || canDelete) && (
-              <DropdownMenu>
-                <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-                  <MoreHorizontal className="size-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {canEdit && (
-                    <DropdownMenuItem onClick={() => onEdit(episode)}>
-                      <Pencil className="size-4" />
-                      {t.common.edit}
-                    </DropdownMenuItem>
-                  )}
-                  {canDelete && (
-                    <DropdownMenuItem variant="destructive" onClick={() => onDelete(episode)}>
-                      <Trash2 className="size-4" />
-                      {t.common.delete}
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <RowActions>
+                {canEdit && (
+                  <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => onEdit(episode)} />
+                )}
+                {canDelete && (
+                  <RowActionButton
+                    icon={Trash2}
+                    label={t.common.delete}
+                    destructive
+                    onClick={() => onDelete(episode)}
+                  />
+                )}
+              </RowActions>
             )}
           </div>
         );

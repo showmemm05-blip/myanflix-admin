@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { format } from "date-fns";
 import { EyeOff, Loader2, X } from "lucide-react";
 import {
   Dialog,
@@ -18,6 +17,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/lib/context/language-context";
+import {
+  TIME_OF_DAY_PATTERN,
+  normalizeTime,
+  previewDateTime,
+  toDateTimeLocalValue,
+} from "@/lib/datetime-local";
 import { formatLocalPhone } from "@/lib/phone";
 import { ApiError } from "@/services/api/apiClient";
 import { depositService } from "@/services/api/depositService";
@@ -28,32 +33,9 @@ import type { AppUser } from "@/types/user";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 import { toast } from "sonner";
 
-const TIME_OF_DAY_PATTERN = /^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/;
 // Money columns are 2dp — same guard as AdjustBalanceDialog (the DTO enforces
 // maxDecimalPlaces: 2 server-side).
 const AMOUNT_PATTERN = /^\d+(\.\d{1,2})?$/;
-
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
-/** "YYYY-MM-DDTHH:MM:SS" in local time, the value a `datetime-local` input expects. */
-function toDateTimeLocalValue(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
-}
-
-function normalizeTime(time: string) {
-  const [h = "00", m = "00", s = "00"] = time.split(":");
-  return `${pad(Number(h))}:${pad(Number(m))}:${pad(Number(s))}`;
-}
-
-/** Live "12 Aug 2026, 06:56:28"-style preview of whatever the pickers currently hold. */
-function previewDateTime(date: string, time: string) {
-  if (!date || !time) return null;
-  const parsed = new Date(`${date}T${time}`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return `${format(parsed, "d MMM yyyy")}, ${normalizeTime(time)}`;
-}
 
 function accountLabel(account: PaymentAccount, types: PaymentAccountType[]) {
   const typeLabel = types.find((t) => t.value === account.type)?.label ?? account.type;

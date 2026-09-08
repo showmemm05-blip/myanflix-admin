@@ -265,6 +265,61 @@
 }
 
 @layer utilities {
+  /* Typography for a book chapter — shared by the editor's writing surface
+     and its preview so what an author sees while writing is what a reader
+     gets. Written by hand rather than pulled from @tailwindcss/typography:
+     only the handful of nodes CHAPTER_EXTENSIONS can produce need styling,
+     and the plugin's own color palette would have to be overridden anyway. */
+  .prose-chapter {
+    @apply text-[0.975rem] leading-[1.75] text-foreground;
+  }
+  .prose-chapter > * + * {
+    @apply mt-4;
+  }
+  .prose-chapter h1 {
+    @apply mt-8 text-2xl font-semibold leading-tight tracking-tight;
+  }
+  .prose-chapter h2 {
+    @apply mt-7 text-xl font-semibold leading-tight tracking-tight;
+  }
+  .prose-chapter h3 {
+    @apply mt-6 text-lg font-semibold leading-snug;
+  }
+  .prose-chapter ul {
+    @apply list-disc space-y-1 pl-6;
+  }
+  .prose-chapter ol {
+    @apply list-decimal space-y-1 pl-6;
+  }
+  .prose-chapter blockquote {
+    @apply border-l-2 border-[var(--border-strong)] pl-4 italic text-muted-foreground;
+  }
+  .prose-chapter pre {
+    @apply overflow-x-auto rounded-lg bg-muted p-4 font-mono text-sm;
+  }
+  .prose-chapter code {
+    @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
+  }
+  .prose-chapter pre code {
+    @apply bg-transparent p-0;
+  }
+  .prose-chapter a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .prose-chapter img {
+    @apply my-6 h-auto max-w-full rounded-lg;
+  }
+  .prose-chapter hr {
+    @apply my-8 border-[var(--border-strong)];
+  }
+  /* ProseMirror's own empty-document placeholder hook. */
+  .prose-chapter p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-muted-foreground;
+  }
+}
+
+@layer utilities {
   .glass-card {
     /* Solid layered surface — translucent glass read consumer-grade; a finance
        console wants opaque elevation with a machined top edge. */

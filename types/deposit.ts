@@ -13,6 +13,8 @@ export interface Deposit {
    */
   userUsername: string | null;
   userPhone: string | null;
+  /** Shown in place of the phone for accounts without one (e.g. Google sign-ins). */
+  userEmail: string | null;
   amount: number;
   paymentMethod: string;
   accountName: string | null;

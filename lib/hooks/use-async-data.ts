@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Fetches data through an async function (a mock service call today, a real
@@ -45,5 +45,11 @@ export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = [])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, reloadKey]);
 
-  return { data, isLoading, error, refetch: () => setReloadKey((k) => k + 1) };
+  // Stable identity: callers put `refetch` in effect dependency arrays (the
+  // books conversion poller does), and a fresh arrow every render would tear
+  // that effect down and rebuild it on each commit — restarting the interval
+  // forever so it never actually fires.
+  const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  return { data, isLoading, error, refetch };
 }

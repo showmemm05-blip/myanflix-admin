@@ -2,15 +2,9 @@
 
 import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
-import { CornerDownRight, Eye, EyeOff, MoreHorizontal, Trash2 } from "lucide-react";
+import { CornerDownRight, Eye, EyeOff, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { PlatformChip } from "@/components/tracking/PlatformChip";
 import { formatLocalPhone } from "@/lib/phone";
@@ -42,7 +36,7 @@ export function getCommentColumns({
   onViewDetails: (comment: TrackedComment) => void;
   onToggleStatus: (comment: TrackedComment) => void;
   onDelete: (comment: TrackedComment) => void;
-  /** The row currently being written to — its menu is disabled while in flight. */
+  /** The row currently being written to — its buttons are disabled while in flight. */
   pendingId?: string | null;
 }): ColumnDef<TrackedComment>[] {
   const c = t.tracking.comments;
@@ -159,43 +153,31 @@ export function getCommentColumns({
       cell: ({ row }) => {
         const comment = row.original;
         const isHidden = comment.status === "HIDDEN";
+        // The old "…" trigger was disabled for the whole row while a write
+        // was in flight; every button inherits that same rule.
+        const pending = pendingId === comment.id;
         return (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={<Button variant="ghost" size="icon-sm" />}
-                disabled={pendingId === comment.id}
-                aria-label={t.tracking.common.actions}
-              >
-                <MoreHorizontal className="size-4" />
-              </DropdownMenuTrigger>
-              {/* The popup sizes to its anchor by default, and the anchor is a
-                  28px icon button — a floor wide enough for "Restore comment". */}
-              <DropdownMenuContent align="end" className="min-w-44">
-                <DropdownMenuItem onClick={() => onViewDetails(comment)}>
-                  <Eye className="size-4" />
-                  {t.tracking.common.viewDetails}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onToggleStatus(comment)}>
-                  {isHidden ? (
-                    <>
-                      <Eye className="size-4" />
-                      {c.actions.restore}
-                    </>
-                  ) : (
-                    <>
-                      <EyeOff className="size-4" />
-                      {c.actions.hide}
-                    </>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem variant="destructive" onClick={() => onDelete(comment)}>
-                  <Trash2 className="size-4" />
-                  {c.actions.delete}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <RowActions>
+            <RowActionButton
+              icon={Eye}
+              label={t.tracking.common.viewDetails}
+              disabled={pending}
+              onClick={() => onViewDetails(comment)}
+            />
+            <RowActionButton
+              icon={isHidden ? Eye : EyeOff}
+              label={isHidden ? c.actions.restore : c.actions.hide}
+              disabled={pending}
+              onClick={() => onToggleStatus(comment)}
+            />
+            <RowActionButton
+              icon={Trash2}
+              label={c.actions.delete}
+              destructive
+              disabled={pending}
+              onClick={() => onDelete(comment)}
+            />
+          </RowActions>
         );
       },
     });

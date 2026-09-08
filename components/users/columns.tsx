@@ -1,29 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Ban, CheckCircle2, MoreHorizontal, ShieldCheck, UserRound } from "lucide-react";
+import { Eye, Power, ShieldCheck } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { RowActionButton, RowActions } from "@/components/tables/RowActions";
+import { LevelBadge } from "@/components/levels/LevelBadge";
 import { RoleBadge } from "@/components/shared/RoleBadge";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
+import { USER_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import type { TranslationShape } from "@/lib/i18n/translations";
-import type { AppUser, UserStatus } from "@/types/user";
-
-const STATUS_TONE: Record<UserStatus, StatusTone> = {
-  ACTIVE: "success",
-  SUSPENDED: "warning",
-  BANNED: "danger",
-};
+import type { AppUser } from "@/types/user";
 
 interface GetUserColumnsOptions {
   t: TranslationShape;
@@ -55,6 +44,26 @@ export function getUserColumns({
               <AvatarFallback>{user.name.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <span className="max-w-36 truncate font-medium">{user.name}</span>
+            {/* The rank rides with the identity, not in a column of its own —
+                a full column was a lot of width for what one glyph says. It
+                sits AFTER the name (the verified-checkmark idiom) and is
+                shrink-0, so a long truncated name can never push it out of
+                the cell. The badge SVG is aria-hidden, so the wrapper carries
+                the accessible name and the hover title — without them the
+                rank would be invisible to a screen reader and unreadable to
+                anyone who doesn't know the six glyphs by heart. Unranked
+                users get nothing: a placeholder dash inside an identity cell
+                would read as part of the name. */}
+            {user.level && (
+              <span
+                role="img"
+                aria-label={user.level.name}
+                title={user.level.name}
+                className="flex shrink-0 items-center"
+              >
+                <LevelBadge icon={user.level.icon} color={user.level.color} size={18} />
+              </span>
+            )}
           </div>
         );
       },
@@ -62,8 +71,13 @@ export function getUserColumns({
     {
       accessorKey: "phone",
       header: t.users.columns.phone,
+      // Masking is render-only shoulder-surfing cover — the accessor still
+      // holds the raw phone (client search matches it), and the full local
+      // number stays one hover away in the title.
       cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
+        <span
+          className="text-sm tabular-nums text-muted-foreground"
+        >
           {formatLocalPhone(row.original.phone) ?? "—"}
         </span>
       ),
@@ -76,7 +90,10 @@ export function getUserColumns({
     {
       accessorKey: "balance",
       header: t.users.columns.balance,
-      cell: ({ row }) => <span className="tabular-nums">{formatKyat(row.original.balance)}</span>,
+      meta: { align: "right" },
+      cell: ({ row }) => (
+        <span className="font-medium tabular-nums">{formatKyat(row.original.balance)}</span>
+      ),
     },
     {
       accessorKey: "isSubscribed",
@@ -91,8 +108,9 @@ export function getUserColumns({
     {
       accessorKey: "totalSpent",
       header: t.users.columns.totalSpending,
+      meta: { align: "right" },
       cell: ({ row }) => (
-        <span className="font-medium tabular-nums">{formatKyat(row.original.totalSpent)}</span>
+        <span className="font-semibold tabular-nums">{formatKyat(row.original.totalSpent)}</span>
       ),
     },
     {
@@ -118,37 +136,26 @@ export function getUserColumns({
     header: "",
     cell: ({ row }) => {
       const user = row.original;
+      const suspended = user.status === "SUSPENDED";
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" />}>
-            <MoreHorizontal className="size-4" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem render={<Link href={`/users/${user.id}`} />}>
-              <UserRound className="size-4" />
-              {t.users.columns.viewProfile}
-            </DropdownMenuItem>
-            {canEditRole && (
-              <DropdownMenuItem onClick={() => onEditRole(user)}>
-                <ShieldCheck className="size-4" />
-                {t.users.columns.editRole}
-              </DropdownMenuItem>
-            )}
-            {canSuspend && (
-              <DropdownMenuItem
-                variant={user.status === "SUSPENDED" ? undefined : "destructive"}
-                onClick={() => onToggleSuspend(user)}
-              >
-                {user.status === "SUSPENDED" ? (
-                  <CheckCircle2 className="size-4" />
-                ) : (
-                  <Ban className="size-4" />
-                )}
-                {user.status === "SUSPENDED" ? t.users.columns.reactivateUser : t.users.columns.suspendUser}
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <RowActions>
+          <RowActionButton icon={Eye} label={t.users.columns.viewProfile} href={`/users/${user.id}`} />
+          {canEditRole && (
+            <RowActionButton
+              icon={ShieldCheck}
+              label={t.users.columns.editRole}
+              onClick={() => onEditRole(user)}
+            />
+          )}
+          {canSuspend && (
+            <RowActionButton
+              icon={Power}
+              label={suspended ? t.users.columns.reactivateUser : t.users.columns.suspendUser}
+              destructive={!suspended}
+              onClick={() => onToggleSuspend(user)}
+            />
+          )}
+        </RowActions>
       );
     },
   });

@@ -25,7 +25,7 @@ interface BackendDeposit {
   walletBalanceAfter: number | null;
   createdAt: string;
   updatedAt: string;
-  user?: { id: string; username: string; displayName: string | null; phone: string | null } | null;
+  user?: { id: string; username: string; displayName: string | null; phone: string | null; email: string | null } | null;
 }
 
 function mapDeposit(d: BackendDeposit): Deposit {
@@ -35,6 +35,7 @@ function mapDeposit(d: BackendDeposit): Deposit {
     userName: userLabelOr(d.user, "Unknown user"),
     userUsername: d.user?.username ?? null,
     userPhone: d.user?.phone ?? null,
+    userEmail: d.user?.email ?? null,
     amount: d.amount,
     paymentMethod: d.paymentMethod,
     accountName: d.accountName,

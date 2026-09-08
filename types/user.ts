@@ -1,4 +1,5 @@
 import type { Permission } from "@/lib/permissions";
+import type { AppLevel } from "@/types/level";
 
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER" | "CONTENT_UPLOADER";
 
@@ -26,6 +27,13 @@ export interface AppUser {
   isSubscribed: boolean;
   subscriptionExpiresAt: string | null;
   joinDate: string;
+  /**
+   * Resolved membership level, or null when no enabled threshold qualifies.
+   * ADDITIVE and list-only: the backend populates it on GET /users (batched
+   * alongside the wallet summaries); GET /users/:id does not carry it — the
+   * profile page reads GET /users/:id/level instead.
+   */
+  level?: AppLevel | null;
 }
 
 /**
@@ -39,34 +47,9 @@ export interface AuthenticatedProfile extends AppUser {
   roleName: string;
 }
 
-export interface WatchHistoryEntry {
-  id: string;
-  movieId: string;
-  movieTitle: string;
-  posterUrl: string | null;
-  watchedAt: string;
-  progressPercent: number;
-  durationMinutes: number | null;
-}
-
-export interface PurchaseEntry {
-  id: string;
-  movieId: string;
-  movieTitle: string;
-  posterUrl: string | null;
-  price: number;
-  purchasedAt: string;
-}
-
 export const ROLE_LABELS: Record<UserRole, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Admin",
   USER: "User",
   CONTENT_UPLOADER: "Content Uploader",
-};
-
-export const STATUS_LABELS: Record<UserStatus, string> = {
-  ACTIVE: "Active",
-  SUSPENDED: "Suspended",
-  BANNED: "Banned",
 };

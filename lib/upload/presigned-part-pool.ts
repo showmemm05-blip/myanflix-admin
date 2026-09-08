@@ -28,7 +28,10 @@ export class PresignedPartUrlPool {
    * prefetching the rest of the current window from `remainingPartNumbers`)
    * if not already cached.
    */
-  async getUrl(partNumber: number, remainingPartNumbers: number[]): Promise<string> {
+  async getUrl(
+    partNumber: number,
+    remainingPartNumbers: number[],
+  ): Promise<string> {
     const cached = this.urls.get(partNumber);
     if (cached) return cached;
 
@@ -38,7 +41,9 @@ export class PresignedPartUrlPool {
     const windowSize = this.concurrency * WINDOW_MULTIPLIER;
     const batch = [
       partNumber,
-      ...remainingPartNumbers.filter((n) => n !== partNumber && !this.urls.has(n)),
+      ...remainingPartNumbers.filter(
+        (n) => n !== partNumber && !this.urls.has(n),
+      ),
     ].slice(0, windowSize);
 
     const promise = uploadService
@@ -46,7 +51,10 @@ export class PresignedPartUrlPool {
       .then(({ parts }) => {
         for (const part of parts) this.urls.set(part.partNumber, part.url);
         const url = this.urls.get(partNumber);
-        if (!url) throw new Error(`Backend did not return a presigned URL for part ${partNumber}`);
+        if (!url)
+          throw new Error(
+            `Backend did not return a presigned URL for part ${partNumber}`,
+          );
         return url;
       })
       .finally(() => {

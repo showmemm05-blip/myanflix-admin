@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
+import { REVIEW_STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { userLabel, userLabelOr } from "@/lib/user-label";
 import { useLanguage } from "@/lib/context/language-context";
@@ -24,20 +25,6 @@ import type {
   PaymentAccountTransactionAccountRef,
   PaymentAccountTransactionCustomer,
 } from "@/types/payment-account-transaction";
-import type { DepositStatus } from "@/types/deposit";
-import type { WithdrawalStatus } from "@/types/withdrawal";
-
-const DEPOSIT_STATUS_TONE: Record<DepositStatus, StatusTone> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
-
-const WITHDRAWAL_STATUS_TONE: Record<WithdrawalStatus, StatusTone> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-};
 
 const EM_DASH = "—";
 
@@ -251,7 +238,7 @@ export function TransactionDetailsDialog({
               <Field
                 label={d.depositStatus}
                 value={
-                  <StatusBadge label={deposit.status} tone={DEPOSIT_STATUS_TONE[deposit.status]} />
+                  <StatusBadge label={deposit.status} tone={REVIEW_STATUS_TONE[deposit.status]} />
                 }
               />
               <Field label={d.rejectionReason} value={deposit.rejectionReason} full />
@@ -295,7 +282,7 @@ export function TransactionDetailsDialog({
                 value={
                   <StatusBadge
                     label={withdrawal.status}
-                    tone={WITHDRAWAL_STATUS_TONE[withdrawal.status]}
+                    tone={REVIEW_STATUS_TONE[withdrawal.status]}
                   />
                 }
               />

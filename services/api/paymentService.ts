@@ -1,7 +1,7 @@
 import { apiClient } from "./apiClient";
 import { tokenStore } from "@/lib/auth/token-store";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
-import type { FinanceSummary, RevenuePoint } from "@/types/analytics";
+import type { FinanceSummary } from "@/types/analytics";
 import type { Transaction, TransactionStatus, TransactionType } from "@/types/transaction";
 import { userLabel, userLabelOr } from "@/lib/user-label";
 
@@ -99,11 +99,5 @@ export const paymentService = {
 
   getFinanceSummary() {
     return apiClient.get<FinanceSummary>("/finance/dashboard");
-  },
-
-  getRevenueTrend() {
-    return apiClient.get<{ daily: RevenuePoint[]; weekly: RevenuePoint[]; monthly: RevenuePoint[] }>(
-      "/finance/revenue-trend",
-    );
   },
 };

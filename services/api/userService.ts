@@ -1,17 +1,13 @@
 import { apiClient } from "./apiClient";
-import { tokenStore } from "@/lib/auth/token-store";
-import { movieService } from "./movieService";
-import { videoService } from "./videoService";
 import { toPermissions, type Permission } from "@/lib/permissions";
 import { userLabel } from "@/lib/user-label";
+import type { AppLevel } from "@/types/level";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
 import type {
   AppUser,
   AuthenticatedProfile,
-  PurchaseEntry,
   UserRole,
   UserStatus,
-  WatchHistoryEntry,
 } from "@/types/user";
 import { ROLE_LABELS } from "@/types/user";
 import type {
@@ -35,6 +31,8 @@ interface BackendUser {
   totalSpent?: number;
   isSubscribed?: boolean;
   subscriptionExpiresAt?: string | null;
+  /** Resolved membership level — populated on the admin list route only. */
+  level?: AppLevel | null;
 }
 
 /**
@@ -66,6 +64,12 @@ function mapUser(u: BackendUser): AppUser {
     isSubscribed: u.isSubscribed ?? false,
     subscriptionExpiresAt: u.subscriptionExpiresAt ?? null,
     joinDate: u.createdAt,
+    // Carried through explicitly: this mapper rebuilds the row field by
+    // field, so a field the API sends but this list omits is silently
+    // dropped — `level` shipped on the wire for a while and never reached
+    // the table because of exactly that, and the optional type let it slip
+    // through the type check.
+    level: u.level ?? null,
   };
 }
 
@@ -77,10 +81,6 @@ function mapUser(u: BackendUser): AppUser {
  */
 export interface UsersQuery extends PaginationParams {
   search?: string;
-}
-
-function isSelf(userId: string): boolean {
-  return tokenStore.getUser()?.id === userId;
 }
 
 export const userService = {
@@ -117,25 +117,6 @@ export const userService = {
   async updateUserStatus(id: string, status: UserStatus): Promise<AppUser> {
     const user = await apiClient.patch<BackendUser>(`/users/${id}/status`, { status });
     return mapUser(user);
-  },
-
-  /** Own history when `userId` is the caller; the Super-Admin-only admin view otherwise. */
-  getWatchHistory(
-    userId: string,
-    pagination: PaginationParams = {},
-  ): Promise<PaginatedResponse<WatchHistoryEntry>> {
-    return isSelf(userId)
-      ? videoService.getMyWatchHistory(pagination)
-      : videoService.getUserWatchHistory(userId, pagination);
-  },
-
-  getPurchaseHistory(
-    userId: string,
-    pagination: PaginationParams = {},
-  ): Promise<PaginatedResponse<PurchaseEntry>> {
-    return isSelf(userId)
-      ? movieService.getMyPurchases(pagination)
-      : movieService.getUserPurchases(userId, pagination);
   },
 
   /**

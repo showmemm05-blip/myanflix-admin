@@ -22,8 +22,14 @@ export function RecentUsersTable({ users }: { users: AppUser[] }) {
     );
   }
 
+  // These tables live inside a padded CardContent (unlike DataTable's
+  // unpadded glass-card), so without this bleed the primitives' bg-muted
+  // header band renders as a stripe floating inside the card instead of
+  // running edge to edge. The negative margin is the card's own spacing
+  // variable, so it tracks size="sm" cards too.
   return (
-    <Table>
+    <div className="-mx-(--card-spacing)">
+      <Table>
       <TableHeader>
         <TableRow className="hover:bg-transparent">
           <TableHead>{t.users.recentUsersTable.name}</TableHead>
@@ -43,7 +49,10 @@ export function RecentUsersTable({ users }: { users: AppUser[] }) {
                 <span className="truncate text-sm font-medium">{user.name}</span>
               </div>
             </TableCell>
-            <TableCell className="truncate text-sm text-muted-foreground">
+            {/* Masked render-only; the full local number rides in title. */}
+            <TableCell
+              className="truncate text-sm tabular-nums text-muted-foreground"
+            >
               {formatLocalPhone(user.phone) ?? "—"}
             </TableCell>
             <TableCell className="text-sm text-muted-foreground">
@@ -52,6 +61,7 @@ export function RecentUsersTable({ users }: { users: AppUser[] }) {
           </TableRow>
         ))}
       </TableBody>
-    </Table>
+      </Table>
+    </div>
   );
 }

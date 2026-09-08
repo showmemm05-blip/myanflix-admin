@@ -6,14 +6,7 @@ import { useLanguage } from "@/lib/context/language-context";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import type { TranslationShape } from "@/lib/i18n/translations";
-
-function formatElapsed(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.round(totalSeconds));
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes === 0) return `${remainingSeconds}s`;
-  return `${minutes}m ${remainingSeconds}s`;
-}
+import { formatMinutesSeconds } from "@/lib/upload/format";
 
 function stageLabel(task: UploadTask, t: TranslationShape): string {
   switch (task.stage) {
@@ -24,7 +17,7 @@ function stageLabel(task: UploadTask, t: TranslationShape): string {
     case "uploading-video":
       return t.uploads.stage.uploadingVideo(task.videoProgress);
     case "processing":
-      return t.uploads.stage.processing(formatElapsed(task.processingElapsedSeconds));
+      return t.uploads.stage.processing(formatMinutesSeconds(task.processingElapsedSeconds));
     case "published":
       return t.uploads.stage.published;
     case "error":

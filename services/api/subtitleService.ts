@@ -16,10 +16,6 @@ export const subtitleService = {
     return apiClient.post<Subtitle>("/subtitles", formData, { signal });
   },
 
-  update(id: string, values: { language?: string; label?: string; isDefault?: boolean }) {
-    return apiClient.patch<Subtitle>(`/subtitles/${id}`, values);
-  },
-
   setDefault(id: string) {
     return apiClient.patch<Subtitle>(`/subtitles/${id}/set-default`);
   },
