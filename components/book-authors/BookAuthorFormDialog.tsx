@@ -58,7 +58,7 @@ function BookAuthorForm({
       // an untouched edit keeps the URL the author already has rather than
       // re-uploading the same bytes under a new key.
       const imageUrl = photoFile
-        ? (await uploadService.uploadImage(photoFile)).url
+        ? (await uploadService.uploadImage(photoFile, "bookauthor")).url
         : author?.imageUrl ?? undefined;
 
       const values = {

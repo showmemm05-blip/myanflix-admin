@@ -24,7 +24,7 @@ const PROGRESS_FLUSH_INTERVAL_MS = 250;
 /** Matches MultipartUploadService.MULTIPART_PART_SIZE; below it, one presigned PUT is enough. */
 const MULTIPART_THRESHOLD_BYTES = 32 * 1024 * 1024;
 
-/** ResourceUploadTypeRegistry's "book" entry keys off this, and writes to books/<bookId>/<relativePath>. */
+/** ResourceUploadTypeRegistry's "book" entry keys off this, and writes to documents/books/<bookId>/<relativePath>. */
 const RESOURCE_TYPE = "book";
 
 /**
@@ -32,9 +32,12 @@ const RESOURCE_TYPE = "book";
  * edition and the chapter are part of the path rather than part of the
  * resource id. The registry still resolves the resource by BOOK id, which is
  * what keeps the whole title under one key prefix so deleting a book still
- * cleans every language and chapter in a single sweep. The result matches
- * StorageService.bookPdfKey exactly:
- * `books/<bookId>/<editionId>/<chapterId>/original.pdf`.
+ * cleans every language and chapter in a single sweep. This string stays
+ * exactly what it always was: the source-vs-generated split lives entirely
+ * server-side, where the registry prefixes it with `documents/` so the
+ * uploaded PDF sits apart from the reader pages generated from it. The
+ * result matches StorageService.bookPdfKey exactly:
+ * `documents/books/<bookId>/<editionId>/<chapterId>/original.pdf`.
  */
 const pdfRelativePath = (editionId: string, chapterId: string) =>
   `${editionId}/${chapterId}/original.pdf`;

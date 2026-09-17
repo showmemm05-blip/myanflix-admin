@@ -63,13 +63,42 @@ export interface MultipartCompleteResponse {
   status: string;
 }
 
+/**
+ * The folder an uploaded image lands in: `images/<purpose>/<uuid><ext>`.
+ * Mirrors IMAGE_PURPOSES in the backend's media-taxonomy registry — the
+ * route rejects anything outside that list with a 400, so a typo here has
+ * to be a compile error rather than a runtime one.
+ *
+ * `user` is deliberately absent: avatars are written by the backend itself
+ * into `images/user/<userId>/`, and no staff upload may land there.
+ */
+export type ImagePurpose =
+  | "actor"
+  | "movie"
+  | "series"
+  | "book"
+  | "bookauthor"
+  | "category"
+  | "payment"
+  | "music"
+  | "other";
+
 export const uploadService = {
   /**
-   * `relativePath` (e.g. "original.mp4", "hls/720p/index.m3u8") switches this
-   * upload into the externally-pre-transcoded flow: completeUpload() on the
-   * backend uploads the merged file straight to
-   * `videos/<movieId>/<relativePath>` in storage and never runs ffmpeg or
-   * creates a Video row — omit it for the classic single-video-file flow.
+   * `relativePath` — the file's path INSIDE the dropped bundle, e.g.
+   * "original.mp4", "hls/720p/index.m3u8", "subtitles/english.vtt" — switches
+   * this upload into the externally-pre-transcoded flow: completeUpload() on
+   * the backend uploads the merged file to storage and never runs ffmpeg or
+   * creates a Video row. Omit it for the classic single-video-file flow.
+   *
+   * Send the bundle's own structure and nothing else: the final object key is
+   * decided server-side by ResourceUploadTypeRegistry.buildKey, which is the
+   * ONE place the storage layout lives. It is not a plain join — video assets
+   * land at `videos/<movieId>/<relativePath>`, but a "subtitles/" path is an
+   * uploaded SOURCE file and is routed out of the video prefix to
+   * `subtitles/<movieId>/<basename>`. Nothing here has to know that, which is
+   * exactly why a queue persisted in localStorage stays valid across a
+   * backend deploy that moves a folder.
    */
   init(movieId: string, filename: string, filesize: number, relativePath?: string) {
     return apiClient.post<InitUploadResponse>("/uploads/init", { movieId, filename, filesize, relativePath });
@@ -107,11 +136,20 @@ export const uploadService = {
     return apiClient.post<FinalizeExternalUploadResponse>(`/uploads/${movieId}/finalize`, { relativePaths });
   },
 
-  /** Uploads an image and resolves its backend-relative path into an absolute URL (movie DTOs require @IsUrl()). */
-  async uploadImage(file: File, signal?: AbortSignal): Promise<{ url: string }> {
+  /**
+   * Uploads an image and resolves its backend-relative path into an absolute
+   * URL (movie DTOs require @IsUrl()).
+   *
+   * `purpose` is required and positional on purpose: it decides the storage
+   * folder (`images/<purpose>/…`), the backend 400s without it, and making it
+   * an optional options bag would let a new call site forget it and only fail
+   * at runtime. This way tsc names every caller.
+   */
+  async uploadImage(file: File, purpose: ImagePurpose, signal?: AbortSignal): Promise<{ url: string }> {
     const { url } = await apiClient.post<{ url: string }>("/uploads/image", (() => {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("purpose", purpose);
       return formData;
     })(), { signal });
     return { url: url.startsWith("http") ? url : `${API_ORIGIN}${url}` };

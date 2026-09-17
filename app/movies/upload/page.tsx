@@ -203,10 +203,10 @@ function UploadMovieForm() {
     }
     try {
       const posterUrl = posterFile
-        ? (await uploadService.uploadImage(posterFile)).url
+        ? (await uploadService.uploadImage(posterFile, "movie")).url
         : undefined;
       const coverUrl = coverFile
-        ? (await uploadService.uploadImage(coverFile)).url
+        ? (await uploadService.uploadImage(coverFile, "movie")).url
         : undefined;
       await movieService.createMovie({
         title,

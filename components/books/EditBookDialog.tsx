@@ -65,7 +65,7 @@ function EditBookForm({
     setSaving(true);
     try {
       const coverUrl = coverFile
-        ? await uploadService.uploadImage(coverFile).then((r) => r.url)
+        ? await uploadService.uploadImage(coverFile, "book").then((r) => r.url)
         : book.coverUrl ?? undefined;
 
       const updated = await bookService.updateBook(book.id, {

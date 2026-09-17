@@ -191,9 +191,9 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
         if (!movieId) {
           updateTask(taskId, { stage: "uploading-images" });
-          const posterUrl = (await uploadService.uploadImage(input.posterFile, signal)).url;
+          const posterUrl = (await uploadService.uploadImage(input.posterFile, "movie", signal)).url;
           const coverUrl = input.coverFile
-            ? (await uploadService.uploadImage(input.coverFile, signal)).url
+            ? (await uploadService.uploadImage(input.coverFile, "movie", signal)).url
             : undefined;
 
           updateTask(taskId, { stage: "creating-movie" });

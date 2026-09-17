@@ -54,6 +54,7 @@ import { paymentService } from "@/services/api/paymentService";
 import { depositService } from "@/services/api/depositService";
 import { withdrawalService } from "@/services/api/withdrawalService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
+import { ApiError } from "@/services/api/apiClient";
 import type { UserStatus } from "@/types/user";
 import { toast } from "sonner";
 
@@ -202,11 +203,18 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const handleToggleSuspend = async () => {
     const nextStatus: UserStatus = currentStatus === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
     setSuspending(true);
-    await userService.updateUserStatus(user.id, nextStatus);
-    setStatus(nextStatus);
-    setSuspending(false);
-    toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast);
-    setSuspendOpen(false);
+    try {
+      await userService.updateUserStatus(user.id, nextStatus);
+      setStatus(nextStatus);
+      toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast);
+      setSuspendOpen(false);
+    } catch (err) {
+      // The profile can be opened by direct URL for any account, so the
+      // server's tier/self/lockout refusals (403/409) must surface here.
+      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+    } finally {
+      setSuspending(false);
+    }
   };
 
   return (

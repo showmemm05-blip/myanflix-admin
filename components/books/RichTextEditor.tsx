@@ -114,8 +114,10 @@ function Toolbar({ editor }: { editor: Editor }) {
       try {
         // Reuses the same image endpoint posters go through, so chapter
         // images live in MinIO alongside every other image rather than
-        // being inlined as base64 into the document.
-        const { url } = await uploadService.uploadImage(file);
+        // being inlined as base64 into the document. "book" puts them in
+        // images/book/ next to the covers — one folder for everything a
+        // book owns.
+        const { url } = await uploadService.uploadImage(file, "book");
         editor.chain().focus().setImage({ src: url }).run();
       } catch {
         toast.error(t.books.editor.saveFailedToast);

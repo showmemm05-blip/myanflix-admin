@@ -14,6 +14,7 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { userService } from "@/services/api/userService";
+import { ApiError } from "@/services/api/apiClient";
 import type { AppUser } from "@/types/user";
 import { toast } from "sonner";
 
@@ -53,16 +54,21 @@ export default function UsersPage() {
     if (!suspendTarget) return;
     const nextStatus = suspendTarget.status === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
     setSuspending(true);
-    await userService.updateUserStatus(suspendTarget.id, nextStatus);
-    setUsers(activeUsers.map((u) => (u.id === suspendTarget.id ? { ...u, status: nextStatus } : u)));
-    setSuspending(false);
-    toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast, {
-      description:
-        nextStatus === "SUSPENDED"
-          ? t.users.suspendedDescription(suspendTarget.name)
-          : t.users.reactivatedDescription(suspendTarget.name),
-    });
-    setSuspendTarget(null);
+    try {
+      await userService.updateUserStatus(suspendTarget.id, nextStatus);
+      setUsers(activeUsers.map((u) => (u.id === suspendTarget.id ? { ...u, status: nextStatus } : u)));
+      toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast, {
+        description:
+          nextStatus === "SUSPENDED"
+            ? t.users.suspendedDescription(suspendTarget.name)
+            : t.users.reactivatedDescription(suspendTarget.name),
+      });
+      setSuspendTarget(null);
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+    } finally {
+      setSuspending(false);
+    }
   };
 
   const columns = getUserColumns({

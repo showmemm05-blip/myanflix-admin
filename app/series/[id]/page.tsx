@@ -127,8 +127,8 @@ function SeriesManageContent() {
     setSavingInfo(true);
     try {
       const [posterUrl, coverUrl] = await Promise.all([
-        thumbnailFile ? uploadService.uploadImage(thumbnailFile).then((r) => r.url) : series?.posterUrl ?? undefined,
-        bannerFile ? uploadService.uploadImage(bannerFile).then((r) => r.url) : series?.coverUrl ?? undefined,
+        thumbnailFile ? uploadService.uploadImage(thumbnailFile, "series").then((r) => r.url) : series?.posterUrl ?? undefined,
+        bannerFile ? uploadService.uploadImage(bannerFile, "series").then((r) => r.url) : series?.coverUrl ?? undefined,
       ]);
       await seriesService.updateSeries(seriesId, {
         title: title.trim(),

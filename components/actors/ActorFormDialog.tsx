@@ -49,7 +49,7 @@ function ActorForm({ actor, onOpenChange, onSaved }: Omit<ActorFormDialogProps, 
       // an untouched edit keeps the URL the actor already has rather than
       // re-uploading the same bytes under a new key.
       const imageUrl = photoFile
-        ? (await uploadService.uploadImage(photoFile)).url
+        ? (await uploadService.uploadImage(photoFile, "actor")).url
         : actor?.imageUrl ?? undefined;
 
       const saved = actor

@@ -49,6 +49,19 @@ function buildUrl(path: string, params?: RequestOptions["params"]) {
 
 let refreshPromise: Promise<string | null> | null = null;
 
+/**
+ * Cross-tab guard. The token store is shared localStorage, and the backend
+ * accepts each refresh token exactly once — so when two tabs refresh at the
+ * same moment, the loser's 401 is not a dead session: the winner has (or is
+ * about to have) written a fresh pair. If the stored refresh token is no
+ * longer the one we sent, hand back the access token the winner stored
+ * instead of null, so the loser retries instead of clearing the store.
+ */
+function tokenRotatedByAnotherTab(sent: string): string | null {
+  const stored = tokenStore.getRefreshToken();
+  return stored && stored !== sent ? tokenStore.getAccessToken() : null;
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = tokenStore.getRefreshToken();
   if (!refreshToken) return null;
@@ -59,17 +72,19 @@ async function refreshAccessToken(): Promise<string | null> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
     });
-    if (!response.ok) return null;
+    if (!response.ok) return tokenRotatedByAnotherTab(refreshToken);
 
     const json = await response.json();
     const nextAccessToken: string | undefined = json?.data?.accessToken;
     const nextRefreshToken: string | undefined = json?.data?.refreshToken;
-    if (!nextAccessToken || !nextRefreshToken) return null;
+    if (!nextAccessToken || !nextRefreshToken) {
+      return tokenRotatedByAnotherTab(refreshToken);
+    }
 
     tokenStore.updateTokens(nextAccessToken, nextRefreshToken);
     return nextAccessToken;
   } catch {
-    return null;
+    return tokenRotatedByAnotherTab(refreshToken);
   }
 }
 

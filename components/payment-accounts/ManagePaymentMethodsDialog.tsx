@@ -118,7 +118,7 @@ function PaymentMethodRow({
     setError(null);
     setSaving(true);
     try {
-      const nextLogoUrl = logoFile ? (await uploadService.uploadImage(logoFile)).url : logoUrl;
+      const nextLogoUrl = logoFile ? (await uploadService.uploadImage(logoFile, "payment")).url : logoUrl;
       const updated = await paymentAccountService.updateType(type.id, {
         label: trimmed,
         requiresBankName,
@@ -266,7 +266,7 @@ function AddMethodRow({ onCreated }: { onCreated: (created: PaymentAccountType) 
     setError(null);
     setSaving(true);
     try {
-      const logoUrl = logoFile ? (await uploadService.uploadImage(logoFile)).url : undefined;
+      const logoUrl = logoFile ? (await uploadService.uploadImage(logoFile, "payment")).url : undefined;
       const created = await paymentAccountService.createType({ label: trimmed, requiresBankName, logoUrl });
       onCreated(created);
       toast.success(t.paymentAccounts.manageMethodsDialog.createdToast, {

@@ -81,9 +81,9 @@ function EditMovieForm({
     setSaving(true);
     try {
       const [posterUrl, coverUrl, thumbnailUrl] = await Promise.all([
-        posterFile ? uploadService.uploadImage(posterFile).then((r) => r.url) : movie.posterUrl ?? undefined,
-        coverFile ? uploadService.uploadImage(coverFile).then((r) => r.url) : movie.coverUrl ?? undefined,
-        thumbnailFile ? uploadService.uploadImage(thumbnailFile).then((r) => r.url) : movie.thumbnailUrl ?? undefined,
+        posterFile ? uploadService.uploadImage(posterFile, "movie").then((r) => r.url) : movie.posterUrl ?? undefined,
+        coverFile ? uploadService.uploadImage(coverFile, "movie").then((r) => r.url) : movie.coverUrl ?? undefined,
+        thumbnailFile ? uploadService.uploadImage(thumbnailFile, "movie").then((r) => r.url) : movie.thumbnailUrl ?? undefined,
       ]);
 
       const updated = await movieService.updateMovie(movie.id, {

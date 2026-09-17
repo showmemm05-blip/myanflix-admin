@@ -558,6 +558,9 @@ export default function BookChaptersPage() {
       ? upload.percent
       : null;
   const [starting, setStarting] = useState(false);
+  // A second click landing before the `starting` re-render disables the
+  // button must not fire a second request — the ref flips synchronously.
+  const startingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
   /**
@@ -680,13 +683,17 @@ export default function BookChaptersPage() {
    */
   const startConversion = useCallback(
     async (targetEditionId: string, chapterId: string) => {
+      if (startingRef.current) return;
+      startingRef.current = true;
       setStarting(true);
-      try {
-        await bookService.processChapter(bookId, targetEditionId, chapterId);
-        // Optimistic PROCESSING so the poll starts on this render rather than
-        // waiting for a row the pipeline has not written yet. The numbers
-        // come from what we already know: a retry keeps the pages that
-        // already converted, so zeroing them here would only flicker.
+      // Optimistic PROCESSING so the poll starts on this render rather than
+      // waiting for a row the pipeline has not written yet. The numbers
+      // come from what we already know: a retry keeps the pages that
+      // already converted, so zeroing them here would only flicker. Both
+      // the pane (setPolled) and the sidebar (patchChapter) must flip —
+      // a stale FAILED poll result for this chapter would otherwise keep
+      // the pane on the failed view and never start the poll.
+      const showConverting = () => {
         awaitingPipeline.current = chapterId;
         const known = chaptersRef.current.find((c) => c.id === chapterId);
         setPolled({
@@ -712,13 +719,25 @@ export default function BookChaptersPage() {
           status: "PROCESSING",
           processingError: null,
         });
+      };
+      try {
+        await bookService.processChapter(bookId, targetEditionId, chapterId);
+        showConverting();
         toast.success(t.books.chapterUpload.startedToast);
       } catch (err) {
+        // Someone else (or a double press) already started this exact
+        // conversion — that is progress to watch, not an error to report.
+        if (err instanceof ApiError && err.status === 409) {
+          showConverting();
+          toast.info(t.books.chapterUpload.alreadyConvertingToast);
+          return;
+        }
         toast.error(t.books.chapterUpload.startFailedToast, {
           description:
             err instanceof ApiError ? err.message : t.books.pleaseTryAgain,
         });
       } finally {
+        startingRef.current = false;
         setStarting(false);
       }
     },
@@ -792,7 +811,7 @@ export default function BookChaptersPage() {
     const chapterId = selectedId;
     setSavingImage(true);
     try {
-      const { url } = await uploadService.uploadImage(file);
+      const { url } = await uploadService.uploadImage(file, "book");
       const saved = await bookService.updateChapter(
         bookId,
         targetEditionId,

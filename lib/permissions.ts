@@ -57,6 +57,10 @@ export const PERMISSION_CATALOGUE = [
     actions: ["VIEW", "COMMENTS_MODERATE", "FEEDBACK_MANAGE", "PII_VIEW"],
   },
   { key: "SETTINGS", actions: ["VIEW", "MANAGE"] },
+  // Read-only history of important staff actions. VIEW implies seeing the
+  // raw IP / user agent the backend stored — only SUPER_ADMIN holds it by
+  // default (protected role = every permission), nothing seeds it elsewhere.
+  { key: "AUDIT", actions: ["VIEW"] },
 ] as const;
 
 type CatalogueEntry = (typeof PERMISSION_CATALOGUE)[number];

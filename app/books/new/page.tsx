@@ -143,7 +143,7 @@ export default function NewBookPage() {
     setCreating(true);
     try {
       const coverUrl = coverFile
-        ? await uploadService.uploadImage(coverFile).then((r) => r.url)
+        ? await uploadService.uploadImage(coverFile, "book").then((r) => r.url)
         : undefined;
 
       const book = await bookService.createBook({

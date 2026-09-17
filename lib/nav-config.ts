@@ -21,6 +21,7 @@ import {
   MessageSquareWarning,
   Radio,
   Rocket,
+  ScrollText,
   Search,
   Settings,
   ShieldCheck,
@@ -324,6 +325,14 @@ export const navItems: NavItem[] = [
     href: "/roles",
     icon: ShieldCheck,
     permission: "ROLES.VIEW",
+  },
+  {
+    // The staff audit log — who changed what, when. Sits next to Roles
+    // because both answer "what can staff do / what did staff do".
+    labelKey: "auditLog",
+    href: "/audit",
+    icon: ScrollText,
+    permission: "AUDIT.VIEW",
   },
   {
     labelKey: "settings",
