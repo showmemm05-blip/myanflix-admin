@@ -1,3 +1,5 @@
+import type { BankMatchStatusView, BankRiskLevel, BankRiskReason } from "@/types/bank-verification";
+
 export type WithdrawalStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface Withdrawal {
@@ -38,6 +40,22 @@ export interface Withdrawal {
   transferTransactionTime: string | null;
   /** The catalog PaymentAccount this withdrawal's money went out of — null if the transfer account was hand-typed instead of picked. Drives the WITHDRAWAL_OUT ledger entry. */
   transferPaymentAccountId: string | null;
+  /**
+   * What the BANK said about the payout, written by the matcher only — from
+   * the phone-monitor's "You sent …" event. Null until it is applied.
+   */
+  transferAmount: number | null;
+  /** Full timestamp of the bank notification (the old `transferTransactionTime` stays time-of-day only). */
+  transferTransactionAt: string | null;
+  /** Set once, when a bank event was applied — null means the payout is still waiting for its notification. */
+  bankCheckedAt: string | null;
+  /** The VIEW value: the admin response already applies any read-time derivation. */
+  matchStatus: BankMatchStatusView;
+  riskLevel: BankRiskLevel | null;
+  /** Stored reasons plus any server-side read-time derivation. */
+  riskReasons: BankRiskReason[];
+  /** The screenshot itself is never in JSON — it streams through the BANK_EVIDENCE route. */
+  hasBankScreenshot: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -8,39 +8,35 @@ import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
+import { VerificationFilterTabs } from "@/components/shared/VerificationFilterTabs";
+import { VerificationDetailsDialog } from "@/components/shared/VerificationDetailsDialog";
+import { ApproveSuspiciousDialog } from "@/components/shared/ApproveSuspiciousDialog";
 import { DateRangeFilter, todayStr, type DateRangeValue } from "@/components/shared/DateRangeFilter";
 import { getWithdrawalColumns } from "@/components/withdrawals/columns";
 import { RejectWithdrawalDialog } from "@/components/withdrawals/RejectWithdrawalDialog";
 import { ViewWithdrawalDialog } from "@/components/withdrawals/ViewWithdrawalDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useNow } from "@/lib/hooks/use-now";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { getSocket } from "@/lib/socket";
 import { withdrawalService } from "@/services/api/withdrawalService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
-import { userLabel } from "@/lib/user-label";
+import {
+  matchesVerificationFilter,
+  toWithdrawalVerification,
+  viewMatchStatus,
+} from "@/lib/bank-verification";
+import {
+  mergeWithdrawalVerification,
+  withdrawalFromCreatedEvent,
+  type WithdrawalCreatedEvent,
+  type WithdrawalVerificationEvent,
+} from "@/lib/realtime-rows";
+import type { VerificationFilter, VerificationReviewAction } from "@/types/bank-verification";
 import type { Withdrawal } from "@/types/withdrawal";
 import { toast } from "sonner";
-
-interface WithdrawalCreatedEvent {
-  id: string;
-  userId: string;
-  /** Raw login identity, straight off the realtime payload. */
-  username: string;
-  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
-  displayName: string | null;
-  phone: string | null;
-  email: string | null;
-  amount: number;
-  accountType: string;
-  accountName: string;
-  accountNumber: string;
-  /** Only sent for bank-transfer account types. */
-  bankName: string | null;
-  status: Withdrawal["status"];
-  createdAt: string;
-}
 
 interface WithdrawalUpdatedEvent {
   id: string;
@@ -63,9 +59,13 @@ export default function WithdrawalsPage() {
   const { can } = useRole();
   const canViewQueue = can("WITHDRAWALS.VIEW");
   const { t } = useLanguage();
+  // Drives the read-time NO_BANK_TRANSACTION derivation (24 h since approval).
+  const now = useNow();
 
   // Default to TODAY so the page opens on the current day's activity.
   const [range, setRange] = useState(() => ({ from: todayStr(), to: todayStr() }));
+  // The bank-verification axis — a server filter, unlike the status tabs.
+  const [verification, setVerification] = useState<VerificationFilter>("all");
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () => {
@@ -73,9 +73,14 @@ export default function WithdrawalsPage() {
       // would be parsed as UTC midnight and make the "to" day exclusive here.
       const dateFrom = range.from ? new Date(`${range.from}T00:00:00`).toISOString() : undefined;
       const dateTo = range.to ? new Date(`${range.to}T23:59:59.999`).toISOString() : undefined;
-      return withdrawalService.getAll({ limit: 100, dateFrom, dateTo });
+      return withdrawalService.getAll({
+        limit: 100,
+        dateFrom,
+        dateTo,
+        verification: verification === "all" ? undefined : verification,
+      });
     },
-    [range]
+    [range, verification]
   );
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
   // Full accounts (not just method types) so the "our transfer account"
@@ -90,6 +95,11 @@ export default function WithdrawalsPage() {
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Withdrawal | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
+  // The modal is keyed by id and re-reads the row from `activeWithdrawals`
+  // on every render, so a `withdrawal.verification` push updates it live.
+  const [verificationTargetId, setVerificationTargetId] = useState<string | null>(null);
+  // Approve on a SUSPICIOUS row goes through a confirm (with a note) first.
+  const [approveSuspiciousTarget, setApproveSuspiciousTarget] = useState<Withdrawal | null>(null);
 
   // True while a range-change refetch is in flight — a socket row landing in
   // that window must NOT seed the local list from the closure-stale previous
@@ -102,6 +112,14 @@ export default function WithdrawalsPage() {
     rangeRefetchingRef.current = true;
     setWithdrawals(null);
     setRange(next);
+  };
+
+  // Same guard as a range change: the verification tab is a server filter,
+  // so the local override must be dropped for the refetched rows to show.
+  const handleVerificationChange = (next: VerificationFilter) => {
+    rangeRefetchingRef.current = true;
+    setWithdrawals(null);
+    setVerification(next);
   };
 
   useEffect(() => {
@@ -133,6 +151,25 @@ export default function WithdrawalsPage() {
     [activeWithdrawals, statusFilter]
   );
 
+  // Tab counts from the loaded page. On "All" every tab is countable; on a
+  // specific tab only its own rows are loaded, so the rest show no number.
+  const verificationCounts = useMemo<Partial<Record<VerificationFilter, number>>>(() => {
+    if (verification !== "all") return { [verification]: activeWithdrawals.length };
+    const records = activeWithdrawals.map(toWithdrawalVerification);
+    return {
+      all: records.length,
+      awaiting_bank: records.filter((r) => matchesVerificationFilter(r, "awaiting_bank", now)).length,
+      verified: records.filter((r) => matchesVerificationFilter(r, "verified", now)).length,
+      needs_review: records.filter((r) => matchesVerificationFilter(r, "needs_review", now)).length,
+      no_bank_transaction: records.filter((r) => matchesVerificationFilter(r, "no_bank_transaction", now)).length,
+    };
+  }, [activeWithdrawals, verification, now]);
+
+  const verificationTarget = useMemo(
+    () => (verificationTargetId ? (activeWithdrawals.find((w) => w.id === verificationTargetId) ?? null) : null),
+    [activeWithdrawals, verificationTargetId]
+  );
+
   useEffect(() => {
     if (!canViewQueue) return;
     const socket = getSocket();
@@ -147,35 +184,21 @@ export default function WithdrawalsPage() {
       // Mid-refetch the fetched data still belongs to the previous range —
       // skip; the in-flight fetch will include this row if it qualifies.
       if (rangeRefetchingRef.current) return;
-      const incoming: Withdrawal = {
-        id: event.id,
-        userId: event.userId,
-        userName: userLabel(event),
-        userUsername: event.username,
-        userPhone: event.phone ?? null,
-        userEmail: event.email ?? null,
-        amount: event.amount,
-        accountType: event.accountType,
-        accountName: event.accountName,
-        accountNumber: event.accountNumber,
-        bankName: event.bankName,
-        status: event.status,
-        rejectionReason: null,
-        approvedByUserId: null,
-        approvedAt: null,
-        transferAccountType: null,
-        transferAccountSubname: null,
-        transferAccountName: null,
-        transferAccountNumber: null,
-        transferTransactionCode: null,
-        transferTransactionTime: null,
-        transferPaymentAccountId: null,
-        createdAt: event.createdAt,
-        updatedAt: event.createdAt,
-      };
+      // A new request is PENDING: nothing bank-side can exist yet, so it only
+      // belongs on the unfiltered list (the open set starts at approval).
+      if (verification !== "all") return;
+      const incoming = withdrawalFromCreatedEvent(event);
       // New requests are always PENDING, so prepending keeps the pending-
       // first ordering the initial fetch already established.
       setWithdrawals((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
+    };
+
+    const handleVerification = (event: WithdrawalVerificationEvent) => {
+      // Admins-only push from the matcher / a review action in another
+      // session. Merged by id; a row not on this page is simply ignored.
+      setWithdrawals((prev) =>
+        (prev ?? data?.items ?? []).map((w) => (w.id === event.id ? mergeWithdrawalVerification(w, event) : w))
+      );
     };
 
     const handleUpdated = (event: WithdrawalUpdatedEvent) => {
@@ -209,18 +232,27 @@ export default function WithdrawalsPage() {
 
     socket.on("withdrawal.created", handleCreated);
     socket.on("withdrawal.updated", handleUpdated);
+    socket.on("withdrawal.verification", handleVerification);
     return () => {
       socket.off("withdrawal.created", handleCreated);
       socket.off("withdrawal.updated", handleUpdated);
+      socket.off("withdrawal.verification", handleVerification);
     };
 
-  }, [canViewQueue, data, range]);
+  }, [canViewQueue, data, range, verification]);
 
-  const handleApprove = async (withdrawal: Withdrawal) => {
+  const performApprove = async (withdrawal: Withdrawal, note?: string) => {
     setApprovingId(withdrawal.id);
     try {
+      // A note from the suspicious-approve confirm is recorded FIRST through
+      // the review endpoint (audited with the note), because the approve
+      // route takes no body — see the deposits page for the same idiom.
+      if (note?.trim() && can("WITHDRAWALS.EDIT")) {
+        await withdrawalService.reviewVerification(withdrawal.id, "confirm_suspicious", note);
+      }
       const updated = await withdrawalService.approve(withdrawal.id);
       setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
+      setApproveSuspiciousTarget(null);
       toast.success(t.withdrawals.approvedToast, {
         description: t.withdrawals.approvedDescription(withdrawal.userName),
       });
@@ -230,6 +262,30 @@ export default function WithdrawalsPage() {
       });
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleApprove = (withdrawal: Withdrawal) => {
+    // A request flagged SUSPICIOUS before approval (a reused payout code on
+    // its twins, say) must be approved deliberately, with a note.
+    if (viewMatchStatus(toWithdrawalVerification(withdrawal), now) === "SUSPICIOUS") {
+      setApproveSuspiciousTarget(withdrawal);
+      return;
+    }
+    void performApprove(withdrawal);
+  };
+
+  const handleReview = async (action: VerificationReviewAction, note: string) => {
+    if (!verificationTarget) return;
+    try {
+      const updated = await withdrawalService.reviewVerification(verificationTarget.id, action, note);
+      setWithdrawals(activeWithdrawals.map((w) => (w.id === updated.id ? { ...w, ...updated } : w)));
+      toast.success(t.verification.actions.reviewedToast);
+    } catch (err) {
+      toast.error(t.verification.actions.reviewFailedToast, {
+        description: err instanceof Error ? err.message : undefined,
+      });
+      throw err;
     }
   };
 
@@ -251,7 +307,9 @@ export default function WithdrawalsPage() {
     onApprove: handleApprove,
     onReject: setRejectTarget,
     onTransferSaved: handleAccountEdited,
+    onOpenVerification: (withdrawal) => setVerificationTargetId(withdrawal.id),
     approvingId,
+    now,
   });
 
   // Shared by the loaded AND loading DataTable branches so the range inputs
@@ -267,6 +325,11 @@ export default function WithdrawalsPage() {
           approved: stats.approvedCount,
           rejected: stats.rejectedCount,
         }}
+      />
+      <VerificationFilterTabs
+        value={verification}
+        onValueChange={handleVerificationChange}
+        counts={verificationCounts}
       />
       <DateRangeFilter value={range} onChange={handleRangeChange} />
     </div>
@@ -339,6 +402,33 @@ export default function WithdrawalsPage() {
           open={rejectTarget !== null}
           onOpenChange={(open) => !open && setRejectTarget(null)}
           onRejected={handleRejected}
+        />
+
+        <VerificationDetailsDialog
+          record={verificationTarget ? toWithdrawalVerification(verificationTarget) : null}
+          now={now}
+          open={verificationTargetId !== null}
+          onOpenChange={(open) => !open && setVerificationTargetId(null)}
+          paymentAccounts={paymentAccounts ?? []}
+          types={types ?? []}
+          canReview={can("WITHDRAWALS.EDIT")}
+          canViewScreenshot={can("WITHDRAWALS.BANK_EVIDENCE")}
+          canApprove={can("WITHDRAWALS.APPROVE")}
+          canReject={can("WITHDRAWALS.REJECT")}
+          approving={verificationTarget !== null && approvingId === verificationTarget.id}
+          onReview={handleReview}
+          onApprove={() => verificationTarget && handleApprove(verificationTarget)}
+          onReject={() => verificationTarget && setRejectTarget(verificationTarget)}
+          fetchScreenshot={withdrawalService.fetchBankScreenshot}
+        />
+
+        <ApproveSuspiciousDialog
+          kind="withdrawal"
+          open={approveSuspiciousTarget !== null}
+          onOpenChange={(open) => !open && setApproveSuspiciousTarget(null)}
+          loading={approveSuspiciousTarget !== null && approvingId === approveSuspiciousTarget.id}
+          showNote={can("WITHDRAWALS.EDIT")}
+          onConfirm={(note) => approveSuspiciousTarget && performApprove(approveSuspiciousTarget, note)}
         />
       </div>
     </RequirePermission>

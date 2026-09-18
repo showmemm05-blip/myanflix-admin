@@ -1,3 +1,5 @@
+import type { BankMatchStatusView, BankRiskLevel, BankRiskReason } from "@/types/bank-verification";
+
 export type DepositStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 export interface Deposit {
@@ -38,6 +40,26 @@ export interface Deposit {
   /** Customer wallet balance immediately before/after this deposit's credit — captured at approve/manual-create time; null for deposits credited before snapshots existed and for PENDING/REJECTED deposits. */
   walletBalanceBefore: number | null;
   walletBalanceAfter: number | null;
+  /** Which of OUR accounts the depositor said they sent to — the matcher only ever matches on this account. Null for older clients. */
+  declaredPaymentAccountId: string | null;
+  /**
+   * What the BANK said, written by the matcher only — never by an admin form.
+   * Null until the phone-monitor's "You received …" event is applied.
+   */
+  receivingAmount: number | null;
+  /** Full timestamp of the bank notification (the old `receivingTransactionTime` stays time-of-day only). */
+  receivingTransactionAt: string | null;
+  /** Set once, when a bank event was applied — null means the row is still waiting for its notification. */
+  bankCheckedAt: string | null;
+  /** The VIEW value: the admin response already applies the read-time NO_BANK_TRANSACTION derivation. */
+  matchStatus: BankMatchStatusView;
+  riskLevel: BankRiskLevel | null;
+  /** Stored reasons plus the server's read-time derivations (NO_BANK_TRANSACTION). */
+  riskReasons: BankRiskReason[];
+  /** The screenshot itself is never in JSON — it streams through the BANK_EVIDENCE route. */
+  hasBankScreenshot: boolean;
+  /** When the user says they transferred — the mobile form does not send it yet, so usually null. */
+  declaredTransferAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

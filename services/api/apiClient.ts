@@ -112,10 +112,15 @@ async function performFetch(
   });
 }
 
-async function request<T>(
+/**
+ * The authenticated fetch with the refresh-on-401 retry, before any envelope
+ * handling — shared by the JSON path below and by `getBlob`, which needs the
+ * raw response body (a streamed PNG) rather than `{ success, data }`.
+ */
+async function authenticatedFetch(
   path: string,
-  options: RequestOptions = {},
-): Promise<T> {
+  options: RequestOptions,
+): Promise<Response> {
   const token = options.skipAuth ? null : tokenStore.getAccessToken();
   let response = await performFetch(path, options, token);
 
@@ -134,6 +139,15 @@ async function request<T>(
     }
   }
 
+  return response;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const response = await authenticatedFetch(path, options);
+
   if (response.status === 204) return undefined as T;
 
   const json = await response.json().catch(() => null);
@@ -146,7 +160,28 @@ async function request<T>(
   return json.data as T;
 }
 
+/**
+ * Binary GET — for routes that stream a file (the bank screenshot) instead of
+ * the JSON envelope. Same token/refresh handling as `request`; on failure the
+ * body IS the envelope (AllExceptionsFilter), so the message is still read
+ * from it. The caller owns the Blob (object URL + revoke).
+ */
+async function getBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const response = await authenticatedFetch(path, {
+    ...options,
+    method: "GET",
+    // No JSON content-type on a body-less GET for an image.
+    headers: { Accept: "image/png,*/*", ...options.headers },
+  });
+  if (!response.ok) {
+    const json = await response.json().catch(() => null);
+    throw new ApiError(json?.message ?? `Request to ${path} failed`, response.status);
+  }
+  return response.blob();
+}
+
 export const apiClient = {
+  getBlob,
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>

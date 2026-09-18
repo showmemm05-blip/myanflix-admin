@@ -4,30 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useRole } from "@/lib/context/role-context";
 import { getSocket } from "@/lib/socket";
 import { depositService } from "@/services/api/depositService";
-import { userLabel } from "@/lib/user-label";
+import { depositFromCreatedEvent, type DepositCreatedEvent } from "@/lib/realtime-rows";
 import type { Deposit } from "@/types/deposit";
 
 const MAX_ITEMS = 8;
 
 /** Stable empty reference so consumers' memo/effect deps do not churn. */
 const EMPTY_ITEMS: Deposit[] = [];
-
-interface DepositCreatedEvent {
-  id: string;
-  userId: string;
-  /** Raw login identity, straight off the realtime payload. */
-  username: string;
-  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
-  displayName: string | null;
-  phone: string | null;
-  email: string | null;
-  amount: number;
-  paymentMethod: string;
-  accountName: string | null;
-  reference: string;
-  status: string;
-  createdAt: string;
-}
 
 /**
  * The admin bell's real data source: deposits still awaiting review. Seeded
@@ -64,37 +47,10 @@ export function useAdminNotifications() {
     if (!socket) return;
 
     const handleCreated = (event: DepositCreatedEvent) => {
+      // The bell only lists pending rows, and a freshly created deposit is
+      // always PENDING — the factory keeps the payload's status as-is.
       setItems((prev) =>
-        [
-          {
-            id: event.id,
-            userId: event.userId,
-            userName: userLabel(event),
-            userUsername: event.username,
-            userPhone: event.phone ?? null,
-            userEmail: event.email ?? null,
-            amount: event.amount,
-            paymentMethod: event.paymentMethod,
-            accountName: event.accountName,
-            reference: event.reference,
-            status: "PENDING" as const,
-            rejectionReason: null,
-            approvedByUserId: null,
-            approvedAt: null,
-            receivingAccountType: null,
-            receivingAccountSubname: null,
-            receivingAccountName: null,
-            receivingAccountNumber: null,
-            receivingTransactionCode: null,
-            receivingTransactionTime: null,
-            receivingPaymentAccountId: null,
-            walletBalanceBefore: null,
-            walletBalanceAfter: null,
-            createdAt: event.createdAt,
-            updatedAt: event.createdAt,
-          },
-          ...prev.filter((d) => d.id !== event.id),
-        ].slice(0, MAX_ITEMS),
+        [depositFromCreatedEvent(event), ...prev.filter((d) => d.id !== event.id)].slice(0, MAX_ITEMS),
       );
     };
 

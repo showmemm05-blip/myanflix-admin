@@ -9,37 +9,35 @@ import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
+import { VerificationFilterTabs } from "@/components/shared/VerificationFilterTabs";
+import { VerificationDetailsDialog } from "@/components/shared/VerificationDetailsDialog";
+import { ApproveSuspiciousDialog } from "@/components/shared/ApproveSuspiciousDialog";
 import { DateRangeFilter, todayStr, type DateRangeValue } from "@/components/shared/DateRangeFilter";
 import { getDepositColumns } from "@/components/deposits/columns";
 import { ManualDepositDialog } from "@/components/deposits/ManualDepositDialog";
 import { RejectDepositDialog } from "@/components/deposits/RejectDepositDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useNow } from "@/lib/hooks/use-now";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { getSocket } from "@/lib/socket";
 import { depositService } from "@/services/api/depositService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
-import { userLabel } from "@/lib/user-label";
+import {
+  matchesVerificationFilter,
+  toDepositVerification,
+  viewMatchStatus,
+} from "@/lib/bank-verification";
+import {
+  depositFromCreatedEvent,
+  mergeDepositVerification,
+  type DepositCreatedEvent,
+  type DepositVerificationEvent,
+} from "@/lib/realtime-rows";
+import type { VerificationFilter, VerificationReviewAction } from "@/types/bank-verification";
 import type { Deposit } from "@/types/deposit";
 import { toast } from "sonner";
-
-interface DepositCreatedEvent {
-  id: string;
-  userId: string;
-  /** Raw login identity, straight off the realtime payload. */
-  username: string;
-  /** The name the user set; null until they set one. Render via `userLabel(event)`. */
-  displayName: string | null;
-  phone: string | null;
-  email: string | null;
-  amount: number;
-  paymentMethod: string;
-  accountName: string | null;
-  reference: string;
-  status: Deposit["status"];
-  createdAt: string;
-}
 
 interface DepositUpdatedEvent {
   id: string;
@@ -62,9 +60,13 @@ export default function DepositsPage() {
   const canViewQueue = can("DEPOSITS.VIEW");
   const canRecordDeposit = can("DEPOSITS.CREATE");
   const { t } = useLanguage();
+  // Drives the read-time NO_BANK_TRANSACTION derivation (24 h since submission).
+  const now = useNow();
 
   // Default to TODAY so the page opens on the current day's activity.
   const [range, setRange] = useState(() => ({ from: todayStr(), to: todayStr() }));
+  // The bank-verification axis — a server filter, unlike the status tabs.
+  const [verification, setVerification] = useState<VerificationFilter>("all");
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () => {
@@ -72,9 +74,14 @@ export default function DepositsPage() {
       // would be parsed as UTC midnight and make the "to" day exclusive here.
       const dateFrom = range.from ? new Date(`${range.from}T00:00:00`).toISOString() : undefined;
       const dateTo = range.to ? new Date(`${range.to}T23:59:59.999`).toISOString() : undefined;
-      return depositService.getAll({ limit: 100, dateFrom, dateTo });
+      return depositService.getAll({
+        limit: 100,
+        dateFrom,
+        dateTo,
+        verification: verification === "all" ? undefined : verification,
+      });
     },
-    [range]
+    [range, verification]
   );
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
   const { data: paymentAccounts, refetch: refetchAccounts } = useAsyncData(
@@ -88,6 +95,11 @@ export default function DepositsPage() {
   const [rejectTarget, setRejectTarget] = useState<Deposit | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
+  // The modal is keyed by id and re-reads the row from `activeDeposits` on
+  // every render, so a `deposit.verification` push updates it while open.
+  const [verificationTargetId, setVerificationTargetId] = useState<string | null>(null);
+  // Approve on a SUSPICIOUS row goes through a confirm (with a note) first.
+  const [approveSuspiciousTarget, setApproveSuspiciousTarget] = useState<Deposit | null>(null);
 
   // True while a range-change refetch is in flight — a socket row landing in
   // that window must NOT seed the local list from the closure-stale previous
@@ -100,6 +112,14 @@ export default function DepositsPage() {
     rangeRefetchingRef.current = true;
     setDeposits(null);
     setRange(next);
+  };
+
+  // Same guard as a range change: the verification tab is a server filter,
+  // so the local override must be dropped for the refetched rows to show.
+  const handleVerificationChange = (next: VerificationFilter) => {
+    rangeRefetchingRef.current = true;
+    setDeposits(null);
+    setVerification(next);
   };
 
   useEffect(() => {
@@ -131,6 +151,25 @@ export default function DepositsPage() {
     [activeDeposits, statusFilter]
   );
 
+  // Tab counts from the loaded page. On "All" every tab is countable; on a
+  // specific tab only its own rows are loaded, so the rest show no number.
+  const verificationCounts = useMemo<Partial<Record<VerificationFilter, number>>>(() => {
+    if (verification !== "all") return { [verification]: activeDeposits.length };
+    const records = activeDeposits.map(toDepositVerification);
+    return {
+      all: records.length,
+      awaiting_bank: records.filter((r) => matchesVerificationFilter(r, "awaiting_bank", now)).length,
+      verified: records.filter((r) => matchesVerificationFilter(r, "verified", now)).length,
+      needs_review: records.filter((r) => matchesVerificationFilter(r, "needs_review", now)).length,
+      no_bank_transaction: records.filter((r) => matchesVerificationFilter(r, "no_bank_transaction", now)).length,
+    };
+  }, [activeDeposits, verification, now]);
+
+  const verificationTarget = useMemo(
+    () => (verificationTargetId ? (activeDeposits.find((d) => d.id === verificationTargetId) ?? null) : null),
+    [activeDeposits, verificationTargetId]
+  );
+
   useEffect(() => {
     if (!canViewQueue) return;
     const socket = getSocket();
@@ -145,37 +184,26 @@ export default function DepositsPage() {
       // Mid-refetch the fetched data still belongs to the previous range —
       // skip; the in-flight fetch will include this row if it qualifies.
       if (rangeRefetchingRef.current) return;
-      const incoming: Deposit = {
-        id: event.id,
-        userId: event.userId,
-        userName: userLabel(event),
-        userUsername: event.username,
-        userPhone: event.phone ?? null,
-        userEmail: event.email ?? null,
-        amount: event.amount,
-        paymentMethod: event.paymentMethod,
-        accountName: event.accountName,
-        reference: event.reference,
-        status: event.status,
-        rejectionReason: null,
-        approvedByUserId: null,
-        approvedAt: null,
-        receivingAccountType: null,
-        receivingAccountSubname: null,
-        receivingAccountName: null,
-        receivingAccountNumber: null,
-        receivingTransactionCode: null,
-        receivingTransactionTime: null,
-        receivingPaymentAccountId: null,
-        walletBalanceBefore: null,
-        walletBalanceAfter: null,
-        createdAt: event.createdAt,
-        updatedAt: event.createdAt,
-      };
+      // A new row is always PENDING and never bank-checked, so it belongs on
+      // "All" and "Awaiting bank" only — on any other server filter the
+      // prepend would show a row the filter excludes.
+      if (verification !== "all" && verification !== "awaiting_bank") return;
+      // The payload carries the create-time flags (duplicate reference,
+      // velocity…); the factory copies them instead of hard-coding nulls.
+      const incoming = depositFromCreatedEvent(event);
       // Toasting here too would double up with AdminDepositNotifications,
       // mounted app-wide in app/layout.tsx — this listener only keeps the
       // visible table current in real time while this page is open.
       setDeposits((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
+    };
+
+    const handleVerification = (event: DepositVerificationEvent) => {
+      // Admins-only push from the matcher / a review action in another
+      // session. Merged by id; a row not on this page is simply ignored
+      // (it will carry the values when it is next fetched).
+      setDeposits((prev) =>
+        (prev ?? data?.items ?? []).map((d) => (d.id === event.id ? mergeDepositVerification(d, event) : d))
+      );
     };
 
     const handleUpdated = (event: DepositUpdatedEvent) => {
@@ -208,21 +236,31 @@ export default function DepositsPage() {
 
     socket.on("deposit.created", handleCreated);
     socket.on("deposit.updated", handleUpdated);
+    socket.on("deposit.verification", handleVerification);
     return () => {
       socket.off("deposit.created", handleCreated);
       socket.off("deposit.updated", handleUpdated);
+      socket.off("deposit.verification", handleVerification);
     };
 
-  }, [canViewQueue, data, range]);
+  }, [canViewQueue, data, range, verification]);
 
-  const handleApprove = async (deposit: Deposit) => {
+  const performApprove = async (deposit: Deposit, note?: string) => {
     setApprovingId(deposit.id);
     try {
+      // A note from the suspicious-approve confirm is recorded FIRST through
+      // the review endpoint (`confirm_suspicious` keeps the row SUSPICIOUS and
+      // is audited with the note), because the approve route takes no body.
+      // The audit log then reads: reviewed-with-reason, then approved.
+      if (note?.trim() && can("DEPOSITS.EDIT")) {
+        await depositService.reviewVerification(deposit.id, "confirm_suspicious", note);
+      }
       // No account picker anymore — the depositor already declared which of
       // our payment accounts they sent to when submitting, and the backend
       // auto-credits that declared account on approval.
       const updated = await depositService.approve(deposit.id);
       setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      setApproveSuspiciousTarget(null);
       toast.success(t.deposits.approvedToast, {
         description: t.deposits.approvedDescription(deposit.userName),
       });
@@ -232,6 +270,30 @@ export default function DepositsPage() {
       });
     } finally {
       setApprovingId(null);
+    }
+  };
+
+  const handleApprove = (deposit: Deposit) => {
+    // The money decision stays the admin's, but a SUSPICIOUS row (a hard
+    // mismatch against the bank) must be approved deliberately, with a note.
+    if (viewMatchStatus(toDepositVerification(deposit), now) === "SUSPICIOUS") {
+      setApproveSuspiciousTarget(deposit);
+      return;
+    }
+    void performApprove(deposit);
+  };
+
+  const handleReview = async (action: VerificationReviewAction, note: string) => {
+    if (!verificationTarget) return;
+    try {
+      const updated = await depositService.reviewVerification(verificationTarget.id, action, note);
+      setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      toast.success(t.verification.actions.reviewedToast);
+    } catch (err) {
+      toast.error(t.verification.actions.reviewFailedToast, {
+        description: err instanceof Error ? err.message : undefined,
+      });
+      throw err;
     }
   };
 
@@ -260,7 +322,9 @@ export default function DepositsPage() {
     onApprove: handleApprove,
     onReject: setRejectTarget,
     onReceivingSaved: handleReceivingSaved,
+    onOpenVerification: (deposit) => setVerificationTargetId(deposit.id),
     approvingId,
+    now,
   });
 
   // Shared by the loaded AND loading DataTable branches so the range inputs
@@ -276,6 +340,11 @@ export default function DepositsPage() {
           approved: stats.approvedCount,
           rejected: stats.rejectedCount,
         }}
+      />
+      <VerificationFilterTabs
+        value={verification}
+        onValueChange={handleVerificationChange}
+        counts={verificationCounts}
       />
       <DateRangeFilter value={range} onChange={handleRangeChange} />
     </div>
@@ -373,6 +442,33 @@ export default function DepositsPage() {
           open={rejectTarget !== null}
           onOpenChange={(open) => !open && setRejectTarget(null)}
           onRejected={handleRejected}
+        />
+
+        <VerificationDetailsDialog
+          record={verificationTarget ? toDepositVerification(verificationTarget) : null}
+          now={now}
+          open={verificationTargetId !== null}
+          onOpenChange={(open) => !open && setVerificationTargetId(null)}
+          paymentAccounts={paymentAccounts ?? []}
+          types={types ?? []}
+          canReview={can("DEPOSITS.EDIT")}
+          canViewScreenshot={can("DEPOSITS.BANK_EVIDENCE")}
+          canApprove={can("DEPOSITS.APPROVE")}
+          canReject={can("DEPOSITS.REJECT")}
+          approving={verificationTarget !== null && approvingId === verificationTarget.id}
+          onReview={handleReview}
+          onApprove={() => verificationTarget && handleApprove(verificationTarget)}
+          onReject={() => verificationTarget && setRejectTarget(verificationTarget)}
+          fetchScreenshot={depositService.fetchBankScreenshot}
+        />
+
+        <ApproveSuspiciousDialog
+          kind="deposit"
+          open={approveSuspiciousTarget !== null}
+          onOpenChange={(open) => !open && setApproveSuspiciousTarget(null)}
+          loading={approveSuspiciousTarget !== null && approvingId === approveSuspiciousTarget.id}
+          showNote={can("DEPOSITS.EDIT")}
+          onConfirm={(note) => approveSuspiciousTarget && performApprove(approveSuspiciousTarget, note)}
         />
       </div>
     </RequirePermission>

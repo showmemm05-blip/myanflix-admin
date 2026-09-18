@@ -31,8 +31,12 @@ export const PERMISSION_CATALOGUE = [
   { key: "USERS", actions: ["VIEW", "EDIT", "SUSPEND", "WALLET_ADJUST"] },
   { key: "STAFF", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
   { key: "ROLES", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
-  { key: "DEPOSITS", actions: ["VIEW", "APPROVE", "REJECT", "CREATE", "EDIT"] },
-  { key: "WITHDRAWALS", actions: ["VIEW", "APPROVE", "REJECT", "EDIT"] },
+  // BANK_EVIDENCE gates the bank-notification screenshot: it shows the
+  // business account BALANCE, so seeing it is grantable apart from VIEW.
+  // Verification review actions (mark reviewed / confirm suspicious / unlink)
+  // reuse EDIT. Only SUPER_ADMIN holds BANK_EVIDENCE by default.
+  { key: "DEPOSITS", actions: ["VIEW", "APPROVE", "REJECT", "CREATE", "EDIT", "BANK_EVIDENCE"] },
+  { key: "WITHDRAWALS", actions: ["VIEW", "APPROVE", "REJECT", "EDIT", "BANK_EVIDENCE"] },
   { key: "PAYMENT_METHODS", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
   {
     key: "PAYMENT_ACCOUNTS",

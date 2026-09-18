@@ -5,9 +5,12 @@ import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowUpRight, Check, Eye, ImageIcon, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BankMatchBadge } from "@/components/shared/BankMatchBadge";
+import { RiskBadge } from "@/components/shared/RiskBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TransferAccountCell } from "@/components/withdrawals/TransferAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
+import { toWithdrawalVerification, viewMatchStatus, viewRiskLevel, viewRiskReasons } from "@/lib/bank-verification";
 import { REVIEW_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { matchesUserSearch } from "@/lib/user-search";
@@ -25,7 +28,9 @@ export function getWithdrawalColumns({
   onApprove,
   onReject,
   onTransferSaved,
+  onOpenVerification,
   approvingId,
+  now,
 }: {
   t: TranslationShape;
   types: PaymentAccountType[];
@@ -38,9 +43,36 @@ export function getWithdrawalColumns({
   onApprove: (withdrawal: Withdrawal) => void;
   onReject: (withdrawal: Withdrawal) => void;
   onTransferSaved: (withdrawal: Withdrawal) => void;
+  /**
+   * Opens the Verification Details modal for the row — both new columns are
+   * click targets. Omitted where no modal is mounted (the user profile's
+   * withdrawals card), in which case the badges render as plain text.
+   */
+  onOpenVerification?: (withdrawal: Withdrawal) => void;
   approvingId?: string | null;
+  /**
+   * The page's `useNow()` clock for the read-time NO_BANK_TRANSACTION
+   * derivation. Optional for callers that don't tick (the user profile
+   * card): they get the moment the columns were built.
+   */
+  now?: number;
 }): ColumnDef<Withdrawal>[] {
   const typeLogo = (accountType: string) => types.find((t) => t.value === accountType)?.logoUrl ?? null;
+  const clock = now ?? Date.now();
+
+  const VerificationCell = ({ withdrawal, children }: { withdrawal: Withdrawal; children: React.ReactNode }) =>
+    onOpenVerification ? (
+      <button
+        type="button"
+        className="flex flex-col items-start gap-1 rounded-md text-left hover:bg-accent/50"
+        onClick={() => onOpenVerification(withdrawal)}
+        aria-label={t.verification.modal.openAriaLabel}
+      >
+        {children}
+      </button>
+    ) : (
+      <div className="flex flex-col items-start gap-1">{children}</div>
+    );
 
   return [
     {
@@ -139,6 +171,43 @@ export function getWithdrawalColumns({
               </span>
             )}
           </div>
+        );
+      },
+    },
+    {
+      // The bank side of the payout: the "You sent …" notification matched
+      // onto this row. A PENDING request has nothing to match yet, so the
+      // waiting hint only makes sense once staff approved it.
+      id: "bankMatch",
+      accessorFn: (row) => row.matchStatus,
+      header: t.verification.columns.bankMatch,
+      cell: ({ row }) => {
+        const record = toWithdrawalVerification(row.original);
+        const status = viewMatchStatus(record, clock);
+        return (
+          <VerificationCell withdrawal={row.original}>
+            <BankMatchBadge status={status} />
+            <span className="text-xs text-muted-foreground">
+              {record.bankCheckedAt
+                ? format(new Date(record.bankCheckedAt), "d MMM yyyy, HH:mm:ss")
+                : status === "UNVERIFIED" && record.status === "APPROVED"
+                  ? t.verification.modal.waitingForBank
+                  : null}
+            </span>
+          </VerificationCell>
+        );
+      },
+    },
+    {
+      id: "risk",
+      accessorFn: (row) => row.riskLevel ?? "",
+      header: t.verification.columns.risk,
+      cell: ({ row }) => {
+        const record = toWithdrawalVerification(row.original);
+        return (
+          <VerificationCell withdrawal={row.original}>
+            <RiskBadge level={viewRiskLevel(record, clock)} reasons={viewRiskReasons(record, clock)} />
+          </VerificationCell>
         );
       },
     },

@@ -4,10 +4,13 @@ import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BankMatchBadge } from "@/components/shared/BankMatchBadge";
+import { RiskBadge } from "@/components/shared/RiskBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ReceivingAccountCell } from "@/components/deposits/ReceivingAccountCell";
 import { UserDepositAccountCell } from "@/components/deposits/UserDepositAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
+import { toDepositVerification, viewMatchStatus, viewRiskLevel, viewRiskReasons } from "@/lib/bank-verification";
 import { REVIEW_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { matchesUserSearch } from "@/lib/user-search";
@@ -24,7 +27,9 @@ export function getDepositColumns({
   onApprove,
   onReject,
   onReceivingSaved,
+  onOpenVerification,
   approvingId,
+  now,
 }: {
   t: TranslationShape;
   types: PaymentAccountType[];
@@ -36,8 +41,35 @@ export function getDepositColumns({
   onApprove: (deposit: Deposit) => void;
   onReject: (deposit: Deposit) => void;
   onReceivingSaved: (deposit: Deposit) => void;
+  /**
+   * Opens the Verification Details modal for the row — both new columns are
+   * click targets. Omitted where no modal is mounted (the user profile's
+   * deposits card), in which case the badges render as plain text.
+   */
+  onOpenVerification?: (deposit: Deposit) => void;
   approvingId?: string | null;
+  /**
+   * The page's `useNow()` clock for the read-time NO_BANK_TRANSACTION
+   * derivation. Optional for callers that don't tick (the user profile
+   * card): they get the moment the columns were built.
+   */
+  now?: number;
 }): ColumnDef<Deposit>[] {
+  const clock = now ?? Date.now();
+  const VerificationCell = ({ deposit, children }: { deposit: Deposit; children: React.ReactNode }) =>
+    onOpenVerification ? (
+      <button
+        type="button"
+        className="flex flex-col items-start gap-1 rounded-md text-left hover:bg-accent/50"
+        onClick={() => onOpenVerification(deposit)}
+        aria-label={t.verification.modal.openAriaLabel}
+      >
+        {children}
+      </button>
+    ) : (
+      <div className="flex flex-col items-start gap-1">{children}</div>
+    );
+
   return [
     {
       accessorKey: "userName",
@@ -122,6 +154,43 @@ export function getDepositColumns({
               </span>
             )}
           </div>
+        );
+      },
+    },
+    {
+      // The bank side: what the phone-monitor saw, matched onto this row.
+      // NO_BANK_TRANSACTION is derived at render time (viewMatchStatus), so
+      // a row crossing the 24 h line flips without any fetch.
+      id: "bankMatch",
+      accessorFn: (row) => row.matchStatus,
+      header: t.verification.columns.bankMatch,
+      cell: ({ row }) => {
+        const record = toDepositVerification(row.original);
+        const status = viewMatchStatus(record, clock);
+        return (
+          <VerificationCell deposit={row.original}>
+            <BankMatchBadge status={status} />
+            <span className="text-xs text-muted-foreground">
+              {record.bankCheckedAt
+                ? format(new Date(record.bankCheckedAt), "d MMM yyyy, HH:mm:ss")
+                : status === "UNVERIFIED"
+                  ? t.verification.modal.waitingForBank
+                  : null}
+            </span>
+          </VerificationCell>
+        );
+      },
+    },
+    {
+      id: "risk",
+      accessorFn: (row) => row.riskLevel ?? "",
+      header: t.verification.columns.risk,
+      cell: ({ row }) => {
+        const record = toDepositVerification(row.original);
+        return (
+          <VerificationCell deposit={row.original}>
+            <RiskBadge level={viewRiskLevel(record, clock)} reasons={viewRiskReasons(record, clock)} />
+          </VerificationCell>
         );
       },
     },
