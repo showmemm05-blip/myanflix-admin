@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { seriesService } from "@/services/api/seriesService";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
+import { parseRatingInput, ratingToInput } from "@/lib/rating";
 import { useLanguage } from "@/lib/context/language-context";
 import type { Series } from "@/types/series";
 import { toast } from "sonner";
@@ -36,12 +37,19 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
   const [genre, setGenre] = useState(series?.genre ?? "");
   const [language, setLanguage] = useState(series?.language ?? "English");
   const [releaseYear, setReleaseYear] = useState(String(series?.releaseYear ?? new Date().getFullYear()));
+  const [rating, setRating] = useState(ratingToInput(series?.rating));
   const [accessType, setAccessType] = useState<Series["accessType"]>(series?.accessType ?? "SUBSCRIPTION");
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     if (!title.trim() || !description.trim() || !genre) {
       toast.error(t.series.missingFieldsToast);
+      return;
+    }
+    // Empty is a value here (0 = unrated); only a malformed rating blocks the save.
+    const ratingValue = parseRatingInput(rating);
+    if (ratingValue === null) {
+      toast.error(t.series.form.ratingInvalidToast);
       return;
     }
     setSaving(true);
@@ -52,6 +60,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
         genre,
         language,
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
+        rating: ratingValue,
         accessType,
       };
       const saved = series
@@ -85,7 +94,8 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
           <Label htmlFor="series-description">{t.series.form.descriptionLabel}</Label>
           <Textarea id="series-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        {/* Two columns, not three: the dialog is max-w-lg and rating makes four fields. */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t.series.form.genreLabel}</Label>
             <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
@@ -107,6 +117,20 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="series-year">{t.series.form.releaseYearLabel}</Label>
             <Input id="series-year" type="number" value={releaseYear} onChange={(e) => setReleaseYear(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="series-rating">{t.series.form.ratingLabel}</Label>
+            <Input
+              id="series-rating"
+              type="number"
+              min="0"
+              max="10"
+              step="0.1"
+              inputMode="decimal"
+              value={rating}
+              onChange={(e) => setRating(e.target.value)}
+            />
+            {rating === "" && <p className="text-xs text-muted-foreground">{t.series.form.ratingHint}</p>}
           </div>
         </div>
         <div className="flex flex-col gap-1.5">

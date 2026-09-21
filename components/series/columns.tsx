@@ -111,6 +111,15 @@ export function getSeriesColumns({
       ),
     },
     {
+      accessorKey: "rating",
+      header: t.movies.columns.rating,
+      cell: ({ row }) => (
+        <span className="tabular-nums text-muted-foreground">
+          {row.original.rating > 0 ? row.original.rating.toFixed(1) : "—"}
+        </span>
+      ),
+    },
+    {
       accessorKey: "status",
       header: t.movies.columns.status,
       cell: ({ row }) => (

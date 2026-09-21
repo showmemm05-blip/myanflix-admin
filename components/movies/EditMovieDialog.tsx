@@ -24,6 +24,7 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
 import { useLanguage } from "@/lib/context/language-context";
 import { GENRE_OPTIONS } from "@/lib/constants/movie-options";
+import { parseRatingInput, ratingToInput } from "@/lib/rating";
 import { SubtitleManager } from "./SubtitleManager";
 import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
@@ -47,6 +48,7 @@ function EditMovieForm({
   // 0 is the API's "never measured" sentinel, so it shows as an empty field
   // rather than a literal 0 the admin would have to notice and delete.
   const [duration, setDuration] = useState(movie.duration > 0 ? String(movie.duration) : "");
+  const [rating, setRating] = useState(ratingToInput(movie.rating));
   const [accessType, setAccessType] = useState<Movie["accessType"]>(movie.accessType);
   const [status, setStatus] = useState<Movie["status"]>(movie.status);
   const isEpisode = movie.seriesId !== null;
@@ -78,6 +80,13 @@ function EditMovieForm({
   const durationPatch = durationMinutes >= 1 ? { duration: durationMinutes } : {};
 
   const handleSave = async () => {
+    // Unlike duration, an empty rating IS a value (0 = unrated), so only a
+    // malformed one blocks the save.
+    const ratingValue = parseRatingInput(rating);
+    if (ratingValue === null) {
+      toast.error(t.movies.editDialog.ratingInvalidToast);
+      return;
+    }
     setSaving(true);
     try {
       const [posterUrl, coverUrl, thumbnailUrl] = await Promise.all([
@@ -94,6 +103,9 @@ function EditMovieForm({
         actorIds,
         releaseYear: Number(releaseYear) || movie.releaseYear,
         ...durationPatch,
+        // Episodes carry no rating of their own — the show does — so the
+        // field is hidden for them and the column left alone.
+        ...(isEpisode ? {} : { rating: ratingValue }),
         accessType,
         status,
         posterUrl,
@@ -176,7 +188,8 @@ function EditMovieForm({
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        {/* Two columns, not three: the dialog is max-w-lg and rating makes four fields. */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t.movies.editDialog.genreLabel}</Label>
             <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
@@ -210,6 +223,25 @@ function EditMovieForm({
               <p className="text-xs text-muted-foreground">{t.movies.editDialog.durationUnknownHint}</p>
             )}
           </div>
+          {!isEpisode && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-rating">{t.movies.editDialog.ratingLabel}</Label>
+              <Input
+                id="edit-rating"
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                inputMode="decimal"
+                value={rating}
+                onChange={(e) => setRating(e.target.value)}
+              />
+              {/* Only while empty, the way the duration hint works, so the two cells stay even. */}
+              {rating === "" && (
+                <p className="text-xs text-muted-foreground">{t.movies.editDialog.ratingHint}</p>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>{t.movies.editDialog.categoriesLabel}</Label>

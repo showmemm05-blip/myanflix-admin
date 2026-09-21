@@ -61,6 +61,8 @@ export interface MovieUploadFormValues {
   language: string;
   releaseYear: number;
   duration: number;
+  /** 0–10, one decimal; 0 = not rated. Only the edit dialog sets it — upload never does. */
+  rating?: number;
   accessType: AccessType;
   posterUrl?: string;
   coverUrl?: string;

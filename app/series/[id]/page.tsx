@@ -46,6 +46,7 @@ import {
 import { foldersFromFileList, parseEpisodeNumber } from "@/lib/upload/read-dropped-folders";
 import { formatEta, formatSpeed } from "@/lib/upload/format";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
+import { parseRatingInput, ratingToInput } from "@/lib/rating";
 import { movieService } from "@/services/api/movieService";
 import { seriesService } from "@/services/api/seriesService";
 import { uploadService } from "@/services/api/uploadService";
@@ -98,6 +99,7 @@ function SeriesManageContent() {
   const [genre, setGenre] = useState("");
   const [language, setLanguage] = useState("English");
   const [releaseYear, setReleaseYear] = useState("");
+  const [rating, setRating] = useState("");
   const [accessType, setAccessType] = useState<Series["accessType"]>("SUBSCRIPTION");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -115,6 +117,7 @@ function SeriesManageContent() {
     setGenre(series.genre);
     setLanguage(series.language);
     setReleaseYear(String(series.releaseYear));
+    setRating(ratingToInput(series.rating));
     setAccessType(series.accessType);
     setCategoryIds(series.categories.map((c) => c.id));
   }, [series]);
@@ -122,6 +125,12 @@ function SeriesManageContent() {
   const handleSaveInfo = async () => {
     if (!title.trim() || !description.trim() || !genre) {
       toast.error(t.series.missingFieldsToast);
+      return;
+    }
+    // Empty is a value here (0 = unrated); only a malformed rating blocks the save.
+    const ratingValue = parseRatingInput(rating);
+    if (ratingValue === null) {
+      toast.error(t.series.form.ratingInvalidToast);
       return;
     }
     setSavingInfo(true);
@@ -136,6 +145,7 @@ function SeriesManageContent() {
         genre,
         language,
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
+        rating: ratingValue,
         accessType,
         categoryIds,
         posterUrl,
@@ -462,7 +472,7 @@ function SeriesManageContent() {
             <Label htmlFor="series-description">{t.series.form.descriptionLabel}</Label>
             <Textarea id="series-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>{t.series.form.genreLabel}</Label>
               <Select value={genre} onValueChange={(v) => v && setGenre(v)}>
@@ -484,6 +494,20 @@ function SeriesManageContent() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="series-year">{t.series.form.releaseYearLabel}</Label>
               <Input id="series-year" type="number" value={releaseYear} onChange={(e) => setReleaseYear(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="series-rating">{t.series.form.ratingLabel}</Label>
+              <Input
+                id="series-rating"
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                inputMode="decimal"
+                value={rating}
+                onChange={(e) => setRating(e.target.value)}
+              />
+              {rating === "" && <p className="text-xs text-muted-foreground">{t.series.form.ratingHint}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

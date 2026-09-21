@@ -12,6 +12,8 @@ export interface Series {
   genre: string;
   language: string;
   releaseYear: number;
+  /** Admin-set 0–10, same meaning as Movie.rating: 0 = not rated. */
+  rating: number;
   /** One access type for the whole show — episodes are never gated individually. */
   accessType: AccessType;
   status: SeriesStatus;
@@ -42,6 +44,8 @@ export interface SeriesFormValues {
   genre: string;
   language: string;
   releaseYear: number;
+  /** 0–10, one decimal; 0 clears it back to "not rated". */
+  rating?: number;
   posterUrl?: string;
   coverUrl?: string;
   accessType?: AccessType;
