@@ -44,6 +44,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { cn } from "@/lib/utils";
 import { USER_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
+import { isClosedAccountError, userStatusLabel } from "@/lib/account-status";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
@@ -75,11 +76,6 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
   const canSuspend = can("USERS.SUSPEND");
   const canAdjustWallet = can("USERS.WALLET_ADJUST");
   const isOwnProfile = currentUser.id === id;
-  const STATUS_LABELS: Record<UserStatus, string> = {
-    ACTIVE: t.common.active,
-    SUSPENDED: t.users.profile.statusSuspended,
-    BANNED: t.users.profile.statusBanned,
-  };
 
   const { data, isLoading, error, refetch } = useAsyncData(
     async () => {
@@ -174,6 +170,11 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
 
   const { user, levelStatus, transactions, deposits, withdrawals } = data;
   const currentStatus = status ?? user.status;
+  // H-16: the owner closed this account. It is terminal — the backend refuses
+  // any status, role or balance change (409) — so those actions are not offered.
+  const isClosed = currentStatus === "CLOSED";
+  // The adjustment history stays visible on a closed account; only the button goes.
+  const showAdjustBalance = canAdjustWallet && !isClosed;
 
   // Finance summary, computed from the fetched source documents. Total
   // deposited comes server-computed on the user; withdrawn/pending/rejected
@@ -200,6 +201,13 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         })()
       : null;
 
+  // The page was loaded before the owner closed the account: show it as the
+  // server now has it (CLOSED, anonymised) instead of the stale copy.
+  const handleAccountClosed = () => {
+    setStatus("CLOSED");
+    refetch();
+  };
+
   const handleToggleSuspend = async () => {
     const nextStatus: UserStatus = currentStatus === "SUSPENDED" ? "ACTIVE" : "SUSPENDED";
     setSuspending(true);
@@ -209,9 +217,15 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
       toast.success(nextStatus === "SUSPENDED" ? t.users.suspendedToast : t.users.reactivatedToast);
       setSuspendOpen(false);
     } catch (err) {
-      // The profile can be opened by direct URL for any account, so the
-      // server's tier/self/lockout refusals (403/409) must surface here.
-      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      if (isClosedAccountError(err)) {
+        toast.error(t.users.closedAccount);
+        setSuspendOpen(false);
+        handleAccountClosed();
+      } else {
+        // The profile can be opened by direct URL for any account, so the
+        // server's tier/self/lockout refusals (403/409) must surface here.
+        toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      }
     } finally {
       setSuspending(false);
     }
@@ -247,7 +261,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="text-base font-semibold">{user.name}</p>
                     <RoleBadge role={user.role} />
-                    <StatusBadge label={STATUS_LABELS[currentStatus]} tone={STATUS_TONE[currentStatus]} />
+                    <StatusBadge label={userStatusLabel(t, currentStatus)} tone={STATUS_TONE[currentStatus]} />
                   </div>
                   {/* The heading is the name the user chose; this is the login
                   identity behind it, so a display name can never hide which
@@ -261,7 +275,10 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                   </p>
                 </div>
               </div>
-              {!isOwnProfile && (canEditRole || canSuspend) && (
+              {!isOwnProfile && (canEditRole || canSuspend) && isClosed && (
+                <p className="text-xs text-muted-foreground">{t.users.closedAccount}</p>
+              )}
+              {!isOwnProfile && (canEditRole || canSuspend) && !isClosed && (
                 <div className="flex flex-wrap gap-2">
                   {canEditRole && (
                     <Button size="sm" variant="outline" onClick={() => setEditRoleOpen(true)}>
@@ -375,9 +392,9 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
                 icon={Wallet}
                 // Extra bottom padding reserves room for the wallet-adjust
                 // button pinned to the card's bottom-left corner.
-                className={canAdjustWallet ? "h-full pb-9" : "h-full"}
+                className={showAdjustBalance ? "h-full pb-9" : "h-full"}
               />
-              {canAdjustWallet && (
+              {showAdjustBalance && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -517,6 +534,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
         open={editRoleOpen}
         onOpenChange={setEditRoleOpen}
         onSaved={() => refetch()}
+        onAccountClosed={handleAccountClosed}
       />
 
       {canAdjustWallet && (
@@ -529,6 +547,7 @@ export default function UserProfilePage({ params }: { params: Promise<{ id: stri
             refetch();
             setAdjustmentsVersion((v) => v + 1);
           }}
+          onAccountClosed={handleAccountClosed}
         />
       )}
 

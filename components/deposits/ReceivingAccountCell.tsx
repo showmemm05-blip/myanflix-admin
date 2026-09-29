@@ -65,7 +65,36 @@ export function ReceivingAccountCell({
   const [saving, setSaving] = useState(false);
 
   if (deposit.status !== "APPROVED") {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    // Before approval the money has not been credited anywhere, so there is
+    // no receiving account to edit — but the user already SAID which of our
+    // accounts they paid into (declaredPaymentAccountId, picked in the app),
+    // and that is what staff need to see while the deposit is pending.
+    // Read-only: approval is what turns the declaration into the link.
+    const declared = accounts.find((a) => a.id === deposit.declaredPaymentAccountId) ?? null;
+    if (!declared) {
+      return <span className="text-xs text-muted-foreground">—</span>;
+    }
+    const declaredLogo = types.find((ty) => ty.value === declared.type)?.logoUrl ?? null;
+    return (
+      <div
+        className="flex items-center gap-1.5 py-0.5 text-xs leading-tight"
+        title={`${t.deposits.receivingAccountCell.declaredTitle} · ${accountLabel(declared, types)} · ${declared.accountNumber}`}
+      >
+        <div
+          className="flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-secondary/40"
+          title={declared.type}
+        >
+          {declaredLogo ? (
+            <Image src={declaredLogo} alt={declared.type} width={20} height={20} className="size-full object-cover" unoptimized />
+          ) : (
+            <ImageIcon className="size-2.5 text-muted-foreground" />
+          )}
+        </div>
+        <span className="font-medium">{declared.subname || declared.accountName}</span>
+        <span className="text-[11px] text-muted-foreground">{t.deposits.receivingAccountCell.declared}</span>
+        {!declared.isActive && <HiddenBadge label={t.deposits.receivingAccountCell.hidden} />}
+      </div>
+    );
   }
 
   const linkedAccount = accounts.find((a) => a.id === deposit.receivingPaymentAccountId) ?? null;

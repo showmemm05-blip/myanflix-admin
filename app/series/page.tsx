@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Tv } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getSeriesColumns } from "@/components/series/columns";
 import { SeriesFormDialog } from "@/components/series/SeriesFormDialog";
 import { Button } from "@/components/ui/button";
@@ -27,24 +28,49 @@ import type { Series, SeriesListItem } from "@/types/series";
 import { toast } from "sonner";
 
 const ALL = "all";
+/** Rows per server page (H-24): the shows are paged and searched on the server. */
+const PAGE_LIMIT = 25;
 
 function SeriesPageContent() {
   const { t } = useLanguage();
   const { can } = useRole();
   const canCreate = can("SERIES.CREATE");
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<SeriesListItem[] | null>(null);
+  // Server search over every show (see the Movies page for the same idiom).
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setItems(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       seriesService.getSeries({
-        limit: 100,
+        page,
+        limit: PAGE_LIMIT,
+        search: appliedSearch || undefined,
         accessType: accessTypeFilter !== ALL ? (accessTypeFilter as AccessType) : undefined,
       }),
-    [accessTypeFilter],
+    [accessTypeFilter, appliedSearch, page],
   );
-  const [items, setItems] = useState<SeriesListItem[] | null>(null);
 
   const activeItems = items ?? data?.items ?? [];
+  // Rows removed on this page since the fetch leave the total with them.
+  const total = data ? data.total + activeItems.length - data.items.length : 0;
+
+  const handlePageChange = (next: number) => {
+    setItems(null);
+    setPage(next);
+  };
 
   const [formOpen, setFormOpen] = useState(false);
   const [editSeries] = useState<Series | null>(null);
@@ -85,7 +111,15 @@ function SeriesPageContent() {
     setDeleting(true);
     try {
       const result = await seriesService.deleteSeries(deleteTarget.id);
-      setItems(activeItems.filter((s) => s.id !== deleteTarget.id));
+      const remaining = activeItems.filter((s) => s.id !== deleteTarget.id);
+      if (remaining.length > 0) {
+        setItems(remaining);
+      } else {
+        // The page was emptied by hand: step back (or reload page 1).
+        setItems(null);
+        if (page > 1) setPage(page - 1);
+        else refetch();
+      }
       if (result.storageCleanup === "partial") {
         toast.warning(t.series.page.deletedPartialToast(result.failedObjects.length));
       } else {
@@ -102,7 +136,15 @@ function SeriesPageContent() {
   };
 
   const filters = (
-    <Select value={accessTypeFilter} onValueChange={(v) => v && setAccessTypeFilter(v)}>
+    <Select
+      value={accessTypeFilter}
+      onValueChange={(v) => {
+        if (!v) return;
+        setAccessTypeFilter(v);
+        setPage(1);
+        setItems(null);
+      }}
+    >
       <SelectTrigger className="w-40"><SelectValue placeholder={t.movies.page.accessTypeFilterPlaceholder} /></SelectTrigger>
       <SelectContent>
         <SelectItem value={ALL}>{t.movies.page.allAccessTypes}</SelectItem>
@@ -145,7 +187,7 @@ function SeriesPageContent() {
         }
       />
 
-      {!isLoading && activeItems.length === 0 && accessTypeFilter === ALL ? (
+      {!isLoading && total === 0 && accessTypeFilter === ALL && !search ? (
         <EmptyState
           icon={Tv}
           title={t.series.page.emptyTitle}
@@ -160,14 +202,22 @@ function SeriesPageContent() {
           }
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={activeItems}
-          isLoading={isLoading}
-          searchKey="title"
-          searchPlaceholder={t.series.page.searchPlaceholder}
-          toolbar={filters}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={activeItems}
+            isLoading={isLoading}
+            pageSize={PAGE_LIMIT}
+            manualPagination
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder={t.series.page.searchPlaceholder}
+            toolbar={filters}
+          />
+          {!isLoading && (
+            <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+          )}
+        </>
       )}
 
       <SeriesFormDialog

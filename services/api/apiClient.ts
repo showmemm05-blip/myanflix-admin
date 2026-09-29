@@ -50,6 +50,19 @@ function buildUrl(path: string, params?: RequestOptions["params"]) {
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
+ * The same single-flight refresh the 401 retry below uses, for a caller that
+ * is not inside a request — the socket, when the server refuses its
+ * reconnect with a token that expired while it was offline. Resolves to
+ * the fresh access token, or null when the session is really gone.
+ */
+export function refreshSession(): Promise<string | null> {
+  refreshPromise ??= refreshAccessToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+/**
  * Cross-tab guard. The token store is shared localStorage, and the backend
  * accepts each refresh token exactly once — so when two tabs refresh at the
  * same moment, the loser's 401 is not a dead session: the winner has (or is
@@ -112,10 +125,15 @@ async function performFetch(
   });
 }
 
-async function request<T>(
+/**
+ * The authenticated fetch with the refresh-on-401 retry, before any envelope
+ * handling — shared by the JSON path below and by `getBlob`, which needs the
+ * raw response body (a streamed PNG) rather than `{ success, data }`.
+ */
+async function authenticatedFetch(
   path: string,
-  options: RequestOptions = {},
-): Promise<T> {
+  options: RequestOptions,
+): Promise<Response> {
   const token = options.skipAuth ? null : tokenStore.getAccessToken();
   let response = await performFetch(path, options, token);
 
@@ -134,6 +152,15 @@ async function request<T>(
     }
   }
 
+  return response;
+}
+
+async function request<T>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<T> {
+  const response = await authenticatedFetch(path, options);
+
   if (response.status === 204) return undefined as T;
 
   const json = await response.json().catch(() => null);
@@ -146,7 +173,28 @@ async function request<T>(
   return json.data as T;
 }
 
+/**
+ * Binary GET — for routes that stream a file (the bank screenshot) instead of
+ * the JSON envelope. Same token/refresh handling as `request`; on failure the
+ * body IS the envelope (AllExceptionsFilter), so the message is still read
+ * from it. The caller owns the Blob (object URL + revoke).
+ */
+async function getBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const response = await authenticatedFetch(path, {
+    ...options,
+    method: "GET",
+    // No JSON content-type on a body-less GET for an image.
+    headers: { Accept: "image/png,*/*", ...options.headers },
+  });
+  if (!response.ok) {
+    const json = await response.json().catch(() => null);
+    throw new ApiError(json?.message ?? `Request to ${path} failed`, response.status);
+  }
+  return response.blob();
+}
+
 export const apiClient = {
+  getBlob,
   get: <T>(path: string, options?: RequestOptions) =>
     request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>

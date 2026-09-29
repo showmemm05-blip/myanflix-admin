@@ -65,6 +65,12 @@ interface DataTableProps<TData, TValue> {
    * the caller already capped the data and there is never a second page.
    */
   hideFooter?: boolean;
+  /**
+   * The list is paged on the SERVER: the caller already cut the page, so
+   * every row passed in renders (no client-side slicing) and this footer is
+   * dropped — the caller draws ServerPagination with the server's total.
+   */
+  manualPagination?: boolean;
 }
 
 export function DataTable<TData, TValue>({
@@ -78,6 +84,7 @@ export function DataTable<TData, TValue>({
   toolbar,
   pageSize = 10,
   hideFooter = false,
+  manualPagination = false,
   isLoading = false,
   emptyState,
   rowClassName,
@@ -95,6 +102,7 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    manualPagination,
     initialState: { pagination: { pageSize } },
     state: { sorting, columnFilters },
   });
@@ -227,7 +235,7 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {!hideFooter && !isLoading && rows.length > 0 && (
+      {!hideFooter && !manualPagination && !isLoading && rows.length > 0 && (
         <div className="flex flex-col items-center justify-between gap-3 sm:flex-row">
           <p className="text-sm tabular-nums text-muted-foreground">
             {t.shared.showingResults(

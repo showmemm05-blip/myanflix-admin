@@ -11,7 +11,8 @@ import type { MovieAnalyticsEntry } from "@/types/analytics";
 
 interface MovieAnalyticsPanelProps {
   mostWatched: MovieAnalyticsEntry[];
-  mostPurchased: MovieAnalyticsEntry[];
+  /** Null when the viewer's role cannot read purchase figures — the tab is then not offered. */
+  mostPurchased: MovieAnalyticsEntry[] | null;
 }
 
 function MovieRankList({
@@ -72,7 +73,7 @@ export function MovieAnalyticsPanel({ mostWatched, mostPurchased }: MovieAnalyti
         <Tabs defaultValue="watched">
           <TabsList className="mb-4 w-full">
             <TabsTrigger value="watched">{t.dashboard.mostWatched}</TabsTrigger>
-            <TabsTrigger value="purchased">{t.dashboard.mostPurchased}</TabsTrigger>
+            {mostPurchased && <TabsTrigger value="purchased">{t.dashboard.mostPurchased}</TabsTrigger>}
           </TabsList>
           <TabsContent value="watched">
             <MovieRankList
@@ -80,12 +81,14 @@ export function MovieAnalyticsPanel({ mostWatched, mostPurchased }: MovieAnalyti
               metric={(e) => ({ label: t.dashboard.viewsCount(e.viewCount ?? 0), value: e.viewCount ?? 0 })}
             />
           </TabsContent>
-          <TabsContent value="purchased">
-            <MovieRankList
-              entries={mostPurchased}
-              metric={(e) => ({ label: t.dashboard.buysCount(e.purchaseCount ?? 0), value: e.purchaseCount ?? 0 })}
-            />
-          </TabsContent>
+          {mostPurchased && (
+            <TabsContent value="purchased">
+              <MovieRankList
+                entries={mostPurchased}
+                metric={(e) => ({ label: t.dashboard.buysCount(e.purchaseCount ?? 0), value: e.purchaseCount ?? 0 })}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       </CardContent>
     </Card>

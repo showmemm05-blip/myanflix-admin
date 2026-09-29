@@ -10,6 +10,7 @@ import { RoleBadge } from "@/components/shared/RoleBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
 import { USER_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
+import { userStatusLabel } from "@/lib/account-status";
 import { formatLocalPhone } from "@/lib/phone";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AppUser } from "@/types/user";
@@ -126,7 +127,7 @@ export function getUserColumns({
       accessorKey: "status",
       header: t.users.columns.status,
       cell: ({ row }) => (
-        <StatusBadge label={row.original.status} tone={STATUS_TONE[row.original.status]} />
+        <StatusBadge label={userStatusLabel(t, row.original.status)} tone={STATUS_TONE[row.original.status]} />
       ),
     },
   ];
@@ -137,17 +138,20 @@ export function getUserColumns({
     cell: ({ row }) => {
       const user = row.original;
       const suspended = user.status === "SUSPENDED";
+      // A CLOSED account is terminal: the backend refuses any status or role
+      // change (409), so only the profile link is offered.
+      const closed = user.status === "CLOSED";
       return (
         <RowActions>
           <RowActionButton icon={Eye} label={t.users.columns.viewProfile} href={`/users/${user.id}`} />
-          {canEditRole && (
+          {canEditRole && !closed && (
             <RowActionButton
               icon={ShieldCheck}
               label={t.users.columns.editRole}
               onClick={() => onEditRole(user)}
             />
           )}
-          {canSuspend && (
+          {canSuspend && !closed && (
             <RowActionButton
               icon={Power}
               label={suspended ? t.users.columns.reactivateUser : t.users.columns.suspendUser}

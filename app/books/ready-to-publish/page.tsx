@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getBookColumns } from "@/components/books/columns";
 import { EditBookDialog } from "@/components/books/EditBookDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
@@ -29,17 +30,59 @@ import { toast } from "sonner";
  * with its English edition waiting while Burmese is already live — so every
  * action here names the language it applies to.
  */
+/** Rows per server page (H-24): the queue is paged and searched on the server. */
+const PAGE_LIMIT = 25;
+
 export default function BooksReadyToPublishPage() {
   const { t } = useLanguage();
   const { can } = useRole();
 
+  const [page, setPage] = useState(1);
+  const [books, setBooks] = useState<Book[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setBooks(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
+
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => bookService.getBooks({ readyToPublish: true, limit: 100 }),
-    [],
+    () =>
+      bookService.getBooks({
+        readyToPublish: true,
+        page,
+        limit: PAGE_LIMIT,
+        search: appliedSearch || undefined,
+      }),
+    [appliedSearch, page],
   );
 
-  const [books, setBooks] = useState<Book[] | null>(null);
   const activeBooks = books ?? data?.items ?? [];
+  // Rows that left the queue on this page since the fetch leave the total too.
+  const total = data ? data.total + activeBooks.length - data.items.length : 0;
+
+  const handlePageChange = (next: number) => {
+    setBooks(null);
+    setPage(next);
+  };
+
+  // Emptying the page by hand reloads (or steps back one page) so the next
+  // batch shows instead of a false "nothing waiting".
+  const showQueue = (next: Book[]) => {
+    if (next.length > 0) {
+      setBooks(next);
+      return;
+    }
+    setBooks(null);
+    if (page > 1) setPage(page - 1);
+    else refetch();
+  };
 
   const [editBook, setEditBook] = useState<Book | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
@@ -51,7 +94,7 @@ export default function BooksReadyToPublishPage() {
     setDeleting(true);
     try {
       await bookService.deleteBook(deleteBook.id);
-      setBooks(activeBooks.filter((b) => b.id !== deleteBook.id));
+      showQueue(activeBooks.filter((b) => b.id !== deleteBook.id));
       toast.success(t.books.page.deletedToast, {
         description: t.books.page.deletedDescription(deleteBook.title),
       });
@@ -75,7 +118,7 @@ export default function BooksReadyToPublishPage() {
       // Publishing one language does not finish the book: another edition may
       // still be waiting, so the row only leaves the queue once nothing in it
       // is READY any more.
-      setBooks(
+      showQueue(
         activeBooks
           .map((b) =>
             b.id === book.id
@@ -145,19 +188,27 @@ export default function BooksReadyToPublishPage() {
           description={t.books.readyToPublish.description}
         />
 
-        {!isLoading && activeBooks.length === 0 ? (
+        {!isLoading && total === 0 && !search ? (
           <EmptyState
             icon={Rocket}
             title={t.books.readyToPublish.emptyTitle}
             description={t.books.readyToPublish.emptyDescription}
           />
         ) : (
-          <DataTable
-            columns={columns}
-            data={activeBooks}
-            isLoading={isLoading}
-            searchKey="title"
-          />
+          <>
+            <DataTable
+              columns={columns}
+              data={activeBooks}
+              isLoading={isLoading}
+              pageSize={PAGE_LIMIT}
+              manualPagination
+              searchValue={search}
+              onSearchChange={setSearch}
+            />
+            {!isLoading && (
+              <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+            )}
+          </>
         )}
 
         <EditBookDialog

@@ -53,6 +53,7 @@ function localCatalogue(): AuditCatalogue {
       [
         "deposit",
         "withdrawal",
+        "bank_transaction",
         "payment_account",
         "payment_method_type",
         "finance_settings",

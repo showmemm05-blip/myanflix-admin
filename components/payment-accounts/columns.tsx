@@ -73,13 +73,6 @@ export function getPaymentAccountColumns({
       cell: ({ row }) => <span className="font-mono text-sm">{row.original.accountNumber}</span>,
     },
     {
-      accessorKey: "bankName",
-      header: t.paymentAccounts.columns.bank,
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">{row.original.bankName ?? "—"}</span>
-      ),
-    },
-    {
       accessorKey: "isActive",
       header: t.paymentAccounts.columns.status,
       cell: ({ row }) => (

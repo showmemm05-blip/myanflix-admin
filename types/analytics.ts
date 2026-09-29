@@ -17,13 +17,18 @@ export interface MovieAnalyticsEntry {
   purchaseCount?: number;
 }
 
-export interface DashboardSummary {
+/** GET /analytics/overview (DASHBOARD.VIEW). */
+export interface AnalyticsOverview {
+  totalViews: number;
+  averageCompletionRate: number;
+  averageWatchDurationSeconds: number;
+  popularMovies: MovieAnalyticsEntry[];
+  userRegistrations: { last7Days: number; last30Days: number };
+  /** Null unless the caller holds FINANCE.VIEW — the query is not even run. */
+  revenue: number | null;
   totalMovies: number;
   totalUsers: number;
   activeUsers: number;
-  totalRevenue: number;
-  monthlyRevenue: number;
-  totalViews: number;
 }
 
 export interface FinanceSummary {

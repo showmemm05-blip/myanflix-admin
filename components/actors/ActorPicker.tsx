@@ -38,17 +38,20 @@ function initials(name: string): string {
 }
 
 interface ActorPickerProps {
-  /** The film's cast, as actor ids. */
+  /** The title's cast, as actor ids. */
   value: string[];
   onChange: (actorIds: string[]) => void;
   disabled?: boolean;
+  /** Helper line under the label; defaults to the film wording. Series forms pass their own. */
+  hint?: string;
 }
 
 /**
- * Picks the cast of a film. Reads the actor list but gates on nothing of its
- * own: anyone allowed to edit a movie is allowed to see who is in it.
+ * Picks the cast of a film or a show. Reads the actor list but gates on
+ * nothing of its own: anyone allowed to edit a title is allowed to see who
+ * is in it.
  */
-export function ActorPicker({ value, onChange, disabled = false }: ActorPickerProps) {
+export function ActorPicker({ value, onChange, disabled = false, hint }: ActorPickerProps) {
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [serverTerm, setServerTerm] = useState("");
@@ -71,9 +74,31 @@ export function ActorPicker({ value, onChange, disabled = false }: ActorPickerPr
   // doesn't re-request the cast members it can no longer see on the page.
   const seenIdsRef = useRef(new Set<string>());
 
-  // The cast the picker was mounted with — the ids that may need resolving
-  // individually. Anything selected later came from a page we already hold.
-  const initialIdsRef = useRef(value);
+  // Any selected id we have never seen is looked up on its own — not only
+  // the ids the picker mounted with. The series edit page seeds its cast a
+  // render AFTER the picker mounts, and a cast member past the first page
+  // would otherwise never get a chip: `selectedActors` silently drops ids
+  // that `known` cannot name.
+  useEffect(() => {
+    const unresolved = value.filter((id) => !seenIdsRef.current.has(id));
+    if (unresolved.length === 0) return;
+    for (const id of unresolved) seenIdsRef.current.add(id);
+    void Promise.all(
+      unresolved.map((id) => actorService.getActorById(id).catch(() => null)),
+    ).then((resolved) => {
+      setKnown((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        for (const actor of resolved) {
+          if (actor && !prev[actor.id]) {
+            next[actor.id] = toRef(actor);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    });
+  }, [value]);
 
   useEffect(() => {
     if (!searchOnServer) return;
@@ -92,18 +117,6 @@ export function ActorPicker({ value, onChange, disabled = false }: ActorPickerPr
     for (const actor of page.items) seenIdsRef.current.add(actor.id);
 
     if (page.total > page.items.length) setSearchOnServer(true);
-
-    // A cast member who isn't on this page still has to show up as a chip.
-    const unresolved = initialIdsRef.current.filter((id) => !seenIdsRef.current.has(id));
-    if (unresolved.length > 0) {
-      for (const id of unresolved) seenIdsRef.current.add(id);
-      const resolved = await Promise.all(
-        unresolved.map((id) => actorService.getActorById(id).catch(() => null)),
-      );
-      for (const actor of resolved) {
-        if (actor) loaded.push(actor);
-      }
-    }
 
     setKnown((prev) => {
       let changed = false;
@@ -154,7 +167,7 @@ export function ActorPicker({ value, onChange, disabled = false }: ActorPickerPr
           </span>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">{t.actors.picker.hint}</p>
+      <p className="text-xs text-muted-foreground">{hint ?? t.actors.picker.hint}</p>
 
       {selectedActors.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

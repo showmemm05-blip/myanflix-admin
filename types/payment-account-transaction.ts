@@ -1,3 +1,4 @@
+import type { BankMatchStatusView, BankRiskLevel } from "@/types/bank-verification";
 import type { DepositStatus } from "@/types/deposit";
 import type { WithdrawalStatus } from "@/types/withdrawal";
 
@@ -95,6 +96,12 @@ export interface RelatedDepositDetail {
   /** Customer wallet balance immediately before/after this deposit's credit — null for deposits credited before snapshots existed and for PENDING/REJECTED deposits. */
   walletBalanceBefore: number | null;
   walletBalanceAfter: number | null;
+  /** Bank-side values written by the matcher — optional because the ledger join spreads the row and older entries predate the columns. */
+  receivingAmount?: number | null;
+  receivingTransactionAt?: string | null;
+  bankCheckedAt?: string | null;
+  matchStatus?: BankMatchStatusView;
+  riskLevel?: BankRiskLevel | null;
   createdAt: string;
   updatedAt: string;
   user: PaymentAccountTransactionCustomer;
@@ -124,6 +131,12 @@ export interface RelatedWithdrawalDetail {
   transferTransactionCode: string | null;
   transferTransactionTime: string | null;
   transferPaymentAccountId: string | null;
+  /** Bank-side values written by the matcher — optional for the same reason as on the deposit detail. */
+  transferAmount?: number | null;
+  transferTransactionAt?: string | null;
+  bankCheckedAt?: string | null;
+  matchStatus?: BankMatchStatusView;
+  riskLevel?: BankRiskLevel | null;
   createdAt: string;
   updatedAt: string;
   user: PaymentAccountTransactionCustomer;

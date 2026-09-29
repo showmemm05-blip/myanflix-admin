@@ -13,9 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { BankMatchBadge } from "@/components/shared/BankMatchBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
-import { REVIEW_STATUS_TONE } from "@/lib/status-tones";
+import { REVIEW_STATUS_TONE, RISK_TONE, USER_STATUS_TONE } from "@/lib/status-tones";
+import { userStatusLabel } from "@/lib/account-status";
 import { formatLocalPhone } from "@/lib/phone";
 import { userLabel, userLabelOr } from "@/lib/user-label";
 import { useLanguage } from "@/lib/context/language-context";
@@ -25,6 +27,7 @@ import type {
   PaymentAccountTransactionAccountRef,
   PaymentAccountTransactionCustomer,
 } from "@/types/payment-account-transaction";
+import type { UserStatus } from "@/types/user";
 
 const EM_DASH = "—";
 
@@ -92,12 +95,6 @@ function Field({
   );
 }
 
-const USER_STATUS_TONE: Record<string, StatusTone> = {
-  ACTIVE: "success",
-  SUSPENDED: "warning",
-  BANNED: "danger",
-};
-
 /**
  * Who the money actually came from or went to. Given its own section ahead of
  * the deposit/withdrawal detail because "who is this?" is the first thing an
@@ -149,8 +146,8 @@ function CustomerSection({
           label={d.customerStatus}
           value={
             <StatusBadge
-              label={customer.status}
-              tone={USER_STATUS_TONE[customer.status] ?? "neutral"}
+              label={userStatusLabel(t, customer.status)}
+              tone={USER_STATUS_TONE[customer.status as UserStatus] ?? "neutral"}
             />
           }
         />
@@ -264,6 +261,22 @@ export function TransactionDetailsDialog({
               <Field label={d.receivingAccountNumber} value={deposit.receivingAccountNumber} mono />
               <Field label={d.receivingTransactionCode} value={deposit.receivingTransactionCode} mono />
               <Field label={d.receivingTransactionTime} value={deposit.receivingTransactionTime} mono />
+              {/* Bank-verification fields — written by the matcher, never by
+                  a form; read-only here like the transaction code above. */}
+              <Field
+                label={d.receivingAmount}
+                value={deposit.receivingAmount != null ? formatKyat(deposit.receivingAmount) : null}
+              />
+              <Field label={d.receivingTransactionAt} value={formatDateTime(deposit.receivingTransactionAt ?? null)} />
+              <Field label={d.bankCheckedAt} value={formatDateTime(deposit.bankCheckedAt ?? null)} />
+              <Field
+                label={d.matchStatus}
+                value={deposit.matchStatus ? <BankMatchBadge status={deposit.matchStatus} /> : null}
+              />
+              <Field
+                label={d.riskLevel}
+                value={deposit.riskLevel ? <StatusBadge label={t.verification.risk[deposit.riskLevel]} tone={RISK_TONE[deposit.riskLevel]} className="normal-case" /> : null}
+              />
               <Field label={d.depositCreatedAt} value={formatDateTime(deposit.createdAt)} />
               <Field label={d.depositUpdatedAt} value={formatDateTime(deposit.updatedAt)} />
               <Field label={d.depositId} value={deposit.id} mono full />
@@ -304,6 +317,20 @@ export function TransactionDetailsDialog({
               <Field label={d.transferAccountNumber} value={withdrawal.transferAccountNumber} mono />
               <Field label={d.transferTransactionCode} value={withdrawal.transferTransactionCode} mono />
               <Field label={d.transferTransactionTime} value={withdrawal.transferTransactionTime} mono />
+              <Field
+                label={d.transferAmount}
+                value={withdrawal.transferAmount != null ? formatKyat(withdrawal.transferAmount) : null}
+              />
+              <Field label={d.transferTransactionAt} value={formatDateTime(withdrawal.transferTransactionAt ?? null)} />
+              <Field label={d.bankCheckedAt} value={formatDateTime(withdrawal.bankCheckedAt ?? null)} />
+              <Field
+                label={d.matchStatus}
+                value={withdrawal.matchStatus ? <BankMatchBadge status={withdrawal.matchStatus} /> : null}
+              />
+              <Field
+                label={d.riskLevel}
+                value={withdrawal.riskLevel ? <StatusBadge label={t.verification.risk[withdrawal.riskLevel]} tone={RISK_TONE[withdrawal.riskLevel]} className="normal-case" /> : null}
+              />
               <Field label={d.withdrawalCreatedAt} value={formatDateTime(withdrawal.createdAt)} />
               <Field label={d.withdrawalUpdatedAt} value={formatDateTime(withdrawal.updatedAt)} />
               <Field label={d.withdrawalId} value={withdrawal.id} mono full />

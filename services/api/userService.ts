@@ -120,6 +120,15 @@ export const userService = {
   },
 
   /**
+   * The signed-in caller changes their own password. The backend checks
+   * `currentPassword` itself and answers a 400 whose message names the
+   * current password when it is wrong — the form maps that onto the field.
+   */
+  changeMyPassword(currentPassword: string, newPassword: string): Promise<{ changed: boolean }> {
+    return apiClient.patch<{ changed: boolean }>("/users/me/password", { currentPassword, newPassword });
+  },
+
+  /**
    * Manually credit/debit a user's wallet — Super Admin only (WALLET_ADJUST).
    * Idempotent per `values.idempotencyKey`: resubmitting the same key returns
    * the original adjustment with `replayed: true` instead of double-charging.

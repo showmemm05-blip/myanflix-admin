@@ -4,10 +4,13 @@ import { format } from "date-fns";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ArrowDownLeft, Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BankMatchBadge } from "@/components/shared/BankMatchBadge";
+import { RiskBadge } from "@/components/shared/RiskBadge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ReceivingAccountCell } from "@/components/deposits/ReceivingAccountCell";
 import { UserDepositAccountCell } from "@/components/deposits/UserDepositAccountCell";
 import { formatSignedKyat } from "@/lib/currency";
+import { toDepositVerification, viewMatchStatus, viewRiskLevel, viewRiskReasons } from "@/lib/bank-verification";
 import { REVIEW_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
 import { formatLocalPhone } from "@/lib/phone";
 import { matchesUserSearch } from "@/lib/user-search";
@@ -15,29 +18,66 @@ import type { TranslationShape } from "@/lib/i18n/translations";
 import type { Deposit } from "@/types/deposit";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 
-export function getDepositColumns({
-  t,
-  types,
-  paymentAccounts,
-  canApprove,
-  canReject,
-  onApprove,
-  onReject,
-  onReceivingSaved,
-  approvingId,
-}: {
-  t: TranslationShape;
-  types: PaymentAccountType[];
-  paymentAccounts: PaymentAccount[];
+/**
+ * The inline Approve / Reject buttons. Optional so a table without them
+ * (none today) can drop the column; the Deposits page and the user
+ * profile's deposits card both pass them — the owner wants the buttons in
+ * sight, and the Verification Details modal offers the same two actions
+ * with the bank's side on screen.
+ */
+export interface DepositRowActions {
   /** DEPOSITS.APPROVE. */
   canApprove: boolean;
   /** DEPOSITS.REJECT — a separate permission, so the two buttons gate apart. */
   canReject: boolean;
   onApprove: (deposit: Deposit) => void;
   onReject: (deposit: Deposit) => void;
-  onReceivingSaved: (deposit: Deposit) => void;
   approvingId?: string | null;
+}
+
+export function getDepositColumns({
+  t,
+  types,
+  paymentAccounts,
+  actions,
+  onReceivingSaved,
+  onOpenVerification,
+  now,
+}: {
+  t: TranslationShape;
+  types: PaymentAccountType[];
+  paymentAccounts: PaymentAccount[];
+  /** Omitted = no Actions column at all. */
+  actions?: DepositRowActions;
+  onReceivingSaved: (deposit: Deposit) => void;
+  /**
+   * Opens the Verification Details modal for the row — both new columns are
+   * click targets. Omitted where no modal is mounted (the user profile's
+   * deposits card), in which case the badges render as plain text.
+   */
+  onOpenVerification?: (deposit: Deposit) => void;
+  /**
+   * The page's `useNow()` clock for the read-time NO_BANK_TRANSACTION
+   * derivation. Optional for callers that don't tick (the user profile
+   * card): they get the moment the columns were built.
+   */
+  now?: number;
 }): ColumnDef<Deposit>[] {
+  const clock = now ?? Date.now();
+  const VerificationCell = ({ deposit, children }: { deposit: Deposit; children: React.ReactNode }) =>
+    onOpenVerification ? (
+      <button
+        type="button"
+        className="flex flex-col items-start gap-1 rounded-md text-left hover:bg-accent/50"
+        onClick={() => onOpenVerification(deposit)}
+        aria-label={t.verification.modal.openAriaLabel}
+      >
+        {children}
+      </button>
+    ) : (
+      <div className="flex flex-col items-start gap-1">{children}</div>
+    );
+
   return [
     {
       accessorKey: "userName",
@@ -97,9 +137,11 @@ export function getDepositColumns({
     {
       accessorKey: "createdAt",
       header: t.deposits.columns.dateTime,
+      // Stacked, not joined: the date over the time halves the column's width.
       cell: ({ row }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {format(new Date(row.original.createdAt), "d MMM yyyy, HH:mm:ss")}
+        <span className="flex flex-col text-sm tabular-nums text-muted-foreground">
+          <span>{format(new Date(row.original.createdAt), "d MMM yyyy")}</span>
+          <span className="text-xs">{format(new Date(row.original.createdAt), "HH:mm:ss")}</span>
         </span>
       ),
     },
@@ -116,52 +158,43 @@ export function getDepositColumns({
                 {deposit.rejectionReason}
               </span>
             )}
-            {deposit.status !== "PENDING" && deposit.approvedAt && (
-              <span className="text-xs text-muted-foreground">
-                {t.deposits.columns.processedAt(format(new Date(deposit.approvedAt), "d MMM yyyy, HH:mm:ss"))}
-              </span>
-            )}
           </div>
         );
       },
     },
     {
-      id: "actions",
-      header: t.deposits.columns.actions,
+      // The bank side: what the phone-monitor saw, matched onto this row.
+      // NO_BANK_TRANSACTION is derived at render time (viewMatchStatus), so
+      // a row crossing the 24 h line flips without any fetch.
+      id: "bankMatch",
+      accessorFn: (row) => row.matchStatus,
+      header: t.verification.columns.bankMatch,
       cell: ({ row }) => {
-        const deposit = row.original;
-        if (deposit.status !== "PENDING" || (!canApprove && !canReject)) {
-          return <span className="text-xs text-muted-foreground">—</span>;
-        }
-        const isApproving = approvingId === deposit.id;
+        const record = toDepositVerification(row.original);
+        const status = viewMatchStatus(record, clock);
+        // Badge only — the bank time and the "waiting" hint live in the
+        // Verification Details modal; here they doubled the column's width.
         return (
-          <div className="flex items-center gap-2">
-            {canApprove && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1"
-                disabled={isApproving}
-                onClick={() => onApprove(deposit)}
-              >
-                {isApproving ? (
-                  <Loader2 className="size-3.5 animate-spin" />
-                ) : (
-                  <Check className="size-3.5 text-success" />
-                )}
-                {t.common.approve}
-              </Button>
-            )}
-            {canReject && (
-              <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(deposit)}>
-                <X className="size-3.5 text-destructive" />
-                {t.common.reject}
-              </Button>
-            )}
-          </div>
+          <VerificationCell deposit={row.original}>
+            <BankMatchBadge status={status} />
+          </VerificationCell>
         );
       },
     },
+    {
+      id: "risk",
+      accessorFn: (row) => row.riskLevel ?? "",
+      header: t.verification.columns.risk,
+      cell: ({ row }) => {
+        const record = toDepositVerification(row.original);
+        return (
+          <VerificationCell deposit={row.original}>
+            <RiskBadge level={viewRiskLevel(record, clock)} reasons={viewRiskReasons(record, clock)} />
+          </VerificationCell>
+        );
+      },
+    },
+    ...(actions ? [actionsColumn(t, actions)] : []),
     {
       id: "userDepositAccount",
       header: t.deposits.columns.userDepositAccount,
@@ -175,4 +208,46 @@ export function getDepositColumns({
       ),
     },
   ];
+}
+
+/** The inline Approve / Reject column — see DepositRowActions for where it belongs. */
+function actionsColumn(t: TranslationShape, actions: DepositRowActions): ColumnDef<Deposit> {
+  const { canApprove, canReject, onApprove, onReject, approvingId } = actions;
+  return {
+    id: "actions",
+    header: t.deposits.columns.actions,
+    cell: ({ row }) => {
+      const deposit = row.original;
+      if (deposit.status !== "PENDING" || (!canApprove && !canReject)) {
+        return <span className="text-xs text-muted-foreground">—</span>;
+      }
+      const isApproving = approvingId === deposit.id;
+      return (
+        <div className="flex items-center gap-2">
+          {canApprove && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              disabled={isApproving}
+              onClick={() => onApprove(deposit)}
+            >
+              {isApproving ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5 text-success" />
+              )}
+              {t.common.approve}
+            </Button>
+          )}
+          {canReject && (
+            <Button size="sm" variant="outline" className="gap-1" disabled={isApproving} onClick={() => onReject(deposit)}>
+              <X className="size-3.5 text-destructive" />
+              {t.common.reject}
+            </Button>
+          )}
+        </div>
+      );
+    },
+  };
 }

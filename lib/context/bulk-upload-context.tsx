@@ -14,8 +14,16 @@ import { movieService } from "@/services/api/movieService";
 import { uploadService } from "@/services/api/uploadService";
 import { ApiError } from "@/services/api/apiClient";
 import { useNetworkStatus } from "@/lib/hooks/use-network-status";
-import { putToMinio } from "@/lib/upload/minio-put";
-import { PresignedPartUrlPool } from "@/lib/upload/presigned-part-pool";
+import {
+  MULTIPART_THRESHOLD_BYTES,
+  PROGRESS_FLUSH_INTERVAL_MS,
+  isTransient,
+  uploadLargeAssetDirect as uploadLargeAssetDirectShared,
+  uploadSmallAssetsDirect as uploadSmallAssetsDirectShared,
+  withTransientRetry,
+  type AssetStatus,
+  type BundleUploadAsset,
+} from "@/lib/upload/bundle-upload";
 import { probeBundleDurationSeconds, secondsToMinutes } from "@/lib/upload/probe-duration";
 import {
   extractTitleFromFolderName,
@@ -26,14 +34,11 @@ import {
 const FILE_UPLOAD_CONCURRENCY = 4;
 const CHUNK_UPLOAD_CONCURRENCY = 6;
 const DEFAULT_QUEUE_KEY = "myanflix-bulk-upload-queue-v1";
-const CHUNK_RETRY_ATTEMPTS = 5;
-const CHUNK_RETRY_BASE_MS = 500;
-const CHUNK_RETRY_MAX_MS = 8000;
-// How often in-flight progress is pushed to React state, instead of on
-// every chunk — a state update (and the re-render it triggers) for each of
-// potentially thousands of chunks would itself compete with the browser's
-// work of actually sending bytes.
-const PROGRESS_FLUSH_INTERVAL_MS = 250;
+// The retry policy, progress-flush interval, multipart threshold and the
+// presigned direct-to-MinIO per-file uploaders live in
+// lib/upload/bundle-upload.ts now — shared with the Edit Movie dialog's
+// "replace video" flow, which pushes the same kind of bundle for an EXISTING
+// title. The values and bodies are the ones that used to be inline here.
 
 // Feature flag — no hard cutover to direct-to-MinIO uploads. Default off
 // until validated in production; rollback is flipping this back to false
@@ -42,34 +47,11 @@ const PROGRESS_FLUSH_INTERVAL_MS = 250;
 // completely unedited by this migration). See the upload migration plan
 // for the full rationale.
 const USE_DIRECT_MINIO_UPLOAD = process.env.NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD === "true";
-// Below this, a file goes through one presigned single PUT; at/above it,
-// through real S3/MinIO multipart. Matches the backend's own
-// MultipartUploadService.MULTIPART_PART_SIZE — kept in sync manually since
-// nothing here can import a backend constant across the client/server
-// boundary; the backend is the actual source of truth for `partSize` at
-// upload time (returned by multipartInit), this only decides which
-// endpoint to call in the first place.
-const MULTIPART_THRESHOLD_BYTES = 32 * 1024 * 1024;
-// Real multipart parts are bandwidth-bound (large, few), so concurrency
-// stays at the same level the old chunked flow used.
-const PART_UPLOAD_CONCURRENCY = 6;
-// Small files (HLS playlists, subtitles, segments — often thousands per
-// bundle) are latency-bound, not bandwidth-bound: each pays close to a full
-// round trip regardless of its own size, so a much higher concurrency
-// actually helps here in a way it wouldn't for the one large file. Requires
-// the write-side proxy to serve HTTP/2 to be real concurrency rather than
-// getting capped to ~6 by the browser's HTTP/1.1 per-origin connection
-// limit — see the upload migration plan's throughput analysis.
-const SMALL_FILE_CONCURRENCY = 16;
-// Presign requests are paginated at this size rather than one request per
-// bundle (a multi-thousand-file payload) or one request per file (thousands
-// of round trips) — see MultipartUploadService.PresignBatchDto's own
-// ArrayMaxSize(500) backstop on the backend.
-const PRESIGN_BATCH_SIZE = 250;
-// Only "movie" exists as a resourceType today (episodes are Movie rows too
-// — see schema.prisma's Movie doc comment) — a future content type would
-// need its own resourceType/resourceId threaded through from wherever it's
-// uploaded, not a change here.
+// Only "movie" exists as a resourceType for NEW titles (episodes are Movie
+// rows too — see schema.prisma's Movie doc comment) — a future content type
+// would need its own resourceType/resourceId threaded through from wherever
+// it's uploaded, not a change here. ("movie-replace" is the Video section's
+// own staging type, never used by this queue.)
 const RESOURCE_TYPE = "movie";
 
 export const MAX_BULK_MOVIES = 10;
@@ -82,19 +64,11 @@ export type MovieUploadStatus =
   | "failed"
   | "completed"
   | "ready_to_publish";
-/** "finalizing" = every chunk is on the backend, which is now merging them and pushing the result to storage — no bytes moving over HTTP, so it's tracked separately from "uploading" instead of just looking stuck at 100%. */
-export type AssetStatus = "pending" | "uploading" | "finalizing" | "done" | "error";
-
-export interface BulkAsset {
-  relativePath: string;
-  /** Null after a page refresh — browsers never let a File handle survive a reload, so it must be re-attached before this asset can (re)send. */
-  file: File | null;
-  size: number;
-  status: AssetStatus;
-  uploadedBytes: number;
-  /** Direct-to-MinIO flow only (USE_DIRECT_MINIO_UPLOAD): the active MultipartUploadSession id, set once multipartInit() resolves — needed so Cancel can abort it on the backend/MinIO. Never persisted to localStorage; a resumed upload always re-inits and gets a fresh one. */
-  sessionId?: string;
-}
+// Re-exported under their historical names so every consumer (the queue
+// list, the series page) keeps importing them from here; the shape itself
+// is owned by lib/upload/bundle-upload.ts.
+export type { AssetStatus };
+export type BulkAsset = BundleUploadAsset;
 
 export interface MovieUploadJob {
   key: string; // === movieId — assigned immediately, so the whole queue is identifiable even before any bytes move
@@ -165,52 +139,6 @@ export function totalBytes(job: MovieUploadJob): number {
 }
 export function uploadedBytes(job: MovieUploadJob): number {
   return job.assets.reduce((sum, a) => sum + a.uploadedBytes, 0);
-}
-
-/**
- * Classifies an upload error as worth silently retrying vs. a genuine
- * failure. AbortError is a user's own Pause/Cancel (or the offline-abort
- * effect below) — never retried, always handled by the caller. A bare
- * TypeError is what `fetch` throws for a network-level failure (DNS, CORS,
- * connection reset). A 5xx/408/429 ApiError means the backend itself
- * hiccuped (e.g. mid-restart) — also worth retrying. Any other ApiError
- * (4xx) is a real rejection that retrying won't fix.
- */
-function isTransient(err: unknown): boolean {
-  if (err instanceof DOMException && err.name === "AbortError") return false;
-  if (err instanceof ApiError) return err.status >= 500 || err.status === 408 || err.status === 429;
-  if (err instanceof TypeError) return true;
-  return false;
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(signal.reason);
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    }, { once: true });
-  });
-}
-
-/**
- * Runs `fn`, silently retrying with exponential backoff on a transient
- * error (see `isTransient`) up to `CHUNK_RETRY_ATTEMPTS` times. Shared by
- * every network call in the upload pipeline — `init()` included, since a
- * blip on that very first call used to skip retry entirely and tip a job
- * straight into "offline" before a single byte of the file was even sent.
- */
-async function withTransientRetry<T>(fn: () => Promise<T>, signal: AbortSignal): Promise<T> {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (signal.aborted || !isTransient(err) || attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
-      const backoff = Math.min(CHUNK_RETRY_BASE_MS * 2 ** (attempt - 1), CHUNK_RETRY_MAX_MS);
-      await sleep(backoff, signal);
-    }
-  }
 }
 
 interface AddFoldersSeries {
@@ -539,139 +467,17 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
 
   // --- Direct browser->MinIO upload path (USE_DIRECT_MINIO_UPLOAD) ---
 
-  /** The one (typically) large file in a bundle — original.mp4 — via real S3/MinIO multipart, straight to MinIO. */
+  /** The one (typically) large file in a bundle — original.mp4 — via real S3/MinIO multipart, straight to MinIO (body in lib/upload/bundle-upload.ts; this only binds the queue's resourceType and routes progress into the job). */
   const uploadLargeAssetDirect = useCallback(
-    async (resourceId: string, key: string, asset: BulkAsset, signal: AbortSignal) => {
-      if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
-      const file = asset.file;
-      bumpAsset(key, asset.relativePath, { status: "uploading" });
-
-      const { sessionId, partSize, totalParts, uploadedParts } = await withTransientRetry(
-        () => uploadService.multipartInit(RESOURCE_TYPE, resourceId, file.name, file.size, asset.relativePath, signal),
-        signal,
-      );
-      bumpAsset(key, asset.relativePath, { sessionId });
-
-      const doneParts = new Map(uploadedParts.map((p) => [p.partNumber, p.etag]));
-      let sent = 0;
-      for (const partNumber of doneParts.keys()) {
-        const start = (partNumber - 1) * partSize;
-        sent += Math.min(partSize, file.size - start);
-      }
-      bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
-
-      let lastFlushedSent = sent;
-      const flush = () => {
-        if (sent === lastFlushedSent) return;
-        lastFlushedSent = sent;
-        bumpAsset(key, asset.relativePath, { uploadedBytes: sent });
-      };
-      const flushTimer = setInterval(flush, PROGRESS_FLUSH_INTERVAL_MS);
-
-      const pool = new PresignedPartUrlPool(sessionId, PART_UPLOAD_CONCURRENCY);
-      const remaining = Array.from({ length: totalParts }, (_, i) => i + 1).filter((n) => !doneParts.has(n));
-
-      try {
-        let nextIndex = 0;
-        const worker = async () => {
-          for (;;) {
-            const idx = nextIndex++;
-            if (idx >= remaining.length) return;
-            const partNumber = remaining[idx];
-            const start = (partNumber - 1) * partSize;
-            const bytes = Math.min(partSize, file.size - start);
-            const blob = file.slice(start, start + bytes);
-
-            const etag = await withTransientRetry(async () => {
-              const url = await pool.getUrl(partNumber, remaining.slice(idx + 1));
-              try {
-                const { etag: putEtag } = await putToMinio(url, blob, signal);
-                if (!putEtag) {
-                  throw new Error(`MinIO returned no ETag for part ${partNumber} of ${asset.relativePath} — check bucket CORS ExposeHeaders`);
-                }
-                return putEtag;
-              } catch (err) {
-                // The presigned URL's own 1-hour expiry ran out (e.g. this
-                // part sat behind a long pause) — a plain retry would just
-                // hit the same dead URL forever; force the pool to fetch a
-                // fresh one instead.
-                if (err instanceof ApiError && err.status === 403) pool.invalidate(partNumber);
-                throw err;
-              }
-            }, signal);
-
-            doneParts.set(partNumber, etag);
-            sent += bytes;
-          }
-        };
-        await Promise.all(Array.from({ length: Math.min(PART_UPLOAD_CONCURRENCY, remaining.length) }, worker));
-      } finally {
-        clearInterval(flushTimer);
-      }
-      flush();
-
-      bumpAsset(key, asset.relativePath, { status: "finalizing" });
-      const parts = Array.from(doneParts.entries()).map(([partNumber, etag]) => ({ partNumber, etag }));
-      await withTransientRetry(() => uploadService.multipartComplete(sessionId, parts, signal), signal);
-      bumpAsset(key, asset.relativePath, { status: "done" });
-    },
+    (resourceId: string, key: string, asset: BulkAsset, signal: AbortSignal) =>
+      uploadLargeAssetDirectShared(RESOURCE_TYPE, resourceId, asset, signal, (rel, patch) => bumpAsset(key, rel, patch)),
     [bumpAsset],
   );
 
-  /**
-   * Every small file in a bundle (playlists, subtitles, segments — often
-   * thousands per bundle) shares ONE flat worker pool at
-   * SMALL_FILE_CONCURRENCY, rather than each getting its own worker slot
-   * the way FILE_UPLOAD_CONCURRENCY does for the classic/large-file path —
-   * each request here is cheap and latency-bound, so a much higher shared
-   * concurrency is what actually helps (see the upload migration plan).
-   * Progress per file is coarse (0% or 100%) since a single PUT is atomic —
-   * no per-byte tracking needed the way the large-file path needs per-part.
-   */
+  /** Every small file in a bundle through the shared SMALL_FILE_CONCURRENCY single-PUT pool (body in lib/upload/bundle-upload.ts; same binding as above). */
   const uploadSmallAssetsDirect = useCallback(
-    async (resourceId: string, key: string, assets: BulkAsset[], signal: AbortSignal) => {
-      if (assets.length === 0) return;
-      for (const asset of assets) bumpAsset(key, asset.relativePath, { status: "uploading" });
-
-      const urlByPath = new Map<string, string>();
-      for (let i = 0; i < assets.length; i += PRESIGN_BATCH_SIZE) {
-        const batch = assets.slice(i, i + PRESIGN_BATCH_SIZE);
-        const { files } = await withTransientRetry(
-          () =>
-            uploadService.presignBatch(
-              RESOURCE_TYPE,
-              resourceId,
-              batch.map((a) => ({ relativePath: a.relativePath, filesize: a.size })),
-              signal,
-            ),
-          signal,
-        );
-        for (const f of files) urlByPath.set(f.relativePath, f.url);
-      }
-
-      let nextIndex = 0;
-      let firstError: unknown = null;
-      const worker = async () => {
-        for (;;) {
-          const idx = nextIndex++;
-          if (idx >= assets.length) return;
-          const asset = assets[idx];
-          try {
-            const url = urlByPath.get(asset.relativePath);
-            if (!url) throw new Error(`No presigned URL was issued for ${asset.relativePath}`);
-            if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
-            await withTransientRetry(() => putToMinio(url, asset.file!, signal), signal);
-            bumpAsset(key, asset.relativePath, { uploadedBytes: asset.size, status: "done" });
-          } catch (err) {
-            if (signal.aborted) throw err;
-            firstError ??= err;
-            bumpAsset(key, asset.relativePath, { status: "error" });
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(SMALL_FILE_CONCURRENCY, assets.length) }, worker));
-      if (firstError) throw firstError;
-    },
+    (resourceId: string, key: string, assets: BulkAsset[], signal: AbortSignal) =>
+      uploadSmallAssetsDirectShared(RESOURCE_TYPE, resourceId, assets, signal, (rel, patch) => bumpAsset(key, rel, patch)),
     [bumpAsset],
   );
 

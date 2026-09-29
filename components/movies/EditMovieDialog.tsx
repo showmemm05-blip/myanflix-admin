@@ -26,6 +26,7 @@ import { useLanguage } from "@/lib/context/language-context";
 import { GENRE_OPTIONS } from "@/lib/constants/movie-options";
 import { parseRatingInput, ratingToInput } from "@/lib/rating";
 import { SubtitleManager } from "./SubtitleManager";
+import { VideoSection } from "./VideoSection";
 import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
 
@@ -56,6 +57,9 @@ function EditMovieForm({
   const [episodeNumber, setEpisodeNumber] = useState(String(movie.episodeNumber ?? 1));
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  // A video replace in flight locks the footer: saving would race the swap's
+  // own Movie.duration refresh, and closing would abort the upload.
+  const [replacingVideo, setReplacingVideo] = useState(false);
 
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -69,10 +73,11 @@ function EditMovieForm({
   // A video only exists once something has actually been uploaded for this
   // movie — getProcessingStatus() 404s otherwise, which useAsyncData already
   // turns into a normal `error` we can just check for instead of throwing.
-  const { data: videoStatus, error: videoError } = useAsyncData(
-    () => videoService.getProcessingStatus(movie.id),
-    [movie.id],
-  );
+  const {
+    data: videoStatus,
+    error: videoError,
+    refetch: refetchVideoStatus,
+  } = useAsyncData(() => videoService.getProcessingStatus(movie.id), [movie.id]);
 
   // Sent only when >= 1: the API rejects 0 (@Min(1)), so clearing the field
   // leaves the stored runtime untouched instead of zeroing it.
@@ -299,11 +304,27 @@ function EditMovieForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
+          <Label>{t.movies.video.title}</Label>
+          <VideoSection
+            movie={movie}
+            videoStatus={videoError ? null : videoStatus}
+            videoError={videoError}
+            onVideoChanged={refetchVideoStatus}
+            onReplacingChange={setReplacingVideo}
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
           <Label>{t.movies.editDialog.imagesLabel}</Label>
           {/* Subtitles sit above the artwork on purpose: the poster fields are tall and
               used to push this list below the fold, so an editor who had just uploaded
               a track could not find it. */}
-          {!videoError && videoStatus && <SubtitleManager videoId={videoStatus.id} />}
+          {/* Keyed on the row's updatedAt as well as its id: a video replace keeps the
+              same Video id but recreates every Subtitle row, and the manager only
+              refetches when its videoId changes — the remount is what refreshes it. */}
+          {!videoError && videoStatus && (
+            <SubtitleManager key={`${videoStatus.id}:${videoStatus.updatedAt}`} videoId={videoStatus.id} />
+          )}
 
           <div className="grid grid-cols-3 gap-4">
             <FileUploadField
@@ -352,10 +373,10 @@ function EditMovieForm({
       </div>
 
       <DialogFooter>
-        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+        <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || replacingVideo}>
           {t.common.cancel}
         </Button>
-        <Button onClick={handleSave} disabled={saving || !title.trim()}>
+        <Button onClick={handleSave} disabled={saving || replacingVideo || !title.trim()}>
           {saving && <Loader2 className="size-4 animate-spin" />}
           {t.movies.editDialog.saveChanges}
         </Button>

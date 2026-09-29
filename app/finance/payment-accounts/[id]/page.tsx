@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import {
   getPaymentAccountTransactionColumns,
   getPaymentAccountTransactionRowClass,
@@ -24,27 +25,45 @@ import { getSocket } from "@/lib/socket";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import type { PaymentAccountTransaction } from "@/types/payment-account-transaction";
 
+/** History rows per server page (H-24): the ledger only grows, so it is paged on the server. */
+const PAGE_LIMIT = 25;
+
 function PaymentAccountDetailContent({ id }: { id: string }) {
   const { t } = useLanguage();
   const { can } = useRole();
   // Recording money in/out writes a ledger entry — LEDGER_MANAGE, not the
   // plain VIEW that gets you onto this page.
   const canRecordEntry = can("PAYMENT_ACCOUNTS.LEDGER_MANAGE");
-  const { data, isLoading, error, refetch } = useAsyncData(async () => {
-    const [account, transactions] = await Promise.all([
-      paymentAccountService.getAccount(id),
-      paymentAccountService.getTransactions(id, { limit: 100 }),
-    ]);
-    return { account, transactions };
-  }, [id]);
+  const [page, setPage] = useState(1);
+  // The account (cards) and its history (paged) load separately, so turning
+  // a history page never blanks the balance cards.
+  const {
+    data: account,
+    isLoading: accountLoading,
+    error: accountError,
+    refetch: refetchAccount,
+  } = useAsyncData(() => paymentAccountService.getAccount(id), [id]);
+  const {
+    data: history,
+    isLoading: historyLoading,
+    error: historyError,
+    refetch: refetchHistory,
+  } = useAsyncData(
+    () => paymentAccountService.getTransactions(id, { page, limit: PAGE_LIMIT }),
+    [id, page],
+  );
+  const error = accountError ?? historyError;
+  const refetch = () => {
+    refetchAccount();
+    refetchHistory();
+  };
 
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
 
   const [dialogMode, setDialogMode] = useState<"add" | "remove" | null>(null);
   const [detailsTarget, setDetailsTarget] = useState<PaymentAccountTransaction | null>(null);
 
-  const account = data?.account ?? null;
-  const transactions = data?.transactions.items ?? [];
+  const transactions = history?.items ?? [];
   const columns = getPaymentAccountTransactionColumns({
     t,
     types: types ?? [],
@@ -56,7 +75,8 @@ function PaymentAccountDetailContent({ id }: { id: string }) {
     if (!socket) return;
     const handleUpdated = (payload: { paymentAccountId: string }) => {
       if (payload.paymentAccountId !== id) return;
-      refetch();
+      refetchAccount();
+      refetchHistory();
     };
     socket.on("payment-account.updated", handleUpdated);
     return () => {
@@ -100,7 +120,7 @@ function PaymentAccountDetailContent({ id }: { id: string }) {
         }
       />
 
-      {isLoading || !account ? null : (
+      {accountLoading || !account ? null : (
         <>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <DashboardCard
@@ -121,18 +141,31 @@ function PaymentAccountDetailContent({ id }: { id: string }) {
           <h2 className="mb-1 text-lg font-semibold">{t.paymentAccountLedger.detail.historyTitle}</h2>
           <p className="mb-4 text-sm text-muted-foreground">{t.paymentAccountLedger.detail.historyDescription}</p>
 
-          {transactions.length === 0 ? (
+          {!historyLoading && (history?.total ?? 0) === 0 ? (
             <EmptyState
               icon={Wallet}
               title={t.paymentAccountLedger.detail.emptyHistoryTitle}
               description={t.paymentAccountLedger.detail.emptyHistoryDescription}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={transactions}
-              rowClassName={getPaymentAccountTransactionRowClass}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={transactions}
+                isLoading={historyLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                rowClassName={getPaymentAccountTransactionRowClass}
+              />
+              {!historyLoading && (
+                <ServerPagination
+                  page={page}
+                  pageSize={PAGE_LIMIT}
+                  total={history?.total ?? 0}
+                  onPageChange={setPage}
+                />
+              )}
+            </>
           )}
         </>
       )}

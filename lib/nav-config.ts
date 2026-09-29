@@ -26,6 +26,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Smartphone,
   Tags,
   Tv,
   UserCog,
@@ -305,6 +306,15 @@ export const navItems: NavItem[] = [
         permission: "WITHDRAWALS.VIEW",
       },
       {
+        // Every bank notification the phones captured — the raw feed the
+        // deposit/withdrawal matches are drawn from, so it sits right after
+        // them. A phone icon because each row is "what a phone saw".
+        labelKey: "bankTransactions",
+        href: "/bank-transactions",
+        icon: Smartphone,
+        permission: "BANK_TRANSACTIONS.VIEW",
+      },
+      {
         // The limits screen is a pure editor for the finance settings —
         // there is nothing to read on it without the manage permission.
         labelKey: "limits",
@@ -359,6 +369,18 @@ export function filterNavByPermission(
     }
     return item.permission && can(item.permission) ? [item] : [];
   });
+}
+
+/**
+ * Where a signed-in staff member lands (H-26): the dashboard when their role
+ * may see it, otherwise the first page the sidebar offers them — so a role
+ * without DASHBOARD.VIEW (Content Uploader) never opens on "Access
+ * restricted". Falls back to the dashboard when the role can see nothing.
+ */
+export function getLandingHref(can: (permission: Permission) => boolean): string {
+  const firstLeaf = (items: NavItem[]): NavItem | undefined =>
+    items.map((item) => (item.children ? firstLeaf(item.children) : item)).find(Boolean);
+  return firstLeaf(filterNavByPermission(navItems, can))?.href ?? "/dashboard";
 }
 
 function flattenNav(items: NavItem[]): NavItem[] {

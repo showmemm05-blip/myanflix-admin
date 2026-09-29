@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getMovieColumns } from "@/components/movies/columns";
 import { MovieDetailsSheet } from "@/components/movies/MovieDetailsSheet";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
@@ -27,17 +28,61 @@ import { toast } from "sonner";
  * anywhere in the upload flow that feeds it) ever sets a movie to PUBLISHED
  * on its own.
  */
+/** Rows per server page (H-24): the queue is paged and searched on the server. */
+const PAGE_LIMIT = 25;
+
 export default function ReadyToPublishPage() {
   const { t } = useLanguage();
   const { can } = useRole();
 
-  const { data, isLoading, error, refetch } = useAsyncData(
-    () => movieService.getMovies({ limit: 100, status: "READY_TO_PUBLISH" }),
-    []
-  );
+  const [page, setPage] = useState(1);
   const [movies, setMovies] = useState<Movie[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setMovies(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
+
+  const { data, isLoading, error, refetch } = useAsyncData(
+    () =>
+      movieService.getMovies({
+        page,
+        limit: PAGE_LIMIT,
+        status: "READY_TO_PUBLISH",
+        search: appliedSearch || undefined,
+      }),
+    [appliedSearch, page]
+  );
 
   const activeMovies = movies ?? data?.items ?? [];
+  // Rows that left the queue on this page since the fetch leave the total too.
+  const total = data ? data.total + activeMovies.length - data.items.length : 0;
+
+  const handlePageChange = (next: number) => {
+    setMovies(null);
+    setPage(next);
+  };
+
+  // A title leaves the queue once published, reprocessed, deleted or edited
+  // out of READY_TO_PUBLISH. Emptying the page by hand reloads (or steps
+  // back one page) so the next batch shows instead of a false "all done".
+  const removeFromQueue = (id: string) => {
+    const remaining = activeMovies.filter((m) => m.id !== id);
+    if (remaining.length > 0) {
+      setMovies(remaining);
+      return;
+    }
+    setMovies(null);
+    if (page > 1) setPage(page - 1);
+    else refetch();
+  };
 
   const [viewMovie, setViewMovie] = useState<Movie | null>(null);
   const [editMovie, setEditMovie] = useState<Movie | null>(null);
@@ -50,7 +95,7 @@ export default function ReadyToPublishPage() {
     if (!deleteMovie) return;
     setDeleting(true);
     await movieService.deleteMovie(deleteMovie.id);
-    setMovies(activeMovies.filter((m) => m.id !== deleteMovie.id));
+    removeFromQueue(deleteMovie.id);
     setDeleting(false);
     toast.success(t.movies.page.deletedToast, { description: t.movies.page.deletedDescription(deleteMovie.title) });
     setDeleteMovie(null);
@@ -60,7 +105,7 @@ export default function ReadyToPublishPage() {
     setReprocessingId(movie.id);
     try {
       await uploadService.reprocess(movie.id);
-      setMovies(activeMovies.filter((m) => m.id !== movie.id));
+      removeFromQueue(movie.id);
       toast.success(t.movies.page.reprocessStartedToast, {
         description: t.movies.page.reprocessStartedDescription(movie.title),
       });
@@ -80,7 +125,7 @@ export default function ReadyToPublishPage() {
     setPublishingId(movie.id);
     try {
       await movieService.updateMovie(movie.id, { status: "PUBLISHED" });
-      setMovies(activeMovies.filter((m) => m.id !== movie.id));
+      removeFromQueue(movie.id);
       toast.success(t.movies.publishedToast, { description: t.movies.publishedDescription(movie.title) });
     } catch {
       toast.error(t.movies.publishFailedToast, { description: t.movies.pleaseTryAgain });
@@ -121,20 +166,28 @@ export default function ReadyToPublishPage() {
             description={t.movies.readyToPublish.pageDescription}
           />
 
-          {!isLoading && activeMovies.length === 0 ? (
+          {!isLoading && total === 0 && !search ? (
             <EmptyState
               icon={Rocket}
               title={t.movies.readyToPublish.emptyTitle}
               description={t.movies.readyToPublish.emptyDescription}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={activeMovies}
-              isLoading={isLoading}
-              searchKey="title"
-              searchPlaceholder={t.movies.page.searchPlaceholder}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={activeMovies}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={t.movies.page.searchPlaceholder}
+              />
+              {!isLoading && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+              )}
+            </>
           )}
 
           <MovieDetailsSheet movie={viewMovie} open={!!viewMovie} onOpenChange={(o) => !o && setViewMovie(null)} />
@@ -150,7 +203,7 @@ export default function ReadyToPublishPage() {
               if (updated.status === "READY_TO_PUBLISH") {
                 setMovies(activeMovies.map((m) => (m.id === updated.id ? updated : m)));
               } else {
-                setMovies(activeMovies.filter((m) => m.id !== updated.id));
+                removeFromQueue(updated.id);
               }
             }}
           />

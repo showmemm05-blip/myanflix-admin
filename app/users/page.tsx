@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getUserColumns } from "@/components/users/columns";
 import { EditRoleDialog } from "@/components/users/EditRoleDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
@@ -15,12 +16,18 @@ import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { userService } from "@/services/api/userService";
 import { ApiError } from "@/services/api/apiClient";
+import { isClosedAccountError } from "@/lib/account-status";
 import type { AppUser } from "@/types/user";
 import { toast } from "sonner";
+
+/** Rows per server page (H-24): the user base is paged on the server, not capped at one page. */
+const PAGE_LIMIT = 25;
 
 export default function UsersPage() {
   const { t } = useLanguage();
   const { can } = useRole();
+  const [page, setPage] = useState(1);
+  const [users, setUsers] = useState<AppUser[] | null>(null);
   // Search runs on the SERVER: the endpoint matches username, display name and
   // phone, so an account stays findable by its login identity or its number
   // even once the rendered label is a self-chosen display name. A client-side
@@ -28,27 +35,38 @@ export default function UsersPage() {
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   useEffect(() => {
-    const handle = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      // Drop the action-local override so the refetched matches aren't
+      // masked by the previous term's list, and start from the first page.
+      setUsers(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
     return () => clearTimeout(handle);
-  }, [search]);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => userService.getUsers({ limit: 100, search: appliedSearch || undefined }),
-    [appliedSearch]
+    () => userService.getUsers({ page, limit: PAGE_LIMIT, search: appliedSearch || undefined }),
+    [appliedSearch, page]
   );
-  const [users, setUsers] = useState<AppUser[] | null>(null);
   const activeUsers = users ?? data?.items ?? [];
+  const total = data?.total ?? 0;
 
-  const handleSearchChange = (value: string) => {
-    // Drop the action-local override so the refetched matches aren't masked by
-    // the previous term's list.
+  const handlePageChange = (next: number) => {
     setUsers(null);
-    setSearch(value);
+    setPage(next);
   };
 
   const [editUser, setEditUser] = useState<AppUser | null>(null);
   const [suspendTarget, setSuspendTarget] = useState<AppUser | null>(null);
   const [suspending, setSuspending] = useState(false);
+
+  const reloadList = () => {
+    setUsers(null);
+    refetch();
+  };
 
   const handleToggleSuspend = async () => {
     if (!suspendTarget) return;
@@ -65,7 +83,15 @@ export default function UsersPage() {
       });
       setSuspendTarget(null);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      if (isClosedAccountError(err)) {
+        // The row was stale: the owner closed the account after this page
+        // loaded. Retrying can never succeed, so reload the list instead.
+        toast.error(t.users.closedAccount);
+        setSuspendTarget(null);
+        reloadList();
+      } else {
+        toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      }
     } finally {
       setSuspending(false);
     }
@@ -94,21 +120,28 @@ export default function UsersPage() {
               list — with a search term active the table (and the very box
               being typed into) must stay mounted, showing its own no-results
               row instead. */}
-          {!isLoading && activeUsers.length === 0 && !search ? (
+          {!isLoading && total === 0 && !search ? (
             <EmptyState
               icon={UsersIcon}
               title={t.users.page.emptyTitle}
               description={t.users.page.emptyDescription}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={activeUsers}
-              isLoading={isLoading}
-              searchValue={search}
-              onSearchChange={handleSearchChange}
-              searchPlaceholder={t.users.page.searchPlaceholder}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={activeUsers}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={t.users.page.searchPlaceholder}
+              />
+              {!isLoading && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+              )}
+            </>
           )}
 
           <EditRoleDialog
@@ -118,6 +151,7 @@ export default function UsersPage() {
             onSaved={(updated) =>
               setUsers(activeUsers.map((u) => (u.id === updated.id ? updated : u)))
             }
+            onAccountClosed={reloadList}
           />
 
           <ConfirmDialog

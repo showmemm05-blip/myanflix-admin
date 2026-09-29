@@ -287,6 +287,10 @@ function DetailsCell({ row, t }: { row: PaymentHistoryRow; t: TranslationShape }
         <span className="max-w-64 truncate text-sm" title={row.transaction.movieTitle}>
           {row.transaction.movieTitle}
         </span>
+      ) : row.kind === "refund" ? (
+        // C-4: a refund with no title is the held money a rejected
+        // withdrawal gave back (the only writer of REFUND rows today).
+        <span className="text-sm text-muted-foreground">{i.withdrawalRefundDetail}</span>
       ) : (
         <span className="text-sm italic text-muted-foreground">—</span>
       );

@@ -1,6 +1,14 @@
 import { apiClient } from "./apiClient";
 import type { PaginatedResponse, PaginationParams } from "@/types/api";
+import type {
+  BankMatchStatusView,
+  BankRiskLevel,
+  BankRiskReason,
+  VerificationFilter,
+  VerificationReviewAction,
+} from "@/types/bank-verification";
 import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
+import type { MoneyQueueStats } from "@/types/money-stats";
 import { userLabelOr } from "@/lib/user-label";
 
 interface BackendWithdrawal {
@@ -22,6 +30,18 @@ interface BackendWithdrawal {
   transferTransactionCode: string | null;
   transferTransactionTime: string | null;
   transferPaymentAccountId: string | null;
+  // Bank-verification fields — only on the admin response (`toAdminResponse`);
+  // optional here so a row from an older backend still maps to UNVERIFIED.
+  transferAmount?: number | null;
+  transferTransactionAt?: string | null;
+  bankCheckedAt?: string | null;
+  /** Already the VIEW value — the admin response applies any derivation server-side. */
+  matchStatus?: BankMatchStatusView;
+  riskLevel?: BankRiskLevel | null;
+  riskReasons?: BankRiskReason[];
+  hasBankScreenshot?: boolean;
+  /** The linked bank_transactions row, when the backend joined it (admin list/detail only). */
+  bankTransactionId?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: { id: string; username: string; displayName: string | null; phone: string | null; email: string | null } | null;
@@ -51,6 +71,14 @@ function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
     transferTransactionCode: w.transferTransactionCode,
     transferTransactionTime: w.transferTransactionTime,
     transferPaymentAccountId: w.transferPaymentAccountId,
+    transferAmount: w.transferAmount ?? null,
+    transferTransactionAt: w.transferTransactionAt ?? null,
+    bankCheckedAt: w.bankCheckedAt ?? null,
+    matchStatus: w.matchStatus ?? "UNVERIFIED",
+    riskLevel: w.riskLevel ?? null,
+    riskReasons: w.riskReasons ?? [],
+    hasBankScreenshot: w.hasBankScreenshot ?? false,
+    bankTransactionId: w.bankTransactionId ?? null,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
   };
@@ -58,11 +86,15 @@ function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
 
 export interface WithdrawalQuery extends PaginationParams {
   status?: WithdrawalStatus;
+  /** Bank-verification axis (status × matchStatus) — server-side, see VerificationFilterTabs. */
+  verification?: VerificationFilter;
   userId?: string;
   /** Full ISO datetime (inclusive lower bound on createdAt) — never a bare YYYY-MM-DD. */
   dateFrom?: string;
   /** Full ISO datetime (inclusive upper bound on createdAt) — never a bare YYYY-MM-DD. */
   dateTo?: string;
+  /** Payout account name/number, or the user's username / display name / phone (max 100 chars). */
+  search?: string;
 }
 
 export const withdrawalService = {
@@ -74,8 +106,32 @@ export const withdrawalService = {
     return { ...res, items: res.items.map(mapWithdrawal) };
   },
 
+  /** The queue's stat cards and tab counts over every matching row (H-24) — see depositService.getStats. */
+  getStats(query: Omit<WithdrawalQuery, "page" | "limit"> = {}): Promise<MoneyQueueStats> {
+    return apiClient.get<MoneyQueueStats>("/withdrawals/stats", { params: query });
+  },
+
+  /** One withdrawal by id (WITHDRAWALS.VIEW) — see depositService.getOne for why it exists. */
+  getOne(id: string): Promise<Withdrawal> {
+    return apiClient.get<BackendWithdrawal>(`/withdrawals/${id}`).then(mapWithdrawal);
+  },
+
+  /** No body — the approve route takes none. A note for approving a flagged row goes through `reviewVerification` first. */
   approve(id: string): Promise<Withdrawal> {
     return apiClient.patch<BackendWithdrawal>(`/withdrawals/${id}/approve`).then(mapWithdrawal);
+  },
+
+  /** Staff review of the bank match (WITHDRAWALS.EDIT) — see depositService.reviewVerification. */
+  reviewVerification(id: string, action: VerificationReviewAction, note?: string): Promise<Withdrawal> {
+    const trimmed = note?.trim();
+    return apiClient
+      .patch<BackendWithdrawal>(`/withdrawals/${id}/verification`, trimmed ? { action, note: trimmed } : { action })
+      .then(mapWithdrawal);
+  },
+
+  /** The matched payout notification's screenshot (WITHDRAWALS.BANK_EVIDENCE) — streamed, never a public URL. */
+  fetchBankScreenshot(id: string): Promise<Blob> {
+    return apiClient.getBlob(`/withdrawals/${id}/bank-screenshot`);
   },
 
   reject(id: string, reason: string): Promise<Withdrawal> {

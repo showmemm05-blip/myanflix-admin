@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { formatKyat } from "@/lib/currency";
+import { isClosedAccountError } from "@/lib/account-status";
 import { ApiError } from "@/services/api/apiClient";
 import { userService } from "@/services/api/userService";
 import type { AppUser } from "@/types/user";
@@ -29,10 +30,12 @@ function AdjustBalanceForm({
   user,
   onOpenChange,
   onSaved,
+  onAccountClosed,
 }: {
   user: AppUser;
   onOpenChange: (open: boolean) => void;
   onSaved: (result: WalletAdjustmentResult) => void;
+  onAccountClosed?: () => void;
 }) {
   const { t } = useLanguage();
   const [direction, setDirection] = useState<WalletAdjustmentDirection>("CREDIT");
@@ -84,7 +87,15 @@ function AdjustBalanceForm({
       );
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
+      if (isClosedAccountError(err)) {
+        // The owner closed the account after this view loaded. Retrying can
+        // never succeed, so close and let the parent reload the account.
+        toast.error(t.users.closedAccount);
+        onOpenChange(false);
+        onAccountClosed?.();
+      } else {
+        setError(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
+      }
     } finally {
       setSaving(false);
     }
@@ -199,16 +210,26 @@ export function AdjustBalanceDialog({
   open,
   onOpenChange,
   onSaved,
+  onAccountClosed,
 }: {
   user: AppUser;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (result: WalletAdjustmentResult) => void;
+  /** The save hit the backend's CLOSED-account 409; the parent should reload the account. */
+  onAccountClosed?: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        {open && <AdjustBalanceForm user={user} onOpenChange={onOpenChange} onSaved={onSaved} />}
+        {open && (
+          <AdjustBalanceForm
+            user={user}
+            onOpenChange={onOpenChange}
+            onSaved={onSaved}
+            onAccountClosed={onAccountClosed}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

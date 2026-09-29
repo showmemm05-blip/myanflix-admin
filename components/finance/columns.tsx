@@ -59,15 +59,6 @@ export function getTransactionColumns(t: TranslationShape): ColumnDef<Transactio
       },
     },
     {
-      accessorKey: "movieTitle",
-      header: t.finance.columns.movie,
-      cell: ({ row }) => (
-        <span className="max-w-40 truncate text-sm text-muted-foreground">
-          {row.original.movieTitle ?? <span className="italic">—</span>}
-        </span>
-      ),
-    },
-    {
       accessorKey: "amount",
       header: t.finance.columns.amount,
       cell: ({ row }) => {

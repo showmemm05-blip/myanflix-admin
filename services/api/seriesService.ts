@@ -7,11 +7,20 @@ export interface EpisodeQuery extends PaginationParams {
   seriesId?: string;
   seasonNumber?: number;
   status?: MovieStatus;
+  /** Episode title or show title, matched server-side over the whole queue. */
+  search?: string;
 }
 
 export interface SeriesQuery extends PaginationParams {
   accessType?: AccessType;
+  /** Title or description, matched server-side. */
+  search?: string;
 }
+
+/** The API's page-size ceiling (`@Max(100)`), used when a picker needs every row. */
+const MAX_PAGE_LIMIT = 100;
+/** Safety stop for `getAllSeries` — 5,000 shows, far past any real catalogue. */
+const MAX_PICKER_PAGES = 50;
 
 /** Result of DELETE /series/:id — episodes are cascade-deleted with the show. */
 export interface SeriesRemovalResult {
@@ -23,6 +32,20 @@ export interface SeriesRemovalResult {
 export const seriesService = {
   getSeries(query: SeriesQuery = {}) {
     return apiClient.get<PaginatedResponse<SeriesListItem>>("/series", { params: query });
+  },
+
+  /**
+   * Every show, for a filter dropdown — walks GET /series page by page
+   * instead of trusting one 100-row page to hold the whole catalogue (H-24).
+   */
+  async getAllSeries(): Promise<SeriesListItem[]> {
+    const items: SeriesListItem[] = [];
+    for (let page = 1; page <= MAX_PICKER_PAGES; page++) {
+      const res = await seriesService.getSeries({ page, limit: MAX_PAGE_LIMIT });
+      items.push(...res.items);
+      if (res.items.length < MAX_PAGE_LIMIT || items.length >= res.total) break;
+    }
+    return items;
   },
 
   getSeriesById(id: string) {

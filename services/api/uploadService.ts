@@ -23,6 +23,33 @@ export interface CompleteUploadResponse {
   status: string;
 }
 
+/**
+ * The resourceType a REPLACEMENT bundle is presigned under. The registry
+ * maps it to `temp/video-replace/<movieId>/<relativePath>` — a prefix the
+ * cacheserver refuses to serve and the backend refuses to sign — so a
+ * half-uploaded bundle can never leak into playback. "movie" (a new title)
+ * lands at its final keys straight away; this one lands in staging and only
+ * reaches `videos/<movieId>/` when finalizeReplace() swaps it in.
+ */
+export const RESOURCE_TYPE_MOVIE_REPLACE = "movie-replace";
+
+export interface ReplaceBeginResponse {
+  movieId: string;
+  resourceType: string;
+  stagingPrefix: string;
+}
+
+export interface FinalizeReplaceResponse {
+  videoId: string;
+  status: string;
+  renditions: string[];
+  subtitles: number;
+  /** Measured from the new master playlist; null when it could not be read. Shown so the editor can correct a human-entered runtime — Movie.duration is only auto-filled when it was 0. */
+  durationSeconds: number | null;
+  copiedObjects: number;
+  deletedObjects: number;
+}
+
 /** A file below the multipart size threshold — one presigned PUT, no server-side session. */
 export interface PresignedFile {
   relativePath: string;
@@ -216,5 +243,36 @@ export const uploadService = {
   /** Fire-and-forget from the caller's perspective on Cancel — the backend aborts the MinIO-side upload and marks the session FAILED either way. */
   multipartAbort(sessionId: string) {
     return apiClient.post<void>(`/uploads/multipart/${sessionId}/abort`);
+  },
+
+  // --- Replace the video of an EXISTING title (Edit Movie dialog > Video) ---
+  // Three routes around the SAME presign-batch / multipart/* routes above,
+  // called with resourceType RESOURCE_TYPE_MOVIE_REPLACE so every file lands
+  // in a private staging prefix. The movie's status never changes during a
+  // replace and playback keeps serving the old files until finalizeReplace()
+  // swaps the staged bundle over them.
+
+  /**
+   * Clears any stale staging from an earlier aborted attempt and confirms
+   * the movie can be replaced (PUBLISHED / READY_TO_PUBLISH / FAILED, no
+   * transcode in flight) — 404 / 409 otherwise, before a single byte moves.
+   */
+  replaceBegin(movieId: string) {
+    return apiClient.post<ReplaceBeginResponse>(`/uploads/${movieId}/replace-begin`);
+  },
+
+  /**
+   * Validates the staged bundle, copies it over the old objects (master
+   * playlist last), deletes what the new bundle no longer carries, rewrites
+   * the Video and Subtitle rows, and audits `movie.video_replace`. A 400
+   * (invalid structure / missing staged files) leaves the old video intact.
+   */
+  finalizeReplace(movieId: string, relativePaths: string[]) {
+    return apiClient.post<FinalizeReplaceResponse>(`/uploads/${movieId}/finalize-replace`, { relativePaths });
+  },
+
+  /** Best-effort on Cancel / unmount mid-upload: drops the staging prefix so the space is freed now rather than by the nightly sweep. */
+  replaceCancel(movieId: string) {
+    return apiClient.post<void>(`/uploads/${movieId}/replace-cancel`);
   },
 };
