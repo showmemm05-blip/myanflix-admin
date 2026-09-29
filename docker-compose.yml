@@ -1,5 +1,8 @@
 services:
   admin:
+    # Without this, a crash or host reboot leaves the service down until
+    # someone notices and starts it by hand.
+    restart: unless-stopped
     build:
       context: .
       args:

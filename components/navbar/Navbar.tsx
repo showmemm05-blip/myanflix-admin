@@ -1,15 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Languages, Menu, Search, Settings, UserRound } from "lucide-react";
+import { Bell, KeyRound, Languages, Menu, Search, Settings, UserRound } from "lucide-react";
 import { getPageTitle } from "@/lib/nav-config";
 import { useRole } from "@/lib/context/role-context";
 import { useSidebar } from "@/lib/context/sidebar-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { useAdminNotifications } from "@/hooks/use-admin-notifications";
 import { Sidebar } from "@/components/sidebar/Sidebar";
+import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,7 @@ export function Navbar() {
   const { mobileOpen, setMobileOpen } = useSidebar();
   const { items: notifications, count: notificationCount, refresh: refreshNotifications } = useAdminNotifications();
   const { t, language, setLanguage } = useLanguage();
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6">
@@ -146,6 +149,10 @@ export function Navbar() {
               <UserRound className="size-4" />
               {t.navbar.viewProfile}
             </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setChangePasswordOpen(true)}>
+              <KeyRound className="size-4" />
+              {t.navbar.changePassword}
+            </DropdownMenuItem>
             <DropdownMenuItem render={<Link href="/settings" />}>
               <Settings className="size-4" />
               {t.navbar.settings}
@@ -153,6 +160,9 @@ export function Navbar() {
           </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Outside the menu on purpose: closing the menu must not unmount the dialog it opened. */}
+      <ChangePasswordDialog open={changePasswordOpen} onOpenChange={setChangePasswordOpen} />
     </header>
   );
 }

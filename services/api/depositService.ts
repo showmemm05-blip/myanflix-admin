@@ -7,8 +7,9 @@ import type {
   VerificationFilter,
   VerificationReviewAction,
 } from "@/types/bank-verification";
-import type { Deposit, DepositStatus } from "@/types/deposit";
-import { userLabelOr } from "@/lib/user-label";
+import type { Deposit, DepositStatus, ManualDepositUser } from "@/types/deposit";
+import type { MoneyQueueStats } from "@/types/money-stats";
+import { userLabel, userLabelOr } from "@/lib/user-label";
 
 interface BackendDeposit {
   id: string;
@@ -41,6 +42,8 @@ interface BackendDeposit {
   riskLevel?: BankRiskLevel | null;
   riskReasons?: BankRiskReason[];
   hasBankScreenshot?: boolean;
+  /** The linked bank_transactions row, when the backend joined it (admin list/detail only). */
+  bankTransactionId?: string | null;
   declaredTransferAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +83,7 @@ function mapDeposit(d: BackendDeposit): Deposit {
     riskLevel: d.riskLevel ?? null,
     riskReasons: d.riskReasons ?? [],
     hasBankScreenshot: d.hasBankScreenshot ?? false,
+    bankTransactionId: d.bankTransactionId ?? null,
     declaredTransferAt: d.declaredTransferAt ?? null,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
@@ -95,6 +99,16 @@ export interface DepositQuery extends PaginationParams {
   dateFrom?: string;
   /** Full ISO datetime (inclusive upper bound on createdAt) — never a bare YYYY-MM-DD. */
   dateTo?: string;
+  /** Reference, payer name, or the user's username / display name / phone (max 100 chars). */
+  search?: string;
+}
+
+/** GET /deposits/manual/users row — the minimal customer shape the picker needs. */
+interface BackendManualDepositUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  phone: string | null;
 }
 
 /** Payload for an admin-recorded deposit — mirrors the backend's CreateManualDepositDto. */
@@ -118,6 +132,35 @@ export const depositService = {
   async getAll(query: DepositQuery = {}): Promise<PaginatedResponse<Deposit>> {
     const res = await apiClient.get<PaginatedResponse<BackendDeposit>>("/deposits", { params: query });
     return { ...res, items: res.items.map(mapDeposit) };
+  },
+
+  /**
+   * The queue's stat cards and tab counts over every matching row (H-24) —
+   * same filters as `getAll`; page/limit would be ignored, so none are sent.
+   */
+  getStats(query: Omit<DepositQuery, "page" | "limit"> = {}): Promise<MoneyQueueStats> {
+    return apiClient.get<MoneyQueueStats>("/deposits/stats", { params: query });
+  },
+
+  /**
+   * The manual-deposit customer picker (H-15) — gated on DEPOSITS.CREATE, the
+   * same permission as recording the deposit, so a role that may record one
+   * can find whom it is for without holding USERS.VIEW. Customers only.
+   */
+  async lookupManualDepositUsers(search: string, limit = 8): Promise<ManualDepositUser[]> {
+    const res = await apiClient.get<{ items: BackendManualDepositUser[] }>("/deposits/manual/users", {
+      params: { search, limit },
+    });
+    return res.items.map((u) => ({ id: u.id, name: userLabel(u), username: u.username, phone: u.phone }));
+  },
+
+  /**
+   * One deposit by id (DEPOSITS.VIEW) — the same admin row shape as the list.
+   * Exists for the Bank transactions page, which opens Verification Details
+   * for a linked deposit that is not on any list it has loaded.
+   */
+  getOne(id: string): Promise<Deposit> {
+    return apiClient.get<BackendDeposit>(`/deposits/${id}`).then(mapDeposit);
   },
 
   /**

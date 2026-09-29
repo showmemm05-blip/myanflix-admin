@@ -8,6 +8,7 @@ import { DashboardCard } from "@/components/cards/DashboardCard";
 import { DataTable } from "@/components/tables/DataTable";
 import { RevenueChart } from "@/components/charts/RevenueChart";
 import { UserSpendingChart } from "@/components/finance/UserSpendingChart";
+import { PaymentAccountsOverview } from "@/components/finance/PaymentAccountsOverview";
 import { getTransactionColumns } from "@/components/finance/columns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +16,7 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
-import { getSocket } from "@/lib/socket";
+import { getSocket, onResync } from "@/lib/socket";
 import { analyticsService } from "@/services/api/analyticsService";
 import { paymentService } from "@/services/api/paymentService";
 
@@ -37,13 +38,19 @@ const FINANCE_REFRESH_EVENTS = [
 
 function useFinanceRealtimeRefresh(refetch: () => void) {
   useEffect(() => {
+    // Staff pushes go to permission rooms (H-3): deposit.* / withdrawal.*
+    // reach only DEPOSITS.VIEW / WITHDRAWALS.VIEW holders, so a finance-only
+    // role gets none of them. A reconnect or the tab coming back into view
+    // refetches too, so this page cannot sit stale for such a role.
+    const stopResync = onResync(refetch);
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) return stopResync;
     const handleRefresh = () => refetch();
     for (const event of FINANCE_REFRESH_EVENTS) {
       socket.on(event, handleRefresh);
     }
     return () => {
+      stopResync();
       for (const event of FINANCE_REFRESH_EVENTS) {
         socket.off(event, handleRefresh);
       }
@@ -99,6 +106,8 @@ function SuperAdminFinanceView() {
           iconClassName="bg-info/15 text-info"
         />
       </div>
+
+      <PaymentAccountsOverview />
 
       <RevenueChart daily={revenue.daily} weekly={revenue.weekly} monthly={revenue.monthly} />
 
@@ -156,6 +165,8 @@ function AdminFinanceView() {
           iconClassName="bg-info/15 text-info"
         />
       </div>
+
+      <PaymentAccountsOverview />
 
       <Card className="glass-card">
         <CardContent className="flex items-center justify-center gap-2 py-6 text-center text-sm text-muted-foreground">

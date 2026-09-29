@@ -23,6 +23,15 @@ import { ApiError } from "@/services/api/apiClient";
 import type { StaffMember } from "@/types/staff";
 import { toast } from "sonner";
 
+/**
+ * H-22: DELETE /staff/:id answers 409 with exactly this text when the account
+ * holds wallet money or any payment record — money rows are never deleted
+ * with a user. Matched on the text (other 409s exist on this route) so the
+ * admin can show its own translated wording and offer Deactivate instead.
+ */
+const MONEY_RECORDS_DELETE_MESSAGE =
+  "This account has wallet money or payment records, so it cannot be deleted. Suspend it instead.";
+
 export default function StaffPage() {
   const { currentUser, can } = useRole();
   const canCreate = can("STAFF.CREATE");
@@ -81,7 +90,21 @@ export default function StaffPage() {
       toast.success(t.staff.deletedToast, { description: t.staff.deletedDescription(userLabel(deleteTarget)) });
       setDeleteTarget(null);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      if (err instanceof ApiError && err.status === 409 && err.message === MONEY_RECORDS_DELETE_MESSAGE) {
+        // Retrying can never succeed, so the confirm closes and the one
+        // useful next step — deactivating — is offered right in the toast.
+        const target = deleteTarget;
+        setDeleteTarget(null);
+        toast.error(t.staff.deleteBlockedTitle, {
+          description: t.staff.deleteBlockedDescription,
+          action:
+            can("STAFF.EDIT") && target.status !== "SUSPENDED"
+              ? { label: t.staff.deactivate, onClick: () => setStatusTarget(target) }
+              : undefined,
+        });
+      } else {
+        toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      }
     } finally {
       setDeleteSubmitting(false);
     }

@@ -3,7 +3,11 @@ import type { AppLevel } from "@/types/level";
 
 export type UserRole = "SUPER_ADMIN" | "ADMIN" | "USER" | "CONTENT_UPLOADER";
 
-export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED";
+/**
+ * CLOSED (H-16): the owner deleted their own account. It is terminal — the
+ * backend refuses every staff change to it (see `isClosedAccountError`).
+ */
+export type UserStatus = "ACTIVE" | "SUSPENDED" | "BANNED" | "CLOSED";
 
 export interface AppUser {
   id: string;

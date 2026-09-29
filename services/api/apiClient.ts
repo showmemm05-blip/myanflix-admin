@@ -50,6 +50,19 @@ function buildUrl(path: string, params?: RequestOptions["params"]) {
 let refreshPromise: Promise<string | null> | null = null;
 
 /**
+ * The same single-flight refresh the 401 retry below uses, for a caller that
+ * is not inside a request — the socket, when the server refuses its
+ * reconnect with a token that expired while it was offline. Resolves to
+ * the fresh access token, or null when the session is really gone.
+ */
+export function refreshSession(): Promise<string | null> {
+  refreshPromise ??= refreshAccessToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
+/**
  * Cross-tab guard. The token store is shared localStorage, and the backend
  * accepts each refresh token exactly once — so when two tabs refresh at the
  * same moment, the loser's 401 is not a dead session: the winner has (or is

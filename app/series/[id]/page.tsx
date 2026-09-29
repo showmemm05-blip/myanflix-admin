@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import { SERIES_STATUS_TONE, getSeriesStatusLabel } from "@/components/series/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
+import { ActorPicker } from "@/components/actors/ActorPicker";
 import { FileUploadField } from "@/components/movies/FileUploadField";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -100,6 +101,9 @@ function SeriesManageContent() {
   const [releaseYear, setReleaseYear] = useState("");
   const [accessType, setAccessType] = useState<Series["accessType"]>("SUBSCRIPTION");
   const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  // Show-level cast. PUT `set`s the whole list, so this is seeded from the
+  // stored cast and echoed back on every save — an empty array would wipe it.
+  const [actorIds, setActorIds] = useState<string[]>([]);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const thumbnailPreview = useObjectUrl(thumbnailFile);
@@ -117,6 +121,8 @@ function SeriesManageContent() {
     setReleaseYear(String(series.releaseYear));
     setAccessType(series.accessType);
     setCategoryIds(series.categories.map((c) => c.id));
+    // `?? []` guards a response cached before the cast field existed.
+    setActorIds((series.actors ?? []).map((a) => a.id));
   }, [series]);
 
   const handleSaveInfo = async () => {
@@ -138,6 +144,7 @@ function SeriesManageContent() {
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
         accessType,
         categoryIds,
+        actorIds,
         posterUrl,
         coverUrl,
       });
@@ -521,6 +528,7 @@ function SeriesManageContent() {
               })}
             </div>
           </div>
+          <ActorPicker value={actorIds} onChange={setActorIds} disabled={savingInfo} hint={t.actors.picker.seriesHint} />
           <div className="grid grid-cols-2 gap-4">
             <FileUploadField
               label={t.series.manage.thumbnailLabel}

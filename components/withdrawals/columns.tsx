@@ -146,9 +146,11 @@ export function getWithdrawalColumns({
     {
       accessorKey: "createdAt",
       header: t.withdrawals.columns.dateTime,
+      // Stacked, not joined: the date over the time halves the column's width.
       cell: ({ row }) => (
-        <span className="text-sm tabular-nums text-muted-foreground">
-          {format(new Date(row.original.createdAt), "d MMM yyyy, HH:mm:ss")}
+        <span className="flex flex-col text-sm tabular-nums text-muted-foreground">
+          <span>{format(new Date(row.original.createdAt), "d MMM yyyy")}</span>
+          <span className="text-xs">{format(new Date(row.original.createdAt), "HH:mm:ss")}</span>
         </span>
       ),
     },
@@ -165,11 +167,6 @@ export function getWithdrawalColumns({
                 {withdrawal.rejectionReason}
               </span>
             )}
-            {withdrawal.status !== "PENDING" && withdrawal.approvedAt && (
-              <span className="text-xs text-muted-foreground">
-                {t.withdrawals.columns.processedAt(format(new Date(withdrawal.approvedAt), "d MMM yyyy, HH:mm:ss"))}
-              </span>
-            )}
           </div>
         );
       },
@@ -184,16 +181,11 @@ export function getWithdrawalColumns({
       cell: ({ row }) => {
         const record = toWithdrawalVerification(row.original);
         const status = viewMatchStatus(record, clock);
+        // Badge only — the bank time and the "waiting" hint live in the
+        // Verification Details modal; here they doubled the column's width.
         return (
           <VerificationCell withdrawal={row.original}>
             <BankMatchBadge status={status} />
-            <span className="text-xs text-muted-foreground">
-              {record.bankCheckedAt
-                ? format(new Date(record.bankCheckedAt), "d MMM yyyy, HH:mm:ss")
-                : status === "UNVERIFIED" && record.status === "APPROVED"
-                  ? t.verification.modal.waitingForBank
-                  : null}
-            </span>
           </VerificationCell>
         );
       },

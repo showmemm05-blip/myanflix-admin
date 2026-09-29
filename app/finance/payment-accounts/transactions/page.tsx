@@ -7,6 +7,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import {
   getPaymentAccountTransactionColumns,
   getPaymentAccountTransactionRowClass,
@@ -26,9 +27,19 @@ import type {
   PaymentAccountTransactionType,
 } from "@/types/payment-account-transaction";
 
+/** Rows per server page (H-24): the cross-account ledger only grows, so it is paged on the server. */
+const PAGE_LIMIT = 25;
+
 function AllTransactionsContent() {
   const { t } = useLanguage();
   const [filters, setFilters] = useState<TransactionFilterValues>(EMPTY_TRANSACTION_FILTERS);
+  const [page, setPage] = useState(1);
+  // Any filter change restarts at page 1 — page N of a narrower result set
+  // is usually past its end.
+  const handleFiltersChange = (next: TransactionFilterValues) => {
+    setFilters(next);
+    setPage(1);
+  };
   const [detailsTarget, setDetailsTarget] = useState<PaymentAccountTransaction | null>(null);
 
   const { data: accounts } = useAsyncData(() => paymentAccountService.getAccounts(), []);
@@ -37,7 +48,8 @@ function AllTransactionsContent() {
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       paymentAccountService.getAllTransactions({
-        limit: 100,
+        page,
+        limit: PAGE_LIMIT,
         paymentAccountId: filters.paymentAccountId || undefined,
         type: (filters.type || undefined) as PaymentAccountTransactionType | undefined,
         dateFrom: filters.dateFrom || undefined,
@@ -45,10 +57,12 @@ function AllTransactionsContent() {
         amountMin: filters.amountMin ? Number(filters.amountMin) : undefined,
         amountMax: filters.amountMax ? Number(filters.amountMax) : undefined,
       }),
-    [filters],
+    [filters, page],
   );
 
   const transactions = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const isFiltered = Object.values(filters).some(Boolean);
   const columns = getPaymentAccountTransactionColumns({
     t,
     types: types ?? [],
@@ -83,22 +97,29 @@ function AllTransactionsContent() {
       <PageHeader title={t.paymentAccountLedger.central.title} description={t.paymentAccountLedger.central.description} />
 
       <div className="mb-4">
-        <TransactionFilters accounts={accounts ?? []} value={filters} onChange={setFilters} t={t} />
+        <TransactionFilters accounts={accounts ?? []} value={filters} onChange={handleFiltersChange} t={t} />
       </div>
 
-      {!isLoading && transactions.length === 0 ? (
+      {!isLoading && total === 0 && !isFiltered ? (
         <EmptyState
           icon={ListTree}
           title={t.paymentAccountLedger.central.emptyTitle}
           description={t.paymentAccountLedger.central.emptyDescription}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={transactions}
-          isLoading={isLoading}
-          rowClassName={getPaymentAccountTransactionRowClass}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={transactions}
+            isLoading={isLoading}
+            pageSize={PAGE_LIMIT}
+            manualPagination
+            rowClassName={getPaymentAccountTransactionRowClass}
+          />
+          {!isLoading && (
+            <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={setPage} />
+          )}
+        </>
       )}
 
       <TransactionDetailsDialog

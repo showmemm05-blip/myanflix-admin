@@ -1,17 +1,21 @@
 "use client";
 
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/lib/context/language-context";
 import { VERIFICATION_FILTERS, type VerificationFilter } from "@/types/bank-verification";
 
 /**
  * The bank-verification axis of the deposits/withdrawals list — a SERVER
- * filter (`?verification=`), unlike StatusFilterTabs which narrows the loaded
- * page client-side. The two stack: money status × bank match.
+ * filter (`?verification=`), like StatusFilterTabs. The two stack: money
+ * status × bank match.
  *
- * Counts come from the loaded page: on "All" every tab can be counted from
- * the rows in hand; on any other tab only that tab's rows are loaded, so the
- * others show no number rather than a misleading zero.
+ * One dropdown rather than a second row of tabs: five options with counts
+ * took a whole row, and this axis is consulted far less often than status.
+ * The name is kept so both pages stay untouched.
+ *
+ * Counts are the server's totals for every option (GET …/stats, H-24), not
+ * a tally of the loaded page; an option with no count yet shows no number
+ * rather than a misleading zero.
  */
 export function VerificationFilterTabs({
   value,
@@ -41,17 +45,26 @@ export function VerificationFilterTabs({
   };
 
   return (
-    <Tabs value={value} onValueChange={(v) => v && onValueChange(v as VerificationFilter)}>
-      <TabsList>
+    <Select value={value} onValueChange={(v) => v && onValueChange(v as VerificationFilter)}>
+      <SelectTrigger className="h-8 w-auto gap-1.5 text-xs" aria-label={t.verification.columns.bankMatch}>
+        <span className="text-muted-foreground">{t.verification.filters.bankLabel}:</span>
+        <SelectValue>{labels[value]}</SelectValue>
+        {counts[value] !== undefined && (
+          <span className={`text-[11px] tabular-nums ${countClass[value]}`}>{counts[value]}</span>
+        )}
+      </SelectTrigger>
+      <SelectContent>
         {VERIFICATION_FILTERS.map((filter) => (
-          <TabsTrigger key={filter} value={filter}>
-            {labels[filter]}
-            {counts[filter] !== undefined && (
-              <span className={countClass[filter]}>({counts[filter]})</span>
-            )}
-          </TabsTrigger>
+          <SelectItem key={filter} value={filter}>
+            <span className="flex items-center gap-2">
+              {labels[filter]}
+              {counts[filter] !== undefined && (
+                <span className={`text-[11px] tabular-nums ${countClass[filter]}`}>{counts[filter]}</span>
+              )}
+            </span>
+          </SelectItem>
         ))}
-      </TabsList>
-    </Tabs>
+      </SelectContent>
+    </Select>
   );
 }

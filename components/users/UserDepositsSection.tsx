@@ -63,12 +63,16 @@ export function UserDepositsSection({
     t,
     types,
     paymentAccounts,
-    canApprove: can("DEPOSITS.APPROVE"),
-    canReject: can("DEPOSITS.REJECT"),
-    onApprove: handleApprove,
-    onReject: setRejectTarget,
+    // Inline buttons stay here: this card mounts no Verification Details
+    // modal, so the row is the only place to act.
+    actions: {
+      canApprove: can("DEPOSITS.APPROVE"),
+      canReject: can("DEPOSITS.REJECT"),
+      onApprove: handleApprove,
+      onReject: setRejectTarget,
+      approvingId,
+    },
     onReceivingSaved: onChanged,
-    approvingId,
   });
 
   return (

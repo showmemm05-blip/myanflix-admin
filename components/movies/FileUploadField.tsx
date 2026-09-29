@@ -47,7 +47,12 @@ export function FileUploadField({
         accept={accept}
         className="hidden"
         disabled={disabled}
-        onChange={(e) => onChange(e.target.files?.[0] ?? null)}
+        onChange={(e) => {
+          onChange(e.target.files?.[0] ?? null);
+          // Reset so picking the same file again (after clearing it) still
+          // fires a change event — a file input ignores a repeat selection.
+          e.target.value = "";
+        }}
       />
 
       {variant === "image" && previewUrl ? (
@@ -59,13 +64,34 @@ export function FileUploadField({
         >
           <Image src={previewUrl} alt={label} fill className="object-cover" sizes="320px" />
           {!disabled && (
-            <button
-              type="button"
-              onClick={() => onChange(null)}
-              className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              <X className="size-3.5" />
-            </button>
+            <>
+              {/* A saved image used to be a dead end: the only control was the
+                  X, and every edit form previews the stored URL, so there was
+                  nothing to clear and the picker never came back. "Change"
+                  opens the file dialog directly, whether the preview is a
+                  fresh pick or the image already on file. Always visible —
+                  the hover-only X went undiscovered. */}
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1.5 bg-black/60 py-1.5 text-xs font-medium text-white transition-colors hover:bg-black/75"
+              >
+                <UploadCloud className="size-3.5" />
+                {t.movies.fileUpload.change}
+              </button>
+              {/* Only a freshly picked file can be undone here; a stored image
+                  is replaced via "Change", never removed from this control. */}
+              {file && (
+                <button
+                  type="button"
+                  onClick={() => onChange(null)}
+                  aria-label={t.movies.fileUpload.clearSelection}
+                  className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </>
           )}
         </div>
       ) : file ? (

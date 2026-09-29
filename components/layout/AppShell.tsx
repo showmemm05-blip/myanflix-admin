@@ -7,22 +7,30 @@ import { useSidebar } from "@/lib/context/sidebar-context";
 import { useRole } from "@/lib/context/role-context";
 import { Sidebar } from "@/components/sidebar/Sidebar";
 import { Navbar } from "@/components/navbar/Navbar";
+import { getLandingHref } from "@/lib/nav-config";
 import { cn } from "@/lib/utils";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { collapsed } = useSidebar();
-  const { isAuthenticated, isLoading } = useRole();
+  const { isAuthenticated, isLoading, can } = useRole();
   const pathname = usePathname();
   const router = useRouter();
   const isPublicRoute = PUBLIC_ROUTES.has(pathname);
 
   useEffect(() => {
     if (isLoading) return;
-    if (!isAuthenticated && !isPublicRoute) router.replace("/login");
-    if (isAuthenticated && isPublicRoute) router.replace("/dashboard");
-  }, [isLoading, isAuthenticated, isPublicRoute, router]);
+    if (!isAuthenticated) {
+      if (!isPublicRoute) router.replace("/login");
+      return;
+    }
+    // H-26: "/" and a fresh login both land on /dashboard; a role without
+    // DASHBOARD.VIEW is sent on to the first page it may open instead.
+    const landing = getLandingHref(can);
+    if (isPublicRoute) router.replace(landing);
+    else if (pathname === "/dashboard" && landing !== "/dashboard") router.replace(landing);
+  }, [isLoading, isAuthenticated, isPublicRoute, pathname, can, router]);
 
   // Login page renders its own full-screen layout with no sidebar/navbar chrome.
   if (isPublicRoute) return <>{children}</>;

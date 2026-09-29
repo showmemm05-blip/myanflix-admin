@@ -4,10 +4,10 @@ import type { Withdrawal } from "@/types/withdrawal";
 import { userLabel } from "@/lib/user-label";
 
 /**
- * The `deposit.created` / `withdrawal.created` socket payloads (admins room)
- * and the one place that turns them into table rows. Three surfaces prepend
- * a freshly created row — the deposits page, the withdrawals page and the
- * admin bell — and each used to spell out every null by hand, so a new
+ * The `deposit.created` / `withdrawal.created` socket payloads (sent to the
+ * DEPOSITS.VIEW / WITHDRAWALS.VIEW permission rooms) and the one place that
+ * turns them into table rows. Three surfaces prepend a freshly created row —
+ * the deposits page, the withdrawals page and the admin bell — and each used to spell out every null by hand, so a new
  * column meant three edits and a silent drift risk. Now the shape lives here.
  */
 
@@ -34,6 +34,12 @@ export interface DepositCreatedEvent {
   matchStatus?: BankMatchStatusView;
   riskLevel?: BankRiskLevel | null;
   riskReasons?: BankRiskReason[];
+  /**
+   * Set when a bank transaction that arrived FIRST was claimed at create
+   * time (the reverse lookup in DepositsService.create) — the payload then
+   * carries the post-claim values, so the row lands already matched.
+   */
+  bankTransactionId?: string | null;
 }
 
 export interface WithdrawalCreatedEvent {
@@ -87,6 +93,7 @@ export function depositFromCreatedEvent(event: DepositCreatedEvent): Deposit {
     riskLevel: event.riskLevel ?? null,
     riskReasons: event.riskReasons ?? [],
     hasBankScreenshot: false,
+    bankTransactionId: event.bankTransactionId ?? null,
     declaredTransferAt: null,
     createdAt: event.createdAt,
     updatedAt: event.createdAt,
@@ -125,14 +132,15 @@ export function withdrawalFromCreatedEvent(event: WithdrawalCreatedEvent): Withd
     riskLevel: null,
     riskReasons: [],
     hasBankScreenshot: false,
+    bankTransactionId: null,
     createdAt: event.createdAt,
     updatedAt: event.createdAt,
   };
 }
 
 /**
- * `deposit.verification` / `withdrawal.verification` — admins-only pushes
- * from the matcher and from staff review actions. Merged by id into the
+ * `deposit.verification` / `withdrawal.verification` — staff pushes (the
+ * DEPOSITS.VIEW / WITHDRAWALS.VIEW permission rooms) from the matcher and from staff review actions. Merged by id into the
  * loaded list so the badges (and an open modal) update without a refetch.
  */
 export interface DepositVerificationEvent {
@@ -145,6 +153,8 @@ export interface DepositVerificationEvent {
   receivingTransactionAt: string | null;
   bankCheckedAt: string | null;
   hasBankScreenshot: boolean;
+  /** Present on payloads from the store-first backend; absent = leave the row's value alone. */
+  bankTransactionId?: string | null;
 }
 
 export interface WithdrawalVerificationEvent {
@@ -157,6 +167,7 @@ export interface WithdrawalVerificationEvent {
   transferTransactionAt: string | null;
   bankCheckedAt: string | null;
   hasBankScreenshot: boolean;
+  bankTransactionId?: string | null;
 }
 
 export function mergeDepositVerification(d: Deposit, event: DepositVerificationEvent): Deposit {
@@ -170,6 +181,8 @@ export function mergeDepositVerification(d: Deposit, event: DepositVerificationE
     receivingTransactionAt: event.receivingTransactionAt ?? null,
     bankCheckedAt: event.bankCheckedAt ?? null,
     hasBankScreenshot: event.hasBankScreenshot ?? false,
+    // An explicit null (unlink) must win; only an ABSENT key keeps the old link.
+    bankTransactionId: event.bankTransactionId !== undefined ? event.bankTransactionId : d.bankTransactionId,
   };
 }
 
@@ -184,5 +197,6 @@ export function mergeWithdrawalVerification(w: Withdrawal, event: WithdrawalVeri
     transferTransactionAt: event.transferTransactionAt ?? null,
     bankCheckedAt: event.bankCheckedAt ?? null,
     hasBankScreenshot: event.hasBankScreenshot ?? false,
+    bankTransactionId: event.bankTransactionId !== undefined ? event.bankTransactionId : w.bankTransactionId,
   };
 }

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDownToLine, CheckCircle2, Clock, Plus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
 import { VerificationFilterTabs } from "@/components/shared/VerificationFilterTabs";
@@ -20,24 +21,24 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useNow } from "@/lib/hooks/use-now";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
-import { getSocket } from "@/lib/socket";
-import { depositService } from "@/services/api/depositService";
+import { getSocket, onResync } from "@/lib/socket";
+import { depositService, type DepositQuery } from "@/services/api/depositService";
 import { paymentAccountService } from "@/services/api/paymentAccountService";
 import { formatKyat } from "@/lib/currency";
-import {
-  matchesVerificationFilter,
-  toDepositVerification,
-  viewMatchStatus,
-} from "@/lib/bank-verification";
+import { toDepositVerification, viewMatchStatus } from "@/lib/bank-verification";
 import {
   depositFromCreatedEvent,
   mergeDepositVerification,
   type DepositCreatedEvent,
   type DepositVerificationEvent,
 } from "@/lib/realtime-rows";
+import type { PaginatedResponse } from "@/types/api";
 import type { VerificationFilter, VerificationReviewAction } from "@/types/bank-verification";
 import type { Deposit } from "@/types/deposit";
 import { toast } from "sonner";
+
+/** Rows per server page (H-24): the queue, its search and its totals all live on the server. */
+const PAGE_LIMIT = 25;
 
 interface DepositUpdatedEvent {
   id: string;
@@ -65,105 +66,113 @@ export default function DepositsPage() {
 
   // Default to TODAY so the page opens on the current day's activity.
   const [range, setRange] = useState(() => ({ from: todayStr(), to: todayStr() }));
-  // The bank-verification axis — a server filter, unlike the status tabs.
+  // The bank-verification axis and the money-status tabs — both SERVER
+  // filters now (H-24), so they narrow the whole queue, not one loaded page.
   const [verification, setVerification] = useState<VerificationFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
+  const [page, setPage] = useState(1);
+
+  // Server search over reference, payer name and the user's username /
+  // display name / phone — the queue is paged, so a filter over the loaded
+  // page would hide every match past it. Capped at the API's 100 characters.
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
+
+  // The one server query behind both the page of rows and the stat cards.
+  const query = useMemo<DepositQuery>(() => {
+    // LOCAL day boundaries sent as full ISO datetimes — a bare YYYY-MM-DD
+    // would be parsed as UTC midnight and make the "to" day exclusive here.
+    const dateFrom = range.from ? new Date(`${range.from}T00:00:00`).toISOString() : undefined;
+    const dateTo = range.to ? new Date(`${range.to}T23:59:59.999`).toISOString() : undefined;
+    return {
+      dateFrom,
+      dateTo,
+      status: statusFilter === "ALL" ? undefined : statusFilter,
+      verification: verification === "all" ? undefined : verification,
+      search: appliedSearch || undefined,
+    };
+  }, [range, statusFilter, verification, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
-    () => {
-      // LOCAL day boundaries sent as full ISO datetimes — a bare YYYY-MM-DD
-      // would be parsed as UTC midnight and make the "to" day exclusive here.
-      const dateFrom = range.from ? new Date(`${range.from}T00:00:00`).toISOString() : undefined;
-      const dateTo = range.to ? new Date(`${range.to}T23:59:59.999`).toISOString() : undefined;
-      return depositService.getAll({
-        limit: 100,
-        dateFrom,
-        dateTo,
-        verification: verification === "all" ? undefined : verification,
-      });
-    },
-    [range, verification]
+    () => depositService.getAll({ ...query, page, limit: PAGE_LIMIT }),
+    [query, page]
   );
+  // Cards and tab counts summed by the database over EVERY matching row —
+  // never from the page in hand (H-24). Kept on screen while a refetch runs.
+  const { data: stats, refetch: refetchStats } = useAsyncData(() => depositService.getStats(query), [query]);
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
   const { data: paymentAccounts, refetch: refetchAccounts } = useAsyncData(
     () => paymentAccountService.getAccounts(),
     []
   );
-  const [deposits, setDeposits] = useState<Deposit[] | null>(null);
-  const activeDeposits = useMemo(() => deposits ?? data?.items ?? [], [deposits, data]);
+  // Local edits and socket pushes ride on the page they were made against.
+  // Once a newer fetch lands (a filter, a page turn, a resync) it replaces
+  // them — it already carries those changes — so a push arriving mid-refetch
+  // can never mask the new query's rows with the previous one's.
+  const [local, setLocal] = useState<{ base: PaginatedResponse<Deposit>; rows: Deposit[] } | null>(null);
+  const activeDeposits = useMemo(
+    () => (data && local?.base === data ? local.rows : data?.items ?? []),
+    [data, local]
+  );
+  const updateRows = useCallback(
+    (change: (rows: Deposit[]) => Deposit[]) => {
+      if (!data) return;
+      setLocal((prev) => ({ base: data, rows: change(prev?.base === data ? prev.rows : data.items) }));
+    },
+    [data]
+  );
+  // Rows a push or a manual deposit added on this page count toward the total.
+  const total = data ? data.total + activeDeposits.length - data.items.length : 0;
 
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Deposit | null>(null);
   const [recordOpen, setRecordOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<StatusFilterValue>("ALL");
   // The modal is keyed by id and re-reads the row from `activeDeposits` on
   // every render, so a `deposit.verification` push updates it while open.
   const [verificationTargetId, setVerificationTargetId] = useState<string | null>(null);
   // Approve on a SUSPICIOUS row goes through a confirm (with a note) first.
   const [approveSuspiciousTarget, setApproveSuspiciousTarget] = useState<Deposit | null>(null);
 
-  // True while a range-change refetch is in flight — a socket row landing in
-  // that window must NOT seed the local list from the closure-stale previous
-  // range's data (it would mask the refetched rows for the new range).
-  const rangeRefetchingRef = useRef(false);
-
+  // Every filter change starts again at page 1 — page N of a narrower
+  // result set is usually past its end.
   const handleRangeChange = (next: DateRangeValue) => {
-    // Drop the socket/action-local override so the refetched rows for the new
-    // range aren't masked by the stale local list.
-    rangeRefetchingRef.current = true;
-    setDeposits(null);
+    setPage(1);
     setRange(next);
   };
 
-  // Same guard as a range change: the verification tab is a server filter,
-  // so the local override must be dropped for the refetched rows to show.
   const handleVerificationChange = (next: VerificationFilter) => {
-    rangeRefetchingRef.current = true;
-    setDeposits(null);
+    setPage(1);
     setVerification(next);
   };
 
-  useEffect(() => {
-    if (data) rangeRefetchingRef.current = false;
-  }, [data]);
+  const handleStatusChange = (next: StatusFilterValue) => {
+    setPage(1);
+    setStatusFilter(next);
+  };
 
-  const stats = useMemo(() => {
-    let pendingAmount = 0;
-    let approvedAmount = 0;
-    let rejectedCount = 0;
-    let pendingCount = 0;
-    let approvedCount = 0;
-    for (const d of activeDeposits) {
-      if (d.status === "PENDING") {
-        pendingAmount += d.amount;
-        pendingCount++;
-      } else if (d.status === "APPROVED") {
-        approvedAmount += d.amount;
-        approvedCount++;
-      } else if (d.status === "REJECTED") {
-        rejectedCount++;
-      }
-    }
-    return { pendingAmount, approvedAmount, rejectedCount, pendingCount, approvedCount, total: activeDeposits.length };
-  }, [activeDeposits]);
-
-  const filteredDeposits = useMemo(
-    () => (statusFilter === "ALL" ? activeDeposits : activeDeposits.filter((d) => d.status === statusFilter)),
-    [activeDeposits, statusFilter]
+  /**
+   * Whether a brand-new row (created "now", newest first) belongs at the top
+   * of what is on screen: page 1, no search term (the server decides what a
+   * term matches), a status tab that admits it, and a range that includes
+   * today (the default today-range and All both do).
+   */
+  const newRowFitsView = useCallback(
+    (status: Deposit["status"]) => {
+      const today = todayStr();
+      if ((range.from && today < range.from) || (range.to && today > range.to)) return false;
+      return page === 1 && !appliedSearch && (statusFilter === "ALL" || statusFilter === status);
+    },
+    [range, page, appliedSearch, statusFilter]
   );
-
-  // Tab counts from the loaded page. On "All" every tab is countable; on a
-  // specific tab only its own rows are loaded, so the rest show no number.
-  const verificationCounts = useMemo<Partial<Record<VerificationFilter, number>>>(() => {
-    if (verification !== "all") return { [verification]: activeDeposits.length };
-    const records = activeDeposits.map(toDepositVerification);
-    return {
-      all: records.length,
-      awaiting_bank: records.filter((r) => matchesVerificationFilter(r, "awaiting_bank", now)).length,
-      verified: records.filter((r) => matchesVerificationFilter(r, "verified", now)).length,
-      needs_review: records.filter((r) => matchesVerificationFilter(r, "needs_review", now)).length,
-      no_bank_transaction: records.filter((r) => matchesVerificationFilter(r, "no_bank_transaction", now)).length,
-    };
-  }, [activeDeposits, verification, now]);
 
   const verificationTarget = useMemo(
     () => (verificationTargetId ? (activeDeposits.find((d) => d.id === verificationTargetId) ?? null) : null),
@@ -172,18 +181,21 @@ export default function DepositsPage() {
 
   useEffect(() => {
     if (!canViewQueue) return;
+    // Before the socket check: a reconnect or a tab coming back into view
+    // must refetch even if the socket was not there when this ran.
+    const stopResync = onResync(() => {
+      refetch();
+      refetchStats();
+    });
     const socket = getSocket();
-    if (!socket) return;
+    if (!socket) return stopResync;
 
     const handleCreated = (event: DepositCreatedEvent) => {
-      // A freshly created row is always from "now" — skip the prepend when the
-      // active range excludes today (the default today-range and All both
-      // include it, so their behavior is unchanged).
-      const today = todayStr();
-      if ((range.from && today < range.from) || (range.to && today > range.to)) return;
-      // Mid-refetch the fetched data still belongs to the previous range —
-      // skip; the in-flight fetch will include this row if it qualifies.
-      if (rangeRefetchingRef.current) return;
+      // Every new request moves the cards and tab counts, wherever it lands.
+      refetchStats();
+      // A new row is PENDING and newest: skip the prepend when the view
+      // (page, search, status tab, range) would not show it at the top.
+      if (!newRowFitsView("PENDING")) return;
       // A new row is always PENDING and never bank-checked, so it belongs on
       // "All" and "Awaiting bank" only — on any other server filter the
       // prepend would show a row the filter excludes.
@@ -194,16 +206,16 @@ export default function DepositsPage() {
       // Toasting here too would double up with AdminDepositNotifications,
       // mounted app-wide in app/layout.tsx — this listener only keeps the
       // visible table current in real time while this page is open.
-      setDeposits((prev) => [incoming, ...(prev ?? data?.items ?? [])]);
+      updateRows((rows) => [incoming, ...rows]);
     };
 
     const handleVerification = (event: DepositVerificationEvent) => {
-      // Admins-only push from the matcher / a review action in another
-      // session. Merged by id; a row not on this page is simply ignored
-      // (it will carry the values when it is next fetched).
-      setDeposits((prev) =>
-        (prev ?? data?.items ?? []).map((d) => (d.id === event.id ? mergeDepositVerification(d, event) : d))
-      );
+      // Push to DEPOSITS.VIEW holders (their permission room) from the
+      // matcher / a review action in another session. Merged by id; a row
+      // not on this page is simply ignored (it will carry the values when it
+      // is next fetched). The verification tab counts move with it.
+      refetchStats();
+      updateRows((rows) => rows.map((d) => (d.id === event.id ? mergeDepositVerification(d, event) : d)));
     };
 
     const handleUpdated = (event: DepositUpdatedEvent) => {
@@ -211,8 +223,10 @@ export default function DepositsPage() {
       // admin session/tab — this page's own actions already update state
       // directly via handleApproved/handleRejected/handleReceivingSaved, so
       // this merge is a no-op there and only matters for cross-session sync.
-      setDeposits((prev) =>
-        (prev ?? data?.items ?? []).map((d) =>
+      // A status change moves the cards, so the totals are re-read too.
+      refetchStats();
+      updateRows((rows) =>
+        rows.map((d) =>
           d.id === event.id
             ? {
                 ...d,
@@ -238,12 +252,13 @@ export default function DepositsPage() {
     socket.on("deposit.updated", handleUpdated);
     socket.on("deposit.verification", handleVerification);
     return () => {
+      stopResync();
       socket.off("deposit.created", handleCreated);
       socket.off("deposit.updated", handleUpdated);
       socket.off("deposit.verification", handleVerification);
     };
 
-  }, [canViewQueue, data, range, verification]);
+  }, [canViewQueue, verification, newRowFitsView, updateRows, refetch, refetchStats]);
 
   const performApprove = async (deposit: Deposit, note?: string) => {
     setApprovingId(deposit.id);
@@ -259,7 +274,8 @@ export default function DepositsPage() {
       // our payment accounts they sent to when submitting, and the backend
       // auto-credits that declared account on approval.
       const updated = await depositService.approve(deposit.id);
-      setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      updateRows((rows) => rows.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      refetchStats();
       setApproveSuspiciousTarget(null);
       toast.success(t.deposits.approvedToast, {
         description: t.deposits.approvedDescription(deposit.userName),
@@ -287,7 +303,8 @@ export default function DepositsPage() {
     if (!verificationTarget) return;
     try {
       const updated = await depositService.reviewVerification(verificationTarget.id, action, note);
-      setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      updateRows((rows) => rows.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+      refetchStats();
       toast.success(t.verification.actions.reviewedToast);
     } catch (err) {
       toast.error(t.verification.actions.reviewFailedToast, {
@@ -298,53 +315,67 @@ export default function DepositsPage() {
   };
 
   const handleRejected = (updated: Deposit) => {
-    setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+    updateRows((rows) => rows.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+    refetchStats();
   };
 
   const handleReceivingSaved = (updated: Deposit) => {
-    setDeposits(activeDeposits.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
+    updateRows((rows) => rows.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
   };
 
   const handleManualSaved = (created: Deposit) => {
     // The new row lands in local state immediately (same idiom as the other
-    // handlers); the payment-accounts refetch picks up the destination
-    // account's changed balance for the receiving-account column labels.
-    setDeposits([created, ...activeDeposits]);
+    // handlers) when the view shows it — it is created APPROVED and newest;
+    // anywhere else the next fetch places it. The payment-accounts refetch
+    // picks up the destination account's changed balance for the
+    // receiving-account column labels.
+    if (newRowFitsView(created.status)) updateRows((rows) => [created, ...rows]);
     refetchAccounts();
+    refetchStats();
   };
 
+  // Both places approve/reject: the row's buttons (the owner wants them in
+  // sight) and the Verification Details modal, where the bank's side is on
+  // screen. Same handlers, so the two can never disagree.
   const columns = getDepositColumns({
     t,
     types: types ?? [],
     paymentAccounts: paymentAccounts ?? [],
-    canApprove: can("DEPOSITS.APPROVE"),
-    canReject: can("DEPOSITS.REJECT"),
-    onApprove: handleApprove,
-    onReject: setRejectTarget,
+    actions: {
+      canApprove: can("DEPOSITS.APPROVE"),
+      canReject: can("DEPOSITS.REJECT"),
+      onApprove: handleApprove,
+      onReject: setRejectTarget,
+      approvingId,
+    },
     onReceivingSaved: handleReceivingSaved,
     onOpenVerification: (deposit) => setVerificationTargetId(deposit.id),
-    approvingId,
     now,
   });
 
-  // Shared by the loaded AND loading DataTable branches so the range inputs
-  // never unmount mid-typing while a refetch is in flight.
+  // Rendered once, above a single DataTable that stays mounted through
+  // refetches — otherwise changing a date or typing a search would unmount
+  // the very input the admin is using.
   const tableToolbar = (
     <div className="flex flex-wrap items-center gap-2">
       <StatusFilterTabs
         value={statusFilter}
-        onValueChange={setStatusFilter}
-        counts={{
-          all: stats.total,
-          pending: stats.pendingCount,
-          approved: stats.approvedCount,
-          rejected: stats.rejectedCount,
-        }}
+        onValueChange={handleStatusChange}
+        counts={
+          stats
+            ? {
+                all: stats.total.count,
+                pending: stats.byStatus.PENDING.count,
+                approved: stats.byStatus.APPROVED.count,
+                rejected: stats.byStatus.REJECTED.count,
+              }
+            : undefined
+        }
       />
       <VerificationFilterTabs
         value={verification}
         onValueChange={handleVerificationChange}
-        counts={verificationCounts}
+        counts={stats?.verification ?? {}}
       />
       <DateRangeFilter value={range} onChange={handleRangeChange} />
     </div>
@@ -358,6 +389,12 @@ export default function DepositsPage() {
     </Button>
   ) : null;
 
+  // Full-page empty state only for a genuinely empty, unfiltered queue — with
+  // any range, tab or search active the table (and its toolbar) must stay
+  // visible so the filter can be changed back.
+  const isFiltered =
+    !!range.from || !!range.to || statusFilter !== "ALL" || verification !== "all" || !!search;
+
   return (
     <RequirePermission
       permission="DEPOSITS.VIEW"
@@ -365,24 +402,9 @@ export default function DepositsPage() {
       description={t.deposits.page.description}
     >
       <div className="flex flex-col gap-6">
-        {isLoading ? (
-          // Toolbar stays mounted through refetches — otherwise changing a
-          // date unmounts the very input the admin is typing into.
-          <DataTable
-            columns={columns}
-            data={[]}
-            isLoading
-            pageSize={10}
-            searchKey="userName"
-            searchPlaceholder={t.deposits.searchPlaceholder}
-            searchActions={recordButton}
-            toolbar={tableToolbar}
-          />
-        ) : error ? (
+        {error ? (
           <ErrorState description={t.deposits.loadError} onRetry={refetch} />
-        ) : activeDeposits.length === 0 && !range.from && !range.to ? (
-          // Full-page empty state only when unfiltered — with a range active the
-          // table (and its toolbar) must stay visible so the range can be changed.
+        ) : !isLoading && total === 0 && !isFiltered ? (
           // The table (and its search-side button) is hidden here, so keep a
           // way to record the very first deposit.
           <div className="flex flex-col gap-4">
@@ -394,38 +416,47 @@ export default function DepositsPage() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <DashboardCard
                 title={t.deposits.pendingAmount}
-                value={formatKyat(stats.pendingAmount)}
+                value={stats ? formatKyat(stats.byStatus.PENDING.amount) : "—"}
                 icon={Clock}
                 iconClassName="bg-pending/15 text-pending"
               />
               <DashboardCard
                 title={t.deposits.approvedAmount}
-                value={formatKyat(stats.approvedAmount)}
+                value={stats ? formatKyat(stats.byStatus.APPROVED.amount) : "—"}
                 icon={CheckCircle2}
                 iconClassName="bg-approved/15 text-approved"
               />
               <DashboardCard
                 title={t.shared.statusRejected}
-                value={stats.rejectedCount.toLocaleString()}
+                value={stats ? stats.byStatus.REJECTED.count.toLocaleString() : "—"}
                 icon={XCircle}
                 iconClassName="bg-rejected/15 text-rejected"
               />
               <DashboardCard
                 title={t.deposits.totalDeposits}
-                value={stats.total.toLocaleString()}
+                value={stats ? stats.total.count.toLocaleString() : "—"}
                 icon={ArrowDownToLine}
                 iconClassName="bg-info/15 text-info"
               />
             </div>
 
-            <DataTable
-              columns={columns}
-              data={filteredDeposits}
-              searchKey="userName"
-              searchPlaceholder={t.deposits.searchPlaceholder}
-              searchActions={recordButton}
-              toolbar={tableToolbar}
-            />
+            <div>
+              <DataTable
+                columns={columns}
+                data={activeDeposits}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={t.deposits.searchPlaceholder}
+                searchActions={recordButton}
+                toolbar={tableToolbar}
+              />
+              {!isLoading && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={setPage} />
+              )}
+            </div>
           </>
         )}
 

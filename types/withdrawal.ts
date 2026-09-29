@@ -56,6 +56,8 @@ export interface Withdrawal {
   riskReasons: BankRiskReason[];
   /** The screenshot itself is never in JSON — it streams through the BANK_EVIDENCE route. */
   hasBankScreenshot: boolean;
+  /** The stored phone-captured bank transaction this payout is linked to (bank_transactions.id) — null until matched, or after an unlink. */
+  bankTransactionId: string | null;
   createdAt: string;
   updatedAt: string;
 }

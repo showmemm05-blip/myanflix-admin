@@ -14,9 +14,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BankMatchBadge } from "@/components/shared/BankMatchBadge";
-import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { StatusBadge } from "@/components/shared/StatusBadge";
 import { formatKyat } from "@/lib/currency";
-import { REVIEW_STATUS_TONE, RISK_TONE } from "@/lib/status-tones";
+import { REVIEW_STATUS_TONE, RISK_TONE, USER_STATUS_TONE } from "@/lib/status-tones";
+import { userStatusLabel } from "@/lib/account-status";
 import { formatLocalPhone } from "@/lib/phone";
 import { userLabel, userLabelOr } from "@/lib/user-label";
 import { useLanguage } from "@/lib/context/language-context";
@@ -26,6 +27,7 @@ import type {
   PaymentAccountTransactionAccountRef,
   PaymentAccountTransactionCustomer,
 } from "@/types/payment-account-transaction";
+import type { UserStatus } from "@/types/user";
 
 const EM_DASH = "—";
 
@@ -93,12 +95,6 @@ function Field({
   );
 }
 
-const USER_STATUS_TONE: Record<string, StatusTone> = {
-  ACTIVE: "success",
-  SUSPENDED: "warning",
-  BANNED: "danger",
-};
-
 /**
  * Who the money actually came from or went to. Given its own section ahead of
  * the deposit/withdrawal detail because "who is this?" is the first thing an
@@ -150,8 +146,8 @@ function CustomerSection({
           label={d.customerStatus}
           value={
             <StatusBadge
-              label={customer.status}
-              tone={USER_STATUS_TONE[customer.status] ?? "neutral"}
+              label={userStatusLabel(t, customer.status)}
+              tone={USER_STATUS_TONE[customer.status as UserStatus] ?? "neutral"}
             />
           }
         />

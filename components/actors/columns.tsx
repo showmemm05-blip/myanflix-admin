@@ -103,7 +103,7 @@ export function getActorColumns({
       header: t.actors.columns.movies,
       cell: ({ row }) => (
         <span className="text-sm tabular-nums text-muted-foreground">
-          {t.actors.movieCount(row.original.movieCount)}
+          {t.actors.movieCount(row.original.movieCount)} · {t.actors.seriesCount(row.original.seriesCount)}
         </span>
       ),
     },

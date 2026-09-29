@@ -34,6 +34,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
+import { isClosedAccountError } from "@/lib/account-status";
 import { userService } from "@/services/api/userService";
 import { formatKyat } from "@/lib/currency";
 import { formatLocalPhone } from "@/lib/phone";
@@ -166,9 +167,17 @@ export function NodeDetailsPanel({
       setStatusTarget(null);
       onUserStatusChanged?.();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : t.common.somethingWentWrong,
-      );
+      if (isClosedAccountError(error)) {
+        // The graph is stale: the owner closed the account after it loaded.
+        // Refetch so the row shows CLOSED and loses the control.
+        toast.error(t.users.closedAccount);
+        setStatusTarget(null);
+        onUserStatusChanged?.();
+      } else {
+        toast.error(
+          error instanceof Error ? error.message : t.common.somethingWentWrong,
+        );
+      }
     } finally {
       setSavingStatus(false);
     }
@@ -180,7 +189,8 @@ export function NodeDetailsPanel({
     name: string;
     status: UserStatus | undefined;
   }) => {
-    if (!canSuspend || !target.status) return null;
+    // CLOSED is terminal (H-16): the backend refuses any status change.
+    if (!canSuspend || !target.status || target.status === "CLOSED") return null;
     const isActive = target.status === "ACTIVE";
     return (
       <Button
@@ -210,6 +220,21 @@ export function NodeDetailsPanel({
       </Button>
     );
   };
+
+  /**
+   * The tag beside a non-active account's name. A closed account gets its own
+   * muted tag: the owner chose it, so it is not the red "Suspended" alarm.
+   */
+  const statusTag = (status: UserStatus) =>
+    status === "CLOSED" ? (
+      <span className="shrink-0 rounded bg-muted-foreground/15 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+        {copy.closedTag}
+      </span>
+    ) : (
+      <span className="shrink-0 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+        {copy.suspendedTag}
+      </span>
+    );
 
   /** Rendered once per panel, next to the card, so both lists can trigger it. */
   const statusDialog = (
@@ -409,11 +434,7 @@ export function NodeDetailsPanel({
                                 <span className="truncate text-sm font-medium">
                                   {userLabelOr(user, t.common.unknownUser)}
                                 </span>
-                                {user?.status && user.status !== "ACTIVE" && (
-                                  <span className="shrink-0 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
-                                    {copy.suspendedTag}
-                                  </span>
-                                )}
+                                {user?.status && user.status !== "ACTIVE" && statusTag(user.status)}
                               </span>
                               {/* Left: what this person did with THIS number. */}
                               <span className="block truncate text-xs text-muted-foreground">
@@ -574,11 +595,8 @@ export function NodeDetailsPanel({
                                 {userLabelOr(entry.user, t.common.unknownUser)}
                               </span>
                               {entry.user?.status &&
-                                entry.user.status !== "ACTIVE" && (
-                                  <span className="shrink-0 rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
-                                    {copy.suspendedTag}
-                                  </span>
-                                )}
+                                entry.user.status !== "ACTIVE" &&
+                                statusTag(entry.user.status)}
                             </span>
                             <span className="block truncate text-xs text-muted-foreground tabular-nums">
                               {entry.phones.join(" · ")}

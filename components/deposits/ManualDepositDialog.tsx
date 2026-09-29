@@ -25,11 +25,9 @@ import {
 } from "@/lib/datetime-local";
 import { formatLocalPhone } from "@/lib/phone";
 import { ApiError } from "@/services/api/apiClient";
+import { isClosedAccountError } from "@/lib/account-status";
 import { depositService } from "@/services/api/depositService";
-import { userService } from "@/services/api/userService";
-import type { PaginationParams } from "@/types/api";
-import type { Deposit } from "@/types/deposit";
-import type { AppUser } from "@/types/user";
+import type { Deposit, ManualDepositUser } from "@/types/deposit";
 import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
 import { toast } from "sonner";
 
@@ -67,10 +65,13 @@ function ManualDepositForm({
   onSaved: (created: Deposit) => void;
 }) {
   const { t } = useLanguage();
-  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<ManualDepositUser | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [results, setResults] = useState<AppUser[] | null>(null);
+  const [results, setResults] = useState<ManualDepositUser[] | null>(null);
   const [searching, setSearching] = useState(false);
+  // Why the last lookup failed — shown in the picker instead of pretending
+  // no customer matched (H-15: a 403 used to read as "No users found").
+  const [searchError, setSearchError] = useState<"forbidden" | "failed" | null>(null);
   const [amount, setAmount] = useState("");
   const [destinationAccountId, setDestinationAccountId] = useState<string | null>(null);
   const [reference, setReference] = useState("");
@@ -81,22 +82,26 @@ function ManualDepositForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Debounced server-side user search — same `search` param the users
-  // endpoint supports, capped to a handful of matches for the picker.
+  // Debounced server-side customer lookup — GET /deposits/manual/users,
+  // gated on DEPOSITS.CREATE like the deposit itself, so a role that may
+  // record a deposit can always find whom it is for (it needs no USERS.VIEW).
+  // Matches username, display name and phone; capped to a handful of rows.
   useEffect(() => {
-    const term = searchTerm.trim();
+    const term = searchTerm.trim().slice(0, 100);
     if (selectedUser || !term) return;
     let cancelled = false;
     const handle = setTimeout(() => {
       setSearching(true);
-      const params: PaginationParams & { search?: string } = { search: term, limit: 8 };
-      userService
-        .getUsers(params)
-        .then((res) => {
-          if (!cancelled) setResults(res.items);
+      setSearchError(null);
+      depositService
+        .lookupManualDepositUsers(term, 8)
+        .then((users) => {
+          if (!cancelled) setResults(users);
         })
-        .catch(() => {
-          if (!cancelled) setResults([]);
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setResults([]);
+          setSearchError(err instanceof ApiError && err.status === 403 ? "forbidden" : "failed");
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
@@ -165,7 +170,15 @@ function ManualDepositForm({
       });
       onOpenChange(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t.common.somethingWentWrong);
+      // The picker never offers a CLOSED account, but the owner can close it
+      // between the pick and the save.
+      setError(
+        isClosedAccountError(err)
+          ? t.users.closedAccount
+          : err instanceof ApiError
+            ? err.message
+            : t.common.somethingWentWrong,
+      );
     } finally {
       setSaving(false);
     }
@@ -222,6 +235,12 @@ function ManualDepositForm({
                       <Loader2 className="size-3.5 animate-spin" />
                       {t.deposits.manualDeposit.userSearching}
                     </div>
+                  ) : searchError ? (
+                    <p role="alert" className="px-2.5 py-2 text-xs text-destructive">
+                      {searchError === "forbidden"
+                        ? t.deposits.manualDeposit.userSearchForbidden
+                        : t.deposits.manualDeposit.userSearchFailed}
+                    </p>
                   ) : results.length === 0 ? (
                     <p className="px-2.5 py-2 text-xs text-muted-foreground">
                       {t.deposits.manualDeposit.userNoResults}

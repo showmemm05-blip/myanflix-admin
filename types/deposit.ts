@@ -58,8 +58,19 @@ export interface Deposit {
   riskReasons: BankRiskReason[];
   /** The screenshot itself is never in JSON — it streams through the BANK_EVIDENCE route. */
   hasBankScreenshot: boolean;
+  /** The stored phone-captured bank transaction this deposit is linked to (bank_transactions.id) — null until matched, or after an unlink. */
+  bankTransactionId: string | null;
   /** When the user says they transferred — the mobile form does not send it yet, so usually null. */
   declaredTransferAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** A customer as the manual-deposit picker shows them (GET /deposits/manual/users). */
+export interface ManualDepositUser {
+  id: string;
+  /** `userLabel()` output — display name, else username. */
+  name: string;
+  username: string;
+  phone: string | null;
 }

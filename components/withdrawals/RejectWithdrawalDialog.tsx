@@ -68,6 +68,14 @@ function RejectWithdrawalForm({
         </DialogDescription>
       </DialogHeader>
 
+      {/* C-4: the money left the wallet when the user asked — staff should
+          know a reject gives it back (and an approve takes nothing more). */}
+      {withdrawal.status === "PENDING" && (
+        <p className="rounded-lg border border-border bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+          {t.withdrawals.rejectDialog.refundNote}
+        </p>
+      )}
+
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="withdrawal-rejection-reason">{t.withdrawals.rejectDialog.reasonLabel}</Label>
         <Textarea

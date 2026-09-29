@@ -11,11 +11,11 @@ import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
 import { cn } from "@/lib/utils";
 import { USER_STATUS_TONE as STATUS_TONE } from "@/lib/status-tones";
+import { userStatusLabel } from "@/lib/account-status";
 import { formatLocalPhone, isSearchablePhone } from "@/lib/phone";
 import { userLabel } from "@/lib/user-label";
 import { userRelationshipService } from "@/services/api/userRelationshipService";
 import type { RelationshipEdgeKind } from "@/types/user-relationship";
-import type { UserStatus } from "@/types/user";
 
 /**
  * Compact relationship summary for one user's profile page.
@@ -56,12 +56,6 @@ export function UserRelationshipsCard({
         : Promise.resolve(null),
     [searchPhone]
   );
-
-  const STATUS_LABELS: Record<UserStatus, string> = {
-    ACTIVE: t.common.active,
-    SUSPENDED: t.users.profile.statusSuspended,
-    BANNED: t.users.profile.statusBanned,
-  };
 
   // Permission-degradation: the fetch was attempted and refused (or failed) —
   // disappear like the level card does, instead of showing an error shell.
@@ -169,7 +163,7 @@ export function UserRelationshipsCard({
                             {userLabel(linked)}
                           </Link>
                           <StatusBadge
-                            label={STATUS_LABELS[linked.status]}
+                            label={userStatusLabel(t, linked.status)}
                             tone={STATUS_TONE[linked.status]}
                             className="h-4 shrink-0 px-1.5 text-[10px]"
                           />

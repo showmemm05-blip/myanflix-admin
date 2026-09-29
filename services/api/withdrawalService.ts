@@ -8,6 +8,7 @@ import type {
   VerificationReviewAction,
 } from "@/types/bank-verification";
 import type { Withdrawal, WithdrawalStatus } from "@/types/withdrawal";
+import type { MoneyQueueStats } from "@/types/money-stats";
 import { userLabelOr } from "@/lib/user-label";
 
 interface BackendWithdrawal {
@@ -39,6 +40,8 @@ interface BackendWithdrawal {
   riskLevel?: BankRiskLevel | null;
   riskReasons?: BankRiskReason[];
   hasBankScreenshot?: boolean;
+  /** The linked bank_transactions row, when the backend joined it (admin list/detail only). */
+  bankTransactionId?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: { id: string; username: string; displayName: string | null; phone: string | null; email: string | null } | null;
@@ -75,6 +78,7 @@ function mapWithdrawal(w: BackendWithdrawal): Withdrawal {
     riskLevel: w.riskLevel ?? null,
     riskReasons: w.riskReasons ?? [],
     hasBankScreenshot: w.hasBankScreenshot ?? false,
+    bankTransactionId: w.bankTransactionId ?? null,
     createdAt: w.createdAt,
     updatedAt: w.updatedAt,
   };
@@ -89,6 +93,8 @@ export interface WithdrawalQuery extends PaginationParams {
   dateFrom?: string;
   /** Full ISO datetime (inclusive upper bound on createdAt) — never a bare YYYY-MM-DD. */
   dateTo?: string;
+  /** Payout account name/number, or the user's username / display name / phone (max 100 chars). */
+  search?: string;
 }
 
 export const withdrawalService = {
@@ -98,6 +104,16 @@ export const withdrawalService = {
       params: query,
     });
     return { ...res, items: res.items.map(mapWithdrawal) };
+  },
+
+  /** The queue's stat cards and tab counts over every matching row (H-24) — see depositService.getStats. */
+  getStats(query: Omit<WithdrawalQuery, "page" | "limit"> = {}): Promise<MoneyQueueStats> {
+    return apiClient.get<MoneyQueueStats>("/withdrawals/stats", { params: query });
+  },
+
+  /** One withdrawal by id (WITHDRAWALS.VIEW) — see depositService.getOne for why it exists. */
+  getOne(id: string): Promise<Withdrawal> {
+    return apiClient.get<BackendWithdrawal>(`/withdrawals/${id}`).then(mapWithdrawal);
   },
 
   /** No body — the approve route takes none. A note for approving a flagged row goes through `reviewVerification` first. */

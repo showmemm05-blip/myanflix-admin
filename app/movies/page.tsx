@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Film, Loader2, Plus, Timer } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getMovieColumns } from "@/components/movies/columns";
 import { MovieDetailsSheet } from "@/components/movies/MovieDetailsSheet";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
@@ -30,6 +31,8 @@ import type { AccessType, Movie } from "@/types/movie";
 import { toast } from "sonner";
 
 const ALL = "all";
+/** Rows per server page (H-24): the catalogue is paged and searched on the server. */
+const PAGE_LIMIT = 25;
 
 export default function MoviesPage() {
   const { t } = useLanguage();
@@ -38,22 +41,48 @@ export default function MoviesPage() {
   const canEdit = can("MOVIES.EDIT");
 
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
+  const [page, setPage] = useState(1);
+  const [movies, setMovies] = useState<Movie[] | null>(null);
+  // Search runs on the SERVER over the whole catalogue — a filter over the
+  // loaded page could never find a title past the first page. Capped at the
+  // API's shortest search limit so a long paste can't turn into a 400.
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setMovies(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       movieService.getMovies({
-        limit: 100,
+        page,
+        limit: PAGE_LIMIT,
+        search: appliedSearch || undefined,
         accessType: accessTypeFilter !== ALL ? (accessTypeFilter as AccessType) : undefined,
       }),
-    [accessTypeFilter],
+    [accessTypeFilter, appliedSearch, page],
   );
-  const [movies, setMovies] = useState<Movie[] | null>(null);
 
   const activeMovies = movies ?? data?.items ?? [];
+  // Rows removed on this page since the fetch leave the total with them.
+  const total = data ? data.total + activeMovies.length - data.items.length : 0;
 
   const handleAccessTypeFilterChange = (value: string) => {
     setAccessTypeFilter(value);
+    setPage(1);
     setMovies(null);
+  };
+
+  const handlePageChange = (next: number) => {
+    setMovies(null);
+    setPage(next);
   };
 
   const [viewMovie, setViewMovie] = useState<Movie | null>(null);
@@ -66,7 +95,16 @@ export default function MoviesPage() {
     if (!deleteMovie) return;
     setDeleting(true);
     await movieService.deleteMovie(deleteMovie.id);
-    setMovies(activeMovies.filter((m) => m.id !== deleteMovie.id));
+    const remaining = activeMovies.filter((m) => m.id !== deleteMovie.id);
+    if (remaining.length > 0) {
+      setMovies(remaining);
+    } else {
+      // The page was emptied by hand: step back (or reload page 1) rather
+      // than show an empty table while more titles wait on the server.
+      setMovies(null);
+      if (page > 1) setPage(page - 1);
+      else refetch();
+    }
     setDeleting(false);
     toast.success(t.movies.page.deletedToast, { description: t.movies.page.deletedDescription(deleteMovie.title) });
     setDeleteMovie(null);
@@ -190,7 +228,7 @@ export default function MoviesPage() {
         }
       />
 
-      {!isLoading && activeMovies.length === 0 && accessTypeFilter === ALL ? (
+      {!isLoading && total === 0 && accessTypeFilter === ALL && !search ? (
         <EmptyState
           icon={Film}
           title={t.movies.page.emptyTitle}
@@ -205,14 +243,22 @@ export default function MoviesPage() {
           }
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={activeMovies}
-          isLoading={isLoading}
-          searchKey="title"
-          searchPlaceholder={t.movies.page.searchPlaceholder}
-          toolbar={filters}
-        />
+        <>
+          <DataTable
+            columns={columns}
+            data={activeMovies}
+            isLoading={isLoading}
+            pageSize={PAGE_LIMIT}
+            manualPagination
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder={t.movies.page.searchPlaceholder}
+            toolbar={filters}
+          />
+          {!isLoading && (
+            <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+          )}
+        </>
       )}
 
       <MovieDetailsSheet movie={viewMovie} open={!!viewMovie} onOpenChange={(o) => !o && setViewMovie(null)} />

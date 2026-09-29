@@ -37,6 +37,12 @@ export const PERMISSION_CATALOGUE = [
   // reuse EDIT. Only SUPER_ADMIN holds BANK_EVIDENCE by default.
   { key: "DEPOSITS", actions: ["VIEW", "APPROVE", "REJECT", "CREATE", "EDIT", "BANK_EVIDENCE"] },
   { key: "WITHDRAWALS", actions: ["VIEW", "APPROVE", "REJECT", "EDIT", "BANK_EVIDENCE"] },
+  // Every bank notification a phone captured, matched or not. VIEW is the
+  // list/detail; BANK_EVIDENCE is the screenshot alone, grantable apart from
+  // it because the image shows the business account BALANCE — the same
+  // split as DEPOSITS.BANK_EVIDENCE. Nothing seeds either; SUPER_ADMIN holds
+  // all implicitly and grants Admin from the roles matrix.
+  { key: "BANK_TRANSACTIONS", actions: ["VIEW", "BANK_EVIDENCE"] },
   { key: "PAYMENT_METHODS", actions: ["VIEW", "CREATE", "EDIT", "DELETE"] },
   {
     key: "PAYMENT_ACCOUNTS",

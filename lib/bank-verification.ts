@@ -44,6 +44,8 @@ export interface VerificationRecord {
   riskLevel: BankRiskLevel | null;
   riskReasons: BankRiskReason[];
   hasBankScreenshot: boolean;
+  /** The stored phone transaction the bank values came from — the modal links to it on /bank-transactions. */
+  bankTransactionId: string | null;
 }
 
 /**
@@ -76,6 +78,7 @@ export function toDepositVerification(d: Deposit): VerificationRecord {
     riskLevel: d.riskLevel,
     riskReasons: d.riskReasons,
     hasBankScreenshot: d.hasBankScreenshot,
+    bankTransactionId: d.bankTransactionId,
   };
 }
 
@@ -101,6 +104,7 @@ export function toWithdrawalVerification(w: Withdrawal): VerificationRecord {
     riskLevel: w.riskLevel,
     riskReasons: w.riskReasons,
     hasBankScreenshot: w.hasBankScreenshot,
+    bankTransactionId: w.bankTransactionId,
   };
 }
 

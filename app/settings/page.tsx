@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Moon, ShieldAlert } from "lucide-react";
+import { Moon } from "lucide-react";
+import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { RoleBadge } from "@/components/shared/RoleBadge";
@@ -179,28 +180,8 @@ export default function SettingsPage() {
               <CardTitle>{t.settings.security.cardTitle}</CardTitle>
               <CardDescription>{t.settings.security.cardDescription}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4">
-              <div className="flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/10 p-3 text-sm text-muted-foreground">
-                <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
-                {t.settings.security.previewNotice}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="current-password">{t.settings.security.currentPasswordLabel}</Label>
-                <Input id="current-password" type="password" placeholder="••••••••" disabled />
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="new-password">{t.settings.security.newPasswordLabel}</Label>
-                  <Input id="new-password" type="password" placeholder="••••••••" disabled />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="confirm-password">{t.settings.security.confirmPasswordLabel}</Label>
-                  <Input id="confirm-password" type="password" placeholder="••••••••" disabled />
-                </div>
-              </div>
-              <div>
-                <Button disabled>{t.settings.security.updatePassword}</Button>
-              </div>
+            <CardContent>
+              <ChangePasswordForm idPrefix="settings" />
             </CardContent>
           </Card>
         </TabsContent>

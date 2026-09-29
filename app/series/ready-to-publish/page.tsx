@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Rocket } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getEpisodeColumns } from "@/components/series/episode-columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -32,6 +33,8 @@ const STATUS_OPTIONS: MovieStatus[] = [
 ];
 
 const ALL = "all";
+/** Rows per server page (H-24): the episode queue is paged and searched on the server. */
+const PAGE_LIMIT = 25;
 
 /**
  * The Series module's counterpart to Movies > Ready to Publish — episodes
@@ -46,8 +49,25 @@ export default function SeriesReadyToPublishPage() {
   const [seriesFilter, setSeriesFilter] = useState<string>(ALL);
   const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
   const [statusFilter, setStatusFilter] = useState<string>("READY_TO_PUBLISH");
+  const [page, setPage] = useState(1);
+  const [episodes, setEpisodes] = useState<AdminEpisode[] | null>(null);
+  // Server search over the whole queue — matches the episode's own title or
+  // its show's title.
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      const next = search.trim().slice(0, 100);
+      if (next === appliedSearch) return;
+      setEpisodes(null);
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [search, appliedSearch]);
 
-  const { data: seriesOptions } = useAsyncData(() => seriesService.getSeries({ limit: 100 }), []);
+  // Every show, not the first 100 — a series past that would be unpickable.
+  const { data: seriesOptions } = useAsyncData(() => seriesService.getAllSeries(), []);
   const { data: seasonOptions } = useAsyncData(
     () => (seriesFilter !== ALL ? seriesService.getSeasons(seriesFilter) : Promise.resolve([])),
     [seriesFilter],
@@ -56,16 +76,39 @@ export default function SeriesReadyToPublishPage() {
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       seriesService.getEpisodesForAdmin({
-        limit: 100,
+        page,
+        limit: PAGE_LIMIT,
+        search: appliedSearch || undefined,
         seriesId: seriesFilter !== ALL ? seriesFilter : undefined,
         seasonNumber: seasonFilter !== ALL ? Number(seasonFilter) : undefined,
         status: statusFilter !== ALL ? (statusFilter as MovieStatus) : undefined,
       }),
-    [seriesFilter, seasonFilter, statusFilter],
+    [seriesFilter, seasonFilter, statusFilter, appliedSearch, page],
   );
-  const [episodes, setEpisodes] = useState<AdminEpisode[] | null>(null);
 
   const activeEpisodes = episodes ?? data?.items ?? [];
+  // Rows that left the list on this page since the fetch leave the total too.
+  const total = data ? data.total + activeEpisodes.length - data.items.length : 0;
+  const isFiltered =
+    seriesFilter !== ALL || seasonFilter !== ALL || statusFilter !== "READY_TO_PUBLISH" || !!search;
+
+  const handlePageChange = (next: number) => {
+    setEpisodes(null);
+    setPage(next);
+  };
+
+  // Emptying the page by hand reloads (or steps back one page) so the next
+  // batch shows instead of a false "nothing waiting".
+  const removeFromList = (id: string) => {
+    const remaining = activeEpisodes.filter((e) => e.id !== id);
+    if (remaining.length > 0) {
+      setEpisodes(remaining);
+      return;
+    }
+    setEpisodes(null);
+    if (page > 1) setPage(page - 1);
+    else refetch();
+  };
 
   const [editEpisode, setEditEpisode] = useState<AdminEpisode | null>(null);
   const [deleteEpisode, setDeleteEpisode] = useState<AdminEpisode | null>(null);
@@ -76,7 +119,7 @@ export default function SeriesReadyToPublishPage() {
     if (!deleteEpisode) return;
     setDeleting(true);
     await movieService.deleteMovie(deleteEpisode.id);
-    setEpisodes(activeEpisodes.filter((e) => e.id !== deleteEpisode.id));
+    removeFromList(deleteEpisode.id);
     setDeleting(false);
     toast.success(t.series.episodeDeletedToast, { description: t.movies.page.deletedDescription(deleteEpisode.title) });
     setDeleteEpisode(null);
@@ -86,7 +129,7 @@ export default function SeriesReadyToPublishPage() {
     setPublishingId(episode.id);
     try {
       await movieService.updateMovie(episode.id, { status: "PUBLISHED" });
-      setEpisodes(activeEpisodes.filter((e) => e.id !== episode.id));
+      removeFromList(episode.id);
       toast.success(t.series.episodePublishedToast, { description: t.movies.publishedDescription(episode.title) });
     } catch {
       toast.error(t.series.publishFailedToast, { description: t.movies.pleaseTryAgain });
@@ -117,16 +160,33 @@ export default function SeriesReadyToPublishPage() {
 
   const filters = (
     <>
-      <Select value={seriesFilter} onValueChange={(v) => { if (v) { setSeriesFilter(v); setSeasonFilter(ALL); } }}>
+      <Select
+        value={seriesFilter}
+        onValueChange={(v) => {
+          if (!v) return;
+          setSeriesFilter(v);
+          setSeasonFilter(ALL);
+          setPage(1);
+          setEpisodes(null);
+        }}
+      >
         <SelectTrigger className="w-40"><SelectValue placeholder={t.series.readyToPublish.seriesFilterPlaceholder} /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{t.series.readyToPublish.allSeries}</SelectItem>
-          {seriesOptions?.items.map((s) => (
+          {seriesOptions?.map((s) => (
             <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <Select value={seasonFilter} onValueChange={(v) => v && setSeasonFilter(v)}>
+      <Select
+        value={seasonFilter}
+        onValueChange={(v) => {
+          if (!v) return;
+          setSeasonFilter(v);
+          setPage(1);
+          setEpisodes(null);
+        }}
+      >
         <SelectTrigger className="w-32" disabled={seriesFilter === ALL}>
           <SelectValue placeholder={t.series.readyToPublish.seasonFilterPlaceholder} />
         </SelectTrigger>
@@ -139,7 +199,15 @@ export default function SeriesReadyToPublishPage() {
           ))}
         </SelectContent>
       </Select>
-      <Select value={statusFilter} onValueChange={(v) => v && setStatusFilter(v)}>
+      <Select
+        value={statusFilter}
+        onValueChange={(v) => {
+          if (!v) return;
+          setStatusFilter(v);
+          setPage(1);
+          setEpisodes(null);
+        }}
+      >
         <SelectTrigger className="w-44"><SelectValue placeholder={t.series.readyToPublish.statusFilterPlaceholder} /></SelectTrigger>
         <SelectContent>
           <SelectItem value={ALL}>{t.series.readyToPublish.allStatuses}</SelectItem>
@@ -169,21 +237,31 @@ export default function SeriesReadyToPublishPage() {
             description={t.series.readyToPublish.pageDescription}
           />
 
-          {!isLoading && activeEpisodes.length === 0 ? (
+          {/* Only the untouched queue may collapse into the empty state — with
+              a filter or search active the toolbar must stay to undo it. */}
+          {!isLoading && total === 0 && !isFiltered ? (
             <EmptyState
               icon={Rocket}
               title={t.movies.readyToPublish.emptyTitle}
               description={t.series.readyToPublish.emptyDescription}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={activeEpisodes}
-              isLoading={isLoading}
-              searchKey="title"
-              searchPlaceholder={t.series.readyToPublish.searchPlaceholder}
-              toolbar={filters}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={activeEpisodes}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={t.series.readyToPublish.searchPlaceholder}
+                toolbar={filters}
+              />
+              {!isLoading && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+              )}
+            </>
           )}
 
           <EditMovieDialog

@@ -1,4 +1,5 @@
 import type { AccessType, Movie } from "./movie";
+import type { ActorRef } from "./actor";
 
 /** Show-level visibility — independent of episode MovieStatus. Users only ever see PUBLISHED series. */
 export type SeriesStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
@@ -16,6 +17,8 @@ export interface Series {
   accessType: AccessType;
   status: SeriesStatus;
   categories: { id: string; name: string }[];
+  /** Show-level cast — episodes carry their own `Movie.actors` on top of this. Always present, possibly empty. */
+  actors: ActorRef[];
   createdAt: string;
   updatedAt: string;
 }
@@ -46,4 +49,10 @@ export interface SeriesFormValues {
   coverUrl?: string;
   accessType?: AccessType;
   categoryIds?: string[];
+  /**
+   * The WHOLE show-level cast: PUT replaces the list, so an edit form must seed
+   * it from `series.actors` and echo it back, or saving another field wipes
+   * the cast. Omit it to leave the cast untouched.
+   */
+  actorIds?: string[];
 }

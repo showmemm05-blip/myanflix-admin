@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ActorPicker } from "@/components/actors/ActorPicker";
 import { seriesService } from "@/services/api/seriesService";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
 import { useLanguage } from "@/lib/context/language-context";
@@ -37,6 +38,9 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
   const [language, setLanguage] = useState(series?.language ?? "English");
   const [releaseYear, setReleaseYear] = useState(String(series?.releaseYear ?? new Date().getFullYear()));
   const [accessType, setAccessType] = useState<Series["accessType"]>(series?.accessType ?? "SUBSCRIPTION");
+  // Seeded from the stored cast: PUT `set`s the whole list, so sending an
+  // empty array while editing would wipe the actors already on the show.
+  const [actorIds, setActorIds] = useState<string[]>((series?.actors ?? []).map((a) => a.id));
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
@@ -53,6 +57,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
         language,
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
         accessType,
+        actorIds,
       };
       const saved = series
         ? await seriesService.updateSeries(series.id, values)
@@ -120,6 +125,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
           </Select>
           <p className="text-xs text-muted-foreground">{t.series.form.accessTypeHelp}</p>
         </div>
+        <ActorPicker value={actorIds} onChange={setActorIds} disabled={saving} hint={t.actors.picker.seriesHint} />
       </div>
 
       <DialogFooter>

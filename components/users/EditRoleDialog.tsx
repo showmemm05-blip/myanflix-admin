@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { RoleBadge } from "@/components/shared/RoleBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useLanguage } from "@/lib/context/language-context";
+import { isClosedAccountError } from "@/lib/account-status";
+import { ApiError } from "@/services/api/apiClient";
 import { userService } from "@/services/api/userService";
 import type { AppUser, UserRole } from "@/types/user";
 import { toast } from "sonner";
@@ -23,10 +25,12 @@ function EditRoleForm({
   user,
   onOpenChange,
   onSaved,
+  onAccountClosed,
 }: {
   user: AppUser;
   onOpenChange: (open: boolean) => void;
   onSaved: (user: AppUser) => void;
+  onAccountClosed?: () => void;
 }) {
   const { t } = useLanguage();
   const [role, setRole] = useState<UserRole>(user.role);
@@ -41,13 +45,27 @@ function EditRoleForm({
 
   const handleSave = async () => {
     setSaving(true);
-    const updated = await userService.updateUserRole(user.id, role);
-    setSaving(false);
-    onSaved(updated);
-    toast.success(t.users.editRoleDialog.updatedToast, {
-      description: t.users.editRoleDialog.updatedDescription(user.name, ROLE_OPTION_LABELS[role]),
-    });
-    onOpenChange(false);
+    try {
+      const updated = await userService.updateUserRole(user.id, role);
+      onSaved(updated);
+      toast.success(t.users.editRoleDialog.updatedToast, {
+        description: t.users.editRoleDialog.updatedDescription(user.name, ROLE_OPTION_LABELS[role]),
+      });
+      onOpenChange(false);
+    } catch (err) {
+      if (isClosedAccountError(err)) {
+        // The owner closed the account after this view loaded. Retrying can
+        // never succeed, so close and let the parent reload the account.
+        toast.error(t.users.closedAccount);
+        onOpenChange(false);
+        onAccountClosed?.();
+      } else {
+        // The server's self/tier/lockout refusals (403/409) surface as sent.
+        toast.error(err instanceof ApiError ? err.message : t.login.genericError);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -94,16 +112,27 @@ export function EditRoleDialog({
   open,
   onOpenChange,
   onSaved,
+  onAccountClosed,
 }: {
   user: AppUser | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (user: AppUser) => void;
+  /** The save hit a CLOSED account (409): the caller's copy of it is stale. */
+  onAccountClosed?: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        {user && <EditRoleForm key={user.id} user={user} onOpenChange={onOpenChange} onSaved={onSaved} />}
+        {user && (
+          <EditRoleForm
+            key={user.id}
+            user={user}
+            onOpenChange={onOpenChange}
+            onSaved={onSaved}
+            onAccountClosed={onAccountClosed}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

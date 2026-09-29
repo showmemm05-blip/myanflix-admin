@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { Camera, Check, Landmark, Lightbulb, ListChecks, Loader2, ShieldAlert, Unlink, UserRound, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -255,6 +256,23 @@ export function VerificationDetailsDialog({
                         ? m.waitingForBank
                         : m.notChecked
                   }
+                />
+                {/* The stored phone capture these values came from. A link,
+                    not a button: the Bank transactions page reads `?id=` and
+                    opens that row's detail dialog itself. */}
+                <Field
+                  label={m.transactionId}
+                  value={
+                    record.bankTransactionId ? (
+                      <Link
+                        href={`/bank-transactions?id=${encodeURIComponent(record.bankTransactionId)}`}
+                        className="underline-offset-2 hover:underline"
+                      >
+                        {record.bankTransactionId}
+                      </Link>
+                    ) : null
+                  }
+                  mono
                 />
               </dl>
             </Section>
