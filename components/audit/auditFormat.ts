@@ -51,6 +51,9 @@ export function categoryLabel(t: TranslationShape, category: string): string {
 export function targetHref(entry: Pick<AuditLogEntry, "targetType" | "targetId">): string | null {
   const { targetType, targetId } = entry;
   if (targetType === "staff") return "/staff";
+  // One page holds every promo and the settings, and a reorder row has no
+  // targetId — so both land on the list, id or not.
+  if (targetType === "home_promo" || targetType === "home_settings") return "/home-promos";
   if (!targetId) return null;
   switch (targetType) {
     case "user":

@@ -94,6 +94,7 @@ export function depositFromCreatedEvent(event: DepositCreatedEvent): Deposit {
     riskReasons: event.riskReasons ?? [],
     hasBankScreenshot: false,
     bankTransactionId: event.bankTransactionId ?? null,
+    bankCounterparty: null,
     declaredTransferAt: null,
     createdAt: event.createdAt,
     updatedAt: event.createdAt,
@@ -155,6 +156,8 @@ export interface DepositVerificationEvent {
   hasBankScreenshot: boolean;
   /** Present on payloads from the store-first backend; absent = leave the row's value alone. */
   bankTransactionId?: string | null;
+  /** The bank's "from" name (M-16); absent = leave the row's value alone. */
+  bankCounterparty?: string | null;
 }
 
 export interface WithdrawalVerificationEvent {
@@ -183,6 +186,7 @@ export function mergeDepositVerification(d: Deposit, event: DepositVerificationE
     hasBankScreenshot: event.hasBankScreenshot ?? false,
     // An explicit null (unlink) must win; only an ABSENT key keeps the old link.
     bankTransactionId: event.bankTransactionId !== undefined ? event.bankTransactionId : d.bankTransactionId,
+    bankCounterparty: event.bankCounterparty !== undefined ? event.bankCounterparty : d.bankCounterparty,
   };
 }
 

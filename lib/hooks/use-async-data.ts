@@ -3,9 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
- * Fetches data through an async function (a mock service call today, a real
- * API call later) and exposes loading/error state so pages can render
- * skeletons and error states consistently.
+ * Fetches data through an async API call and exposes loading/error state so
+ * pages can render skeletons and error states consistently.
+ *
+ * `isLoading` is true while ANY fetch runs, including a refetch (callers use
+ * that for "Refreshing" buttons). `isInitialLoading` is true only while there
+ * is nothing to show yet, and `isRefreshing` only while a refetch runs with
+ * the previous data still on screen — use those to show a skeleton just once
+ * instead of blanking the page on every background refresh.
  */
 export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = []) {
   const [data, setData] = useState<T | null>(null);
@@ -51,5 +56,12 @@ export function useAsyncData<T>(fetcher: () => Promise<T>, deps: unknown[] = [])
   // forever so it never actually fires.
   const refetch = useCallback(() => setReloadKey((k) => k + 1), []);
 
-  return { data, isLoading, error, refetch };
+  return {
+    data,
+    isLoading,
+    isInitialLoading: isLoading && data === null,
+    isRefreshing: isLoading && data !== null,
+    error,
+    refetch,
+  };
 }

@@ -10,10 +10,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useLanguage } from "@/lib/context/language-context";
+import { formatKyat } from "@/lib/currency";
+
+/** The typed amount next to what the bank saw (M-15/M-7) — only passed when they differ. */
+export interface AmountMismatch {
+  typed: number;
+  bank: number;
+}
+
+/** What the admin decided about a mismatching amount: credit the BANK amount, and why. */
+export interface AmountOverrideDecision {
+  reason: string;
+}
 
 /**
  * The "are you sure?" that sits in front of Approve when the fraud checks
@@ -23,6 +37,12 @@ import { useLanguage } from "@/lib/context/language-context";
  * review endpoint (`confirm_suspicious`, audited with the note) and then
  * approves — the field is only offered when the admin holds EDIT.
  *
+ * M-15/M-7 (deposits): when the bank saw a DIFFERENT amount than the user
+ * typed, the server refuses a plain approve. The dialog then shows both
+ * amounts, a checkbox "credit the bank amount instead" and a REQUIRED
+ * reason; Approve stays disabled until both are given, and the decision
+ * travels in the approve request itself (audited server-side).
+ *
  * Not the shared ConfirmDialog because that one has no slot for a field.
  */
 export function ApproveSuspiciousDialog({
@@ -31,6 +51,7 @@ export function ApproveSuspiciousDialog({
   onOpenChange,
   loading,
   showNote,
+  amountMismatch = null,
   onConfirm,
 }: {
   kind: "deposit" | "withdrawal";
@@ -39,17 +60,30 @@ export function ApproveSuspiciousDialog({
   loading: boolean;
   /** DEPOSITS.EDIT / WITHDRAWALS.EDIT — without it the note could not be recorded, so it is not asked for. */
   showNote: boolean;
-  onConfirm: (note: string) => void;
+  /** Deposits only: set when the bank's amount differs from the typed one. */
+  amountMismatch?: AmountMismatch | null;
+  onConfirm: (note: string, amountOverride?: AmountOverrideDecision) => void;
 }) {
   const { t } = useLanguage();
   const a = t.verification.actions;
   const [note, setNote] = useState("");
+  const [creditBankAmount, setCreditBankAmount] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+
+  const needsOverride = amountMismatch !== null;
+  const overrideReady = !needsOverride || (creditBankAmount && overrideReason.trim().length > 0);
+
+  const reset = () => {
+    setNote("");
+    setCreditBankAmount(false);
+    setOverrideReason("");
+  };
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) setNote("");
+        if (!next) reset();
         onOpenChange(next);
       }}
     >
@@ -60,6 +94,39 @@ export function ApproveSuspiciousDialog({
             {kind === "deposit" ? a.approveSuspiciousDescription : a.approveSuspiciousWithdrawalDescription}
           </DialogDescription>
         </DialogHeader>
+
+        {amountMismatch && (
+          <div className="flex flex-col gap-3">
+            <Alert variant="destructive">
+              <AlertDescription>
+                {a.amountMismatchNotice(formatKyat(amountMismatch.typed), formatKyat(amountMismatch.bank))}
+              </AlertDescription>
+            </Alert>
+            <div className="flex items-start gap-2.5">
+              <Checkbox
+                id="approve-credit-bank-amount"
+                checked={creditBankAmount}
+                disabled={loading}
+                onCheckedChange={(next) => setCreditBankAmount(next === true)}
+              />
+              <Label htmlFor="approve-credit-bank-amount" className="font-normal leading-snug">
+                {a.creditBankAmountLabel(formatKyat(amountMismatch.bank))}
+              </Label>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="approve-override-reason">{a.overrideReasonLabel}</Label>
+              <Textarea
+                id="approve-override-reason"
+                value={overrideReason}
+                onChange={(e) => setOverrideReason(e.target.value)}
+                placeholder={a.overrideReasonPlaceholder}
+                maxLength={300}
+                rows={2}
+                disabled={!creditBankAmount || loading}
+              />
+            </div>
+          </div>
+        )}
 
         {showNote && (
           <div className="flex flex-col gap-1.5">
@@ -79,9 +146,15 @@ export function ApproveSuspiciousDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
             {t.common.cancel}
           </Button>
-          <Button variant="destructive" onClick={() => onConfirm(note)} disabled={loading}>
+          <Button
+            variant="destructive"
+            onClick={() =>
+              onConfirm(note, needsOverride ? { reason: overrideReason.trim() } : undefined)
+            }
+            disabled={loading || !overrideReady}
+          >
             {loading && <Loader2 className="size-4 animate-spin" />}
-            {a.approveAnyway}
+            {needsOverride ? a.approveBankAmount : a.approveAnyway}
           </Button>
         </DialogFooter>
       </DialogContent>

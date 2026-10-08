@@ -11,19 +11,21 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DateRangeFilter, type DateRangeValue } from "@/components/shared/DateRangeFilter";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { MaskedPiiNotice } from "@/components/tracking/MaskedPiiNotice";
 import { PlatformFilter } from "@/components/tracking/PlatformFilter";
 import { UserSessionsDrawer } from "@/components/tracking/UserSessionsDrawer";
 import { getSessionColumns } from "@/components/tracking/sessionColumns";
 import { endOfDayIso, startOfDayIso } from "@/components/tracking/trackingFormat";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useClampPage } from "@/lib/hooks/use-clamp-page";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { trackingService } from "@/services/api/trackingService";
 import type { ClientPlatform, UserSessionSummary } from "@/types/tracking";
 
-/** Rows per fetch — DataTable pages through them client-side. */
-const PAGE_LIMIT = 100;
+/** Rows per server page — the list is paged on the server, so every account is reachable (not just the first 100). */
+const PAGE_LIMIT = 25;
 
 export default function TrackingPhoneIpPage() {
   const { t } = useLanguage();
@@ -37,10 +39,17 @@ export default function TrackingPhoneIpPage() {
   const [platform, setPlatform] = useState<ClientPlatform | "">("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  // Every filter change below goes back to page 1.
+  const [page, setPage] = useState(1);
   useEffect(() => {
-    const handle = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const handle = setTimeout(() => {
+      const next = search.trim();
+      if (next === appliedSearch) return;
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
     return () => clearTimeout(handle);
-  }, [search]);
+  }, [search, appliedSearch]);
 
   /**
    * Phone and IP are typed and then submitted, not debounced.
@@ -60,6 +69,7 @@ export default function TrackingPhoneIpPage() {
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       trackingService.getSessions({
+        page,
         limit: PAGE_LIMIT,
         from: range.from ? startOfDayIso(range.from) : undefined,
         to: range.to ? endOfDayIso(range.to) : undefined,
@@ -68,11 +78,12 @@ export default function TrackingPhoneIpPage() {
         phone: phone || undefined,
         ip: ip || undefined,
       }),
-    [range, platform, appliedSearch, phone, ip],
+    [range, platform, appliedSearch, phone, ip, page],
   );
 
   const applyIdentifiers = (event: FormEvent) => {
     event.preventDefault();
+    setPage(1);
     setPhone(phoneDraft.trim());
     setIp(ipDraft.trim());
   };
@@ -80,6 +91,7 @@ export default function TrackingPhoneIpPage() {
   const clearIdentifiers = () => {
     setPhoneDraft("");
     setIpDraft("");
+    setPage(1);
     setPhone("");
     setIp("");
   };
@@ -92,10 +104,20 @@ export default function TrackingPhoneIpPage() {
    */
   const filterByIp = (address: string) => {
     setIpDraft(address);
+    setPage(1);
     setIp(address);
   };
 
   const rows = data?.items ?? [];
+  // Rows removed elsewhere can leave a later page empty: step back to the last page that has rows.
+  useClampPage({
+    page,
+    pageSize: PAGE_LIMIT,
+    rowCount: data?.items.length,
+    total: data?.total,
+    isLoading,
+    onPageChange: setPage,
+  });
   const columns = getSessionColumns({
     t,
     canViewPii,
@@ -109,11 +131,20 @@ export default function TrackingPhoneIpPage() {
     <div className="flex flex-wrap items-center gap-2">
       <PlatformFilter
         value={platform}
-        onChange={setPlatform}
+        onChange={(next) => {
+          setPage(1);
+          setPlatform(next);
+        }}
         label={p.filters.platformLabel}
         allLabel={p.filters.platformAll}
       />
-      <DateRangeFilter value={range} onChange={setRange} />
+      <DateRangeFilter
+        value={range}
+        onChange={(next) => {
+          setPage(1);
+          setRange(next);
+        }}
+      />
     </div>
   );
 
@@ -179,22 +210,29 @@ export default function TrackingPhoneIpPage() {
 
           {error ? (
             <ErrorState description={t.tracking.common.loadError} onRetry={refetch} />
-          ) : !isLoading && rows.length === 0 && !isFiltered ? (
+          ) : !isLoading && rows.length === 0 && !isFiltered && page === 1 ? (
             <EmptyState icon={Network} title={p.empty.title} description={p.empty.description} />
           ) : (
-            <DataTable
-              columns={columns}
-              data={rows}
-              isLoading={isLoading}
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder={p.filters.searchPlaceholder}
-              toolbar={tableToolbar}
-              // A shared address is the thing this screen exists to surface,
-              // so the whole row carries a tint — spotting one is a glance
-              // down the table, not a hunt through a badge column.
-              rowClassName={(row) => (row.sharedIp ? "bg-warning/[0.06]" : undefined)}
-            />
+            <div>
+              <DataTable
+                columns={columns}
+                data={rows}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={p.filters.searchPlaceholder}
+                toolbar={tableToolbar}
+                // A shared address is the thing this screen exists to surface,
+                // so the whole row carries a tint — spotting one is a glance
+                // down the table, not a hunt through a badge column.
+                rowClassName={(row) => (row.sharedIp ? "bg-warning/[0.06]" : undefined)}
+              />
+              {!isLoading && data && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={data.total} onPageChange={setPage} />
+              )}
+            </div>
           )}
         </div>
 

@@ -21,6 +21,8 @@ import {
   uploadLargeAssetDirect as uploadLargeAssetDirectShared,
   uploadSmallAssetsDirect as uploadSmallAssetsDirectShared,
   withTransientRetry,
+  type AssetPatch,
+  type AssetPatches,
   type AssetStatus,
   type BundleUploadAsset,
 } from "@/lib/upload/bundle-upload";
@@ -55,6 +57,10 @@ const USE_DIRECT_MINIO_UPLOAD = process.env.NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD 
 const RESOURCE_TYPE = "movie";
 
 export const MAX_BULK_MOVIES = 10;
+// The queue is saved to localStorage at most this often while bytes are
+// moving. A job being added/removed or changing status is saved at once, and
+// so is everything when the tab is hidden or closed (see the persist effect).
+const PERSIST_THROTTLE_MS = 2000;
 
 export type MovieUploadStatus =
   | "waiting"
@@ -87,14 +93,24 @@ export interface MovieUploadJob {
   needsReattach: boolean;
   speedBps: number;
   etaSeconds: number | null;
+  /** Sum of every asset's size — fixed for the job's lifetime. */
+  totalSize: number;
+  /** Sum of every asset's uploadedBytes, kept up to date by each patch rather than re-added over thousands of assets on every progress tick. */
+  uploadedTotal: number;
 }
 
-interface PersistedAsset {
-  relativePath: string;
-  size: number;
-  status: AssetStatus;
-  uploadedBytes: number;
-}
+/**
+ * How one asset is saved. The current, compact form is a tuple
+ * `[relativePath, size, done]` (done = 1 or 0): enough to rebuild the job and,
+ * crucially, to know which files already reached storage so a refresh never
+ * re-sends them. In-flight byte counts are not saved — a resumed upload
+ * re-derives them (the chunked path from init()'s uploadedChunks, the
+ * direct path by re-sending the not-done files). The object form is what
+ * older builds saved, still read so a queue saved before an update restores.
+ */
+type PersistedAsset =
+  | [relativePath: string, size: number, done: 0 | 1]
+  | { relativePath: string; size: number; status: AssetStatus; uploadedBytes: number };
 interface PersistedJob {
   movieId: string;
   folderName: string;
@@ -113,6 +129,16 @@ function loadPersisted(queueKey: string): PersistedJob[] {
   }
 }
 
+function restoreAsset(a: PersistedAsset): BulkAsset {
+  if (Array.isArray(a)) {
+    const [relativePath, size, done] = a;
+    return done
+      ? { relativePath, size, status: "done", uploadedBytes: size, file: null }
+      : { relativePath, size, status: "pending", uploadedBytes: 0, file: null };
+  }
+  return { relativePath: a.relativePath, size: a.size, status: a.status, uploadedBytes: a.uploadedBytes, file: null };
+}
+
 function persist(queueKey: string, jobs: MovieUploadJob[]) {
   const data: PersistedJob[] = jobs.map((j) => ({
     movieId: j.movieId,
@@ -120,12 +146,7 @@ function persist(queueKey: string, jobs: MovieUploadJob[]) {
     title: j.title,
     queueOrder: j.queueOrder,
     addedAt: j.addedAt,
-    assets: j.assets.map((a) => ({
-      relativePath: a.relativePath,
-      size: a.size,
-      status: a.status,
-      uploadedBytes: a.uploadedBytes,
-    })),
+    assets: j.assets.map((a): PersistedAsset => [a.relativePath, a.size, a.status === "done" ? 1 : 0]),
   }));
   try {
     localStorage.setItem(queueKey, JSON.stringify(data));
@@ -134,11 +155,33 @@ function persist(queueKey: string, jobs: MovieUploadJob[]) {
   }
 }
 
+/** Job count plus every job's key and status — when this changes the queue is saved at once rather than on the throttle. */
+function statusSignature(jobs: MovieUploadJob[]): string {
+  return jobs.map((j) => `${j.key}:${j.status}`).join("|");
+}
+
+function sameJobs(a: readonly MovieUploadJob[] | undefined, b: readonly MovieUploadJob[]): boolean {
+  if (!a || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function sumSizes(assets: BulkAsset[]): number {
+  let total = 0;
+  for (const a of assets) total += a.size;
+  return total;
+}
+function sumUploaded(assets: BulkAsset[]): number {
+  let total = 0;
+  for (const a of assets) total += a.uploadedBytes;
+  return total;
+}
+
 export function totalBytes(job: MovieUploadJob): number {
-  return job.assets.reduce((sum, a) => sum + a.size, 0);
+  return job.totalSize;
 }
 export function uploadedBytes(job: MovieUploadJob): number {
-  return job.assets.reduce((sum, a) => sum + a.uploadedBytes, 0);
+  return job.uploadedTotal;
 }
 
 interface AddFoldersSeries {
@@ -178,7 +221,10 @@ const BulkUploadContext = createContext<BulkUploadContextValue | undefined>(unde
 export function BulkUploadProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<MovieUploadJob[]>([]);
   const [readyQueues, setReadyQueues] = useState<Set<string>>(new Set());
-  const isOnline = useNetworkStatus();
+  // Keep checking connectivity in a background tab only while some queue
+  // has work, so an unattended upload still pauses/resumes on its own.
+  const hasQueuedWork = jobs.some((j) => j.status === "waiting" || j.status === "uploading" || j.status === "offline");
+  const isOnline = useNetworkStatus(hasQueuedWork);
 
   const jobsRef = useRef<MovieUploadJob[]>([]);
   jobsRef.current = jobs;
@@ -214,43 +260,52 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Every movie's current status is fetched in parallel, then the
+      // results are walked in the saved order with the same skip rules.
+      const movies = await Promise.allSettled(persisted.map((p) => movieService.getMovieById(p.movieId)));
       const restored: MovieUploadJob[] = [];
-      for (const p of persisted) {
+      persisted.forEach((p, index) => {
+        const result = movies[index];
+        // Rejected = the movie no longer exists (deleted elsewhere) — drop it from the restored queue
+        if (result.status === "rejected") return;
+        const movie = result.value;
+        if (movie.status === "PUBLISHED") return; // graduated out of the upload queue entirely
+
+        let assets: BulkAsset[];
         try {
-          const movie = await movieService.getMovieById(p.movieId);
-          if (movie.status === "PUBLISHED") continue; // graduated out of the upload queue entirely
-
-          const assets: BulkAsset[] = p.assets.map((a) => ({ ...a, file: null }));
-          const allDone = assets.length > 0 && assets.every((a) => a.status === "done");
-
-          let status: MovieUploadStatus;
-          if (movie.status === "READY_TO_PUBLISH") status = "ready_to_publish";
-          else if (movie.status === "FAILED") status = "failed";
-          else status = "waiting"; // still UPLOADING backend-side, but nothing is actively running client-side after a reload
-
-          restored.push({
-            key: p.movieId,
-            queueKey,
-            movieId: p.movieId,
-            folderName: p.folderName,
-            title: movie.title,
-            // Rebuilt from the server rather than persisted — the movie row is the authority on episode position.
-            subtitle:
-              movie.seasonNumber != null && movie.episodeNumber != null
-                ? `Season ${movie.seasonNumber} · Episode ${movie.episodeNumber}`
-                : null,
-            assets,
-            status,
-            queueOrder: p.queueOrder,
-            addedAt: p.addedAt,
-            needsReattach: status === "waiting" && !allDone,
-            speedBps: 0,
-            etaSeconds: null,
-          });
+          assets = p.assets.map(restoreAsset);
         } catch {
-          // movie no longer exists (deleted elsewhere) — drop it from the restored queue
+          return; // an unreadable saved entry is dropped, never blocks the rest of the queue
         }
-      }
+        const allDone = assets.length > 0 && assets.every((a) => a.status === "done");
+
+        let status: MovieUploadStatus;
+        if (movie.status === "READY_TO_PUBLISH") status = "ready_to_publish";
+        else if (movie.status === "FAILED") status = "failed";
+        else status = "waiting"; // still UPLOADING backend-side, but nothing is actively running client-side after a reload
+
+        restored.push({
+          key: p.movieId,
+          queueKey,
+          movieId: p.movieId,
+          folderName: p.folderName,
+          title: movie.title,
+          // Rebuilt from the server rather than persisted — the movie row is the authority on episode position.
+          subtitle:
+            movie.seasonNumber != null && movie.episodeNumber != null
+              ? `Season ${movie.seasonNumber} · Episode ${movie.episodeNumber}`
+              : null,
+          assets,
+          status,
+          queueOrder: p.queueOrder,
+          addedAt: p.addedAt,
+          needsReattach: status === "waiting" && !allDone,
+          speedBps: 0,
+          etaSeconds: null,
+          totalSize: sumSizes(assets),
+          uploadedTotal: sumUploaded(assets),
+        });
+      });
 
       const maxOrder = restored.reduce((max, j) => Math.max(max, j.queueOrder + 1), 0);
       const existingOrder = nextQueueOrderRef.current.get(queueKey) ?? 0;
@@ -260,47 +315,111 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  useEffect(() => {
+  // Saving the queue to localStorage (so a refresh can resume it) is a
+  // synchronous JSON.stringify + setItem over every file of every job, so it
+  // is throttled: at most once per PERSIST_THROTTLE_MS while only progress
+  // changes, at once when a job is added/removed or changes status, and on
+  // pagehide / tab hidden so closing the tab loses nothing. Queues whose
+  // jobs are all the same objects as last time are skipped. Only queues in
+  // readyQueues are written — one still restoring must not be overwritten.
+  const readyQueuesRef = useRef(readyQueues);
+  readyQueuesRef.current = readyQueues;
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPersistedRef = useRef<Map<string, MovieUploadJob[]>>(new Map());
+  const lastSignatureRef = useRef<Map<string, string>>(new Map());
+
+  const groupReadyQueues = useCallback((all: MovieUploadJob[]) => {
     const byQueue = new Map<string, MovieUploadJob[]>();
-    for (const job of jobs) {
-      if (!byQueue.has(job.queueKey)) byQueue.set(job.queueKey, []);
-      byQueue.get(job.queueKey)!.push(job);
-    }
-    for (const queueKey of readyQueues) {
-      persist(queueKey, byQueue.get(queueKey) ?? []);
-    }
-  }, [jobs, readyQueues]);
+    for (const queueKey of readyQueuesRef.current) byQueue.set(queueKey, []);
+    for (const job of all) byQueue.get(job.queueKey)?.push(job);
+    return byQueue;
+  }, []);
 
-  /** Updates one asset's bytes/status and recomputes the owning job's speed/ETA from the fresh aggregate — one atomic state transition instead of two separate updates racing each other. */
-  const bumpAsset = useCallback(
-    (key: string, relativePath: string, patch: Partial<BulkAsset>) => {
-      setJobs((prev) =>
-        prev.map((j) => {
-          if (j.key !== key) return j;
-          const assets = j.assets.map((a) => (a.relativePath === relativePath ? { ...a, ...patch } : a));
-          const uploaded = assets.reduce((sum, a) => sum + a.uploadedBytes, 0);
+  const flushPersist = useCallback(() => {
+    if (persistTimerRef.current !== null) {
+      clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    for (const [queueKey, queueJobs] of groupReadyQueues(jobsRef.current)) {
+      if (sameJobs(lastPersistedRef.current.get(queueKey), queueJobs)) continue;
+      persist(queueKey, queueJobs);
+      lastPersistedRef.current.set(queueKey, queueJobs);
+      lastSignatureRef.current.set(queueKey, statusSignature(queueJobs));
+    }
+  }, [groupReadyQueues]);
 
-          const now = Date.now();
-          const sample = speedSamplesRef.current.get(key);
-          let speedBps = j.speedBps;
-          if (!sample) {
+  useEffect(() => {
+    let statusChanged = false;
+    for (const [queueKey, queueJobs] of groupReadyQueues(jobs)) {
+      if (lastSignatureRef.current.get(queueKey) !== statusSignature(queueJobs)) {
+        statusChanged = true;
+        break;
+      }
+    }
+    if (statusChanged) {
+      flushPersist();
+    } else if (persistTimerRef.current === null) {
+      persistTimerRef.current = setTimeout(flushPersist, PERSIST_THROTTLE_MS);
+    }
+  }, [jobs, readyQueues, groupReadyQueues, flushPersist]);
+
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flushPersist();
+    };
+    window.addEventListener("pagehide", flushPersist);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushPersist);
+      document.removeEventListener("visibilitychange", onHidden);
+      flushPersist();
+    };
+  }, [flushPersist]);
+
+  /**
+   * Applies a batch of per-file patches to one job in a single pass over its
+   * assets, keeps its running uploaded total, and recomputes speed/ETA from
+   * it — one atomic state transition instead of separate updates racing each
+   * other, and one copy of the asset list per batch instead of one per file.
+   */
+  const bumpAssets = useCallback((key: string, patches: AssetPatches) => {
+    if (patches.size === 0) return;
+    setJobs((prev) =>
+      prev.map((j) => {
+        if (j.key !== key) return j;
+        let uploaded = j.uploadedTotal;
+        const assets = j.assets.map((a) => {
+          const patch = patches.get(a.relativePath);
+          if (!patch) return a;
+          const next = { ...a, ...patch };
+          uploaded += next.uploadedBytes - a.uploadedBytes;
+          return next;
+        });
+
+        const now = Date.now();
+        const sample = speedSamplesRef.current.get(key);
+        let speedBps = j.speedBps;
+        if (!sample) {
+          speedSamplesRef.current.set(key, { time: now, bytes: uploaded });
+        } else {
+          const dt = (now - sample.time) / 1000;
+          if (dt >= 0.2) {
+            const instant = Math.max(0, (uploaded - sample.bytes) / dt);
+            speedBps = speedBps === 0 ? instant : speedBps * 0.7 + instant * 0.3;
             speedSamplesRef.current.set(key, { time: now, bytes: uploaded });
-          } else {
-            const dt = (now - sample.time) / 1000;
-            if (dt >= 0.2) {
-              const instant = Math.max(0, (uploaded - sample.bytes) / dt);
-              speedBps = speedBps === 0 ? instant : speedBps * 0.7 + instant * 0.3;
-              speedSamplesRef.current.set(key, { time: now, bytes: uploaded });
-            }
           }
-          const total = assets.reduce((sum, a) => sum + a.size, 0);
-          const etaSeconds = speedBps > 1 ? Math.max(0, Math.round((total - uploaded) / speedBps)) : null;
+        }
+        const etaSeconds = speedBps > 1 ? Math.max(0, Math.round((j.totalSize - uploaded) / speedBps)) : null;
 
-          return { ...j, assets, speedBps, etaSeconds };
-        }),
-      );
-    },
-    [],
+        return { ...j, assets, uploadedTotal: uploaded, speedBps, etaSeconds };
+      }),
+    );
+  }, []);
+
+  /** One file's patch — the chunked path and error marking go through here. */
+  const bumpAsset = useCallback(
+    (key: string, relativePath: string, patch: AssetPatch) => bumpAssets(key, new Map([[relativePath, patch]])),
+    [bumpAssets],
   );
 
   const uploadOneAsset = useCallback(
@@ -470,15 +589,15 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
   /** The one (typically) large file in a bundle — original.mp4 — via real S3/MinIO multipart, straight to MinIO (body in lib/upload/bundle-upload.ts; this only binds the queue's resourceType and routes progress into the job). */
   const uploadLargeAssetDirect = useCallback(
     (resourceId: string, key: string, asset: BulkAsset, signal: AbortSignal) =>
-      uploadLargeAssetDirectShared(RESOURCE_TYPE, resourceId, asset, signal, (rel, patch) => bumpAsset(key, rel, patch)),
-    [bumpAsset],
+      uploadLargeAssetDirectShared(RESOURCE_TYPE, resourceId, asset, signal, (patches) => bumpAssets(key, patches)),
+    [bumpAssets],
   );
 
   /** Every small file in a bundle through the shared SMALL_FILE_CONCURRENCY single-PUT pool (body in lib/upload/bundle-upload.ts; same binding as above). */
   const uploadSmallAssetsDirect = useCallback(
     (resourceId: string, key: string, assets: BulkAsset[], signal: AbortSignal) =>
-      uploadSmallAssetsDirectShared(RESOURCE_TYPE, resourceId, assets, signal, (rel, patch) => bumpAsset(key, rel, patch)),
-    [bumpAsset],
+      uploadSmallAssetsDirectShared(RESOURCE_TYPE, resourceId, assets, signal, (patches) => bumpAssets(key, patches)),
+    [bumpAssets],
   );
 
   const startUploadDirect = useCallback(
@@ -580,6 +699,10 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
   // may never have gone false at all.
   useEffect(() => {
     if (!isOnline) return;
+    // Syncing job state to an external signal (connectivity) is what this
+    // effect is for; the updater returns `prev` untouched when nothing is
+    // offline, so it never causes an extra render or a loop.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setJobs((prev) => {
       if (!prev.some((j) => j.status === "offline")) return prev;
       return prev.map((j) => (j.status === "offline" ? { ...j, status: "waiting" } : j));
@@ -636,6 +759,8 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
             needsReattach: false,
             speedBps: 0,
             etaSeconds: null,
+            totalSize: sumSizes(assets),
+            uploadedTotal: 0,
           };
           setJobs((prev) => [...prev, job]);
           added++;
@@ -827,7 +952,17 @@ export function useBulkUploadQueue(queueKey: string = DEFAULT_QUEUE_KEY) {
     ctx.ensureQueue(queueKey);
   }, [ctx, queueKey]);
 
-  const jobs = useMemo(() => ctx.jobs.filter((j) => j.queueKey === queueKey), [ctx.jobs, queueKey]);
+  // Keep handing out the previous array while this queue's jobs are the
+  // very same objects, so a progress tick in ANOTHER queue does not give this
+  // page a new array. The page still re-renders (the shared context changed),
+  // but anything it derives from `jobs` with useMemo — such as the series
+  // page's lookup tables — is not rebuilt. Updating
+  // state during render is React's documented "store information from
+  // previous renders" pattern: React re-renders straight away, before
+  // anything is shown.
+  const filtered = useMemo(() => ctx.jobs.filter((j) => j.queueKey === queueKey), [ctx.jobs, queueKey]);
+  const [jobs, setJobs] = useState(filtered);
+  if (jobs !== filtered && !sameJobs(jobs, filtered)) setJobs(filtered);
 
   const addFolders = useCallback(
     (folders: DroppedFolder[], series?: AddFoldersSeries) => ctx.addFolders(queueKey, folders, series),

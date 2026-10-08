@@ -67,6 +67,10 @@ export const PERMISSION_CATALOGUE = [
     actions: ["VIEW", "COMMENTS_MODERATE", "FEEDBACK_MANAGE", "PII_VIEW"],
   },
   { key: "SETTINGS", actions: ["VIEW", "MANAGE"] },
+  // The "Home promos" page (hero slides, spotlight, coming-soon cards and the
+  // home settings). VIEW reads them, MANAGE changes them. Admin is granted
+  // both by the backend's home_promos migration; SUPER_ADMIN holds all.
+  { key: "HOME", actions: ["VIEW", "MANAGE"] },
   // Read-only history of important staff actions. VIEW implies seeing the
   // raw IP / user agent the backend stored — only SUPER_ADMIN holds it by
   // default (protected role = every permission), nothing seeds it elsewhere.

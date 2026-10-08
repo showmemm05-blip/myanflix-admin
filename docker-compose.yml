@@ -14,5 +14,10 @@ services:
         # Defaults off — flip to true only once the direct-to-MinIO flow has
         # been validated (see the upload migration plan's rollout phase).
         NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD: ${NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD:-false}
+        # Origin of the backend's MINIO_PUBLIC_ENDPOINT (e.g. http://localhost:8443),
+        # baked into the Content-Security-Policy connect-src at build time so the
+        # browser may PUT uploads there. Leave empty and connect-src stays open to
+        # any http/https origin (uploads work, token exfiltration is not blocked).
+        CSP_CONNECT_SRC_EXTRA: ${CSP_CONNECT_SRC_EXTRA:-}
     ports:
       - "${PORT:-3002}:3002"

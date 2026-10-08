@@ -22,7 +22,7 @@ import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { uploadBundleDirect, type AssetPatch, type BundleUploadAsset } from "@/lib/upload/bundle-upload";
+import { uploadBundleDirect, type AssetPatches, type BundleUploadAsset } from "@/lib/upload/bundle-upload";
 import { formatBytes, formatEta, formatSpeed } from "@/lib/upload/format";
 import {
   foldersFromFileList,
@@ -160,9 +160,10 @@ export function VideoSection({ movie, videoStatus, videoError, onVideoChanged, o
   const [showFiles, setShowFiles] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   const speedSampleRef = useRef<{ time: number; bytes: number } | null>(null);
-  const bytesRef = useRef<{ total: number; uploadedByPath: Map<string, number>; speedBps: number }>({
+  const bytesRef = useRef<{ total: number; uploadedByPath: Map<string, number>; uploaded: number; speedBps: number }>({
     total: 0,
     uploadedByPath: new Map(),
+    uploaded: 0,
     speedBps: 0,
   });
   // Multipart sessions opened by this attempt — aborted on Cancel/unmount
@@ -277,18 +278,29 @@ export function VideoSection({ movie, videoStatus, videoError, onVideoChanged, o
     if (phase === "done" || phase === "failed") transition("idle");
   };
 
-  /** Same aggregate the bulk queue's bumpAsset() keeps per job: the patched asset list plus a smoothed speed / ETA derived from it. */
-  const onPatch = useCallback((relativePath: string, patch: AssetPatch) => {
-    if (patch.sessionId) sessionIdsRef.current.add(patch.sessionId);
-    setAssets((prev) => prev.map((a) => (a.relativePath === relativePath ? { ...a, ...patch } : a)));
-    if (patch.uploadedBytes === undefined) return;
-    // The byte tally lives in a ref (not derived from the state updater
-    // above, which must stay pure) so the speed sample can be taken here,
-    // once per patch, from the latest known total.
+  /** Same aggregate the bulk queue's bumpAssets() keeps per job: the patched asset list (one pass per batch) plus a smoothed speed / ETA derived from a running byte total. */
+  const onPatches = useCallback((patches: AssetPatches) => {
+    if (patches.size === 0) return;
+    let bytesChanged = false;
     const tally = bytesRef.current;
-    tally.uploadedByPath.set(relativePath, patch.uploadedBytes);
-    let uploaded = 0;
-    for (const bytes of tally.uploadedByPath.values()) uploaded += bytes;
+    for (const [relativePath, patch] of patches) {
+      if (patch.sessionId) sessionIdsRef.current.add(patch.sessionId);
+      if (patch.uploadedBytes === undefined) continue;
+      // The byte tally lives in a ref (not derived from the state updater
+      // below, which must stay pure); the running total is adjusted by the
+      // difference instead of re-adding every file.
+      tally.uploaded += patch.uploadedBytes - (tally.uploadedByPath.get(relativePath) ?? 0);
+      tally.uploadedByPath.set(relativePath, patch.uploadedBytes);
+      bytesChanged = true;
+    }
+    setAssets((prev) =>
+      prev.map((a) => {
+        const patch = patches.get(a.relativePath);
+        return patch ? { ...a, ...patch } : a;
+      }),
+    );
+    if (!bytesChanged) return;
+    const uploaded = tally.uploaded;
     const now = Date.now();
     const sample = speedSampleRef.current;
     if (!sample) {
@@ -319,7 +331,7 @@ export function VideoSection({ movie, videoStatus, videoError, onVideoChanged, o
     // guaranteed correct. Files are still attached because a failure never
     // unmounts this section.
     const attempt = freshAssets(bundle);
-    bytesRef.current = { total: bundle.totalBytes, uploadedByPath: new Map(), speedBps: 0 };
+    bytesRef.current = { total: bundle.totalBytes, uploadedByPath: new Map(), uploaded: 0, speedBps: 0 };
     setAssets(attempt);
     transition("beginning");
     try {
@@ -330,7 +342,7 @@ export function VideoSection({ movie, videoStatus, videoError, onVideoChanged, o
         resourceId: movie.id,
         assets: attempt,
         signal: controller.signal,
-        onPatch,
+        onPatches,
       });
       transition("finalizing");
       const result = await uploadService.finalizeReplace(movie.id, bundle.relativePaths);

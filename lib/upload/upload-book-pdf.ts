@@ -1,5 +1,6 @@
 import { ApiError } from "@/services/api/apiClient";
 import { uploadService } from "@/services/api/uploadService";
+import { withTransientRetry } from "./bundle-upload";
 import { PresignedPartUrlPool } from "./presigned-part-pool";
 import { putToMinio } from "./minio-put";
 
@@ -15,9 +16,9 @@ import { putToMinio } from "./minio-put";
  * deliberately identical, because that is what the backend implements.
  */
 
-const RETRY_ATTEMPTS = 5;
-const RETRY_BASE_MS = 500;
-const RETRY_MAX_MS = 8000;
+// Transient-error retry (5 attempts, 500 ms doubling to at most 8 s) is the
+// shared withTransientRetry from bundle-upload.ts — the same policy this file
+// used to declare a copy of.
 const PART_UPLOAD_CONCURRENCY = 4;
 const PROGRESS_FLUSH_INTERVAL_MS = 250;
 
@@ -41,49 +42,6 @@ const RESOURCE_TYPE = "book";
  */
 const pdfRelativePath = (editionId: string, chapterId: string) =>
   `${editionId}/${chapterId}/original.pdf`;
-
-/** See bulk-upload-context.tsx's isTransient — same classification, same reasons. */
-function isTransient(err: unknown): boolean {
-  if (err instanceof DOMException && err.name === "AbortError") return false;
-  if (err instanceof ApiError)
-    return err.status >= 500 || err.status === 408 || err.status === 429;
-  if (err instanceof TypeError) return true;
-  return false;
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(signal.reason);
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener(
-      "abort",
-      () => {
-        clearTimeout(timer);
-        reject(signal.reason);
-      },
-      { once: true },
-    );
-  });
-}
-
-async function withTransientRetry<T>(
-  fn: () => Promise<T>,
-  signal: AbortSignal,
-): Promise<T> {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (signal.aborted || !isTransient(err) || attempt >= RETRY_ATTEMPTS)
-        throw err;
-      const backoff = Math.min(
-        RETRY_BASE_MS * 2 ** (attempt - 1),
-        RETRY_MAX_MS,
-      );
-      await sleep(backoff, signal);
-    }
-  }
-}
 
 export interface UploadBookPdfOptions {
   bookId: string;

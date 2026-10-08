@@ -60,6 +60,8 @@ export interface Deposit {
   hasBankScreenshot: boolean;
   /** The stored phone-captured bank transaction this deposit is linked to (bank_transactions.id) — null until matched, or after an unlink. */
   bankTransactionId: string | null;
+  /** The bank's "from" name on that transaction (M-16) — shown beside the depositor's own name; null when unknown or not matched. */
+  bankCounterparty: string | null;
   /** When the user says they transferred — the mobile form does not send it yet, so usually null. */
   declaredTransferAt: string | null;
   createdAt: string;

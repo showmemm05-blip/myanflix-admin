@@ -37,7 +37,7 @@ import type {
   RelationshipEdgeKind,
   RelationshipNetwork,
 } from "@/types/user-relationship";
-import type { GraphNode, RelationshipGraph } from "./useRelationshipGraph";
+import type { GraphNode } from "./useRelationshipGraph";
 
 /**
  * The graph model itself is declared alongside its implementation in
@@ -67,11 +67,6 @@ export type {
 export { phoneNodeId, userNodeId } from "./useRelationshipGraph";
 
 export type { RelationshipEdgeKind, RelationshipNetwork };
-
-/** Signature of the pure client-side graph model hook. */
-export type UseRelationshipGraph = (
-  network: RelationshipNetwork | null,
-) => RelationshipGraph;
 
 /* -------------------------------------------------------------------------- */
 /* GraphCanvas                                                                 */

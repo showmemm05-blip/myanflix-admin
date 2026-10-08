@@ -28,7 +28,8 @@ export function getSeriesStatusLabel(t: TranslationShape, status: SeriesStatus):
   return labels[status];
 }
 
-const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-series-poster/400/600";
+/** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
+const FALLBACK_POSTER = "/placeholder-poster.svg";
 
 interface GetSeriesColumnsOptions {
   t: TranslationShape;

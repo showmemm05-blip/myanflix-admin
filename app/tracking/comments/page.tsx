@@ -23,11 +23,13 @@ import {
   type DateRangeValue,
 } from "@/components/shared/DateRangeFilter";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { MaskedPiiNotice } from "@/components/tracking/MaskedPiiNotice";
 import { CommentDetailsDialog } from "@/components/tracking/CommentDetailsDialog";
 import { getCommentColumns } from "@/components/tracking/commentColumns";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useClampPage } from "@/lib/hooks/use-clamp-page";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { trackingService } from "@/services/api/trackingService";
@@ -46,8 +48,8 @@ function endOfDayIso(day: string): string {
   return new Date(`${day}T23:59:59.999`).toISOString();
 }
 
-/** How many rows to pull per fetch — DataTable pages through them client-side. */
-const PAGE_LIMIT = 100;
+/** Rows per server page — the list is paged on the server, so every comment is reachable (not just the newest 100). */
+const PAGE_LIMIT = 25;
 
 /** A count query: one row asked for, only `total` used. */
 const COUNT_ONLY = 1;
@@ -65,26 +67,34 @@ export default function TrackingCommentsPage() {
   const [statusFilter, setStatusFilter] = useState<CommentStatus | "">("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
   useEffect(() => {
-    const handle = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const handle = setTimeout(() => {
+      const next = search.trim();
+      if (next === appliedSearch) return;
+      // A new search starts again from its first page.
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
     return () => clearTimeout(handle);
-  }, [search]);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       trackingService.getComments({
+        page,
         limit: PAGE_LIMIT,
         from: range.from ? startOfDayIso(range.from) : undefined,
         to: range.to ? endOfDayIso(range.to) : undefined,
         status: statusFilter || undefined,
         search: appliedSearch || undefined,
       }),
-    [range, statusFilter, appliedSearch],
+    [range, statusFilter, appliedSearch, page],
   );
 
   /**
    * The five cards are SERVER counts, not a tally of the loaded page — a page
-   * is 100 rows of a filtered list and would quietly under-report every one
+   * is 25 rows of a filtered list and would quietly under-report every one
    * of them. They describe the whole corpus, all time, and deliberately do
    * not move when the table below is filtered.
    */
@@ -119,6 +129,8 @@ export default function TrackingCommentsPage() {
   // changes, or the refetched rows would be masked by the stale list.
   const [rows, setRows] = useState<TrackedComment[] | null>(null);
   const activeRows = rows ?? data?.items ?? [];
+  // Rows deleted on this page since the fetch leave the total with them.
+  const total = data ? data.total - (data.items.length - activeRows.length) : 0;
 
   const [detailsTarget, setDetailsTarget] = useState<TrackedComment | null>(null);
   const [moderateTarget, setModerateTarget] = useState<TrackedComment | null>(null);
@@ -127,12 +139,27 @@ export default function TrackingCommentsPage() {
 
   const handleRangeChange = (next: DateRangeValue) => {
     setRows(null);
+    setPage(1);
     setRange(next);
   };
   const handleStatusChange = (next: CommentStatus | "") => {
     setRows(null);
+    setPage(1);
     setStatusFilter(next);
   };
+  const handlePageChange = (next: number) => {
+    setRows(null);
+    setPage(next);
+  };
+  // Rows removed elsewhere can leave a later page empty: step back to the last page that has rows.
+  useClampPage({
+    page,
+    pageSize: PAGE_LIMIT,
+    rowCount: data?.items.length,
+    total: data?.total,
+    isLoading,
+    onPageChange: handlePageChange,
+  });
   const handleSearchChange = (value: string) => {
     setRows(null);
     setSearch(value);
@@ -172,7 +199,15 @@ export default function TrackingCommentsPage() {
     setPendingId(deleteTarget.id);
     try {
       await trackingService.deleteComment(deleteTarget.id);
-      setRows(activeRows.filter((row) => row.id !== deleteTarget.id));
+      const remaining = activeRows.filter((row) => row.id !== deleteTarget.id);
+      if (remaining.length === 0 && page > 1) {
+        // The last row of a later page is gone: step back a page instead of
+        // showing an empty table.
+        setRows(null);
+        setPage(page - 1);
+      } else {
+        setRows(remaining);
+      }
       toast.success(c.toast.deleted);
       refetchCards();
       setDeleteTarget(null);
@@ -305,7 +340,7 @@ export default function TrackingCommentsPage() {
 
           {error ? (
             <ErrorState description={t.tracking.common.loadError} onRetry={handleRefresh} />
-          ) : !isLoading && activeRows.length === 0 && !isFiltered ? (
+          ) : !isLoading && activeRows.length === 0 && !isFiltered && page === 1 ? (
             // Full-page empty state only when nothing is filtered — with a
             // filter on, the table and its toolbar must stay mounted so the
             // filter can be undone.
@@ -315,15 +350,22 @@ export default function TrackingCommentsPage() {
               description={c.empty.description}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={activeRows}
-              isLoading={isLoading}
-              searchValue={search}
-              onSearchChange={handleSearchChange}
-              searchPlaceholder={c.filters.searchPlaceholder}
-              toolbar={tableToolbar}
-            />
+            <div>
+              <DataTable
+                columns={columns}
+                data={activeRows}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={handleSearchChange}
+                searchPlaceholder={c.filters.searchPlaceholder}
+                toolbar={tableToolbar}
+              />
+              {!isLoading && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
+              )}
+            </div>
           )}
         </div>
 

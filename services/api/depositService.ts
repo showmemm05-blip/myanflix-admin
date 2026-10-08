@@ -44,10 +44,17 @@ interface BackendDeposit {
   hasBankScreenshot?: boolean;
   /** The linked bank_transactions row, when the backend joined it (admin list/detail only). */
   bankTransactionId?: string | null;
+  /** The bank's "from" name on that row (M-16). */
+  bankCounterparty?: string | null;
   declaredTransferAt?: string | null;
   createdAt: string;
   updatedAt: string;
   user?: { id: string; username: string; displayName: string | null; phone: string | null; email: string | null } | null;
+}
+
+/** The staff decision to credit what the bank saw instead of what was typed (M-15/M-7). */
+export interface ApproveAmountOverride {
+  reason: string;
 }
 
 function mapDeposit(d: BackendDeposit): Deposit {
@@ -83,6 +90,7 @@ function mapDeposit(d: BackendDeposit): Deposit {
     riskLevel: d.riskLevel ?? null,
     riskReasons: d.riskReasons ?? [],
     hasBankScreenshot: d.hasBankScreenshot ?? false,
+    bankCounterparty: d.bankCounterparty ?? null,
     bankTransactionId: d.bankTransactionId ?? null,
     declaredTransferAt: d.declaredTransferAt ?? null,
     createdAt: d.createdAt,
@@ -178,9 +186,16 @@ export const depositService = {
    * ApproveDepositDto knows no `note`, and the global whitelist would 400 on
    * one. An admin's reason for approving a flagged row is recorded through
    * `reviewVerification` (audited with the note) right before this call.
+   *
+   * M-15/M-7: when the bank saw a different amount than the user typed, the
+   * server refuses a plain approve; `amountOverride` says "credit the BANK
+   * amount" with the reason the server audits. Only sent when given.
    */
-  approve(id: string): Promise<Deposit> {
-    return apiClient.patch<BackendDeposit>(`/deposits/${id}/approve`).then(mapDeposit);
+  approve(id: string, amountOverride?: ApproveAmountOverride): Promise<Deposit> {
+    const body = amountOverride
+      ? { creditBankAmount: true, overrideReason: amountOverride.reason.trim() }
+      : undefined;
+    return apiClient.patch<BackendDeposit>(`/deposits/${id}/approve`, body).then(mapDeposit);
   },
 
   /**

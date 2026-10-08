@@ -17,10 +17,12 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { MaskedPiiNotice } from "@/components/tracking/MaskedPiiNotice";
 import { getActiveUserColumns } from "@/components/tracking/activeUserColumns";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useClampPage } from "@/lib/hooks/use-clamp-page";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { trackingService } from "@/services/api/trackingService";
@@ -29,7 +31,8 @@ import { CLIENT_PLATFORMS, type ActiveUsersResponse, type ClientPlatform } from 
 /** Comfortably inside the server's 5-minute presence window, cheap enough to leave running. */
 const POLL_MS = 15_000;
 
-const PAGE_LIMIT = 100;
+/** Rows per server page — the list is paged on the server, so every active user is reachable (not just the first 100). */
+const PAGE_LIMIT = 25;
 
 /** A response plus when this browser received it — the source of the "updated" stamp. */
 interface Snapshot {
@@ -47,14 +50,16 @@ export default function TrackingActiveUsersPage() {
   // No date range: "active" is the server's 5-minute window, not a period an
   // operator picks — and `ActiveUsersQuery` has no from/to to send.
   const [platform, setPlatform] = useState<ClientPlatform | "">("");
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, error, refetch } = useAsyncData<Snapshot>(async () => {
     const report = await trackingService.getActiveUsers({
+      page,
       limit: PAGE_LIMIT,
       platform: platform || undefined,
     });
     return { report, at: new Date() };
-  }, [platform]);
+  }, [platform, page]);
 
   /**
    * Poll results live here rather than going back through `useAsyncData`,
@@ -64,12 +69,15 @@ export default function TrackingActiveUsersPage() {
   const [polled, setPolled] = useState<Snapshot | null>(null);
   const current = polled ?? data;
 
+  // The poll asks for the page on screen, so it never snaps back to page 1.
+  // It skips its ticks while the tab is hidden (nobody is watching) and
+  // catches up once, straight away, when the tab is shown again.
   useEffect(() => {
     if (!canView) return;
     let cancelled = false;
-    const timer = setInterval(() => {
+    const poll = () => {
       void trackingService
-        .getActiveUsers({ limit: PAGE_LIMIT, platform: platform || undefined })
+        .getActiveUsers({ page, limit: PAGE_LIMIT, platform: platform || undefined })
         .then((report) => {
           if (!cancelled) setPolled({ report, at: new Date() });
         })
@@ -77,19 +85,43 @@ export default function TrackingActiveUsersPage() {
           // A dropped poll is not an error state — the last good list stays on
           // screen and the next tick, 15s away, corrects it.
         });
+    };
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") poll();
     }, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [canView, platform]);
+  }, [canView, platform, page]);
 
   const handlePlatformChange = (next: ClientPlatform | "") => {
     // Drop the polled override so the refetch for the new filter isn't masked
     // by the previous filter's rows.
     setPolled(null);
+    setPage(1);
     setPlatform(next);
   };
+
+  const handlePageChange = (next: number) => {
+    // Same reason: the previous page's polled rows must not mask the new page.
+    setPolled(null);
+    setPage(next);
+  };
+  // Rows removed elsewhere can leave a later page empty: step back to the last page that has rows.
+  useClampPage({
+    page,
+    pageSize: PAGE_LIMIT,
+    rowCount: current?.report.items.length,
+    total: current?.report.total,
+    isLoading,
+    onPageChange: handlePageChange,
+  });
 
   const handleRefresh = () => {
     setPolled(null);
@@ -211,18 +243,27 @@ export default function TrackingActiveUsersPage() {
                 </p>
               </div>
 
-              {!isLoading && rows.length === 0 && !platform ? (
+              {!isLoading && rows.length === 0 && !platform && page === 1 ? (
                 <EmptyState icon={Radio} title={a.empty.title} description={a.empty.description} />
               ) : (
-                <DataTable
-                  columns={columns}
-                  data={rows}
-                  isLoading={isLoading}
-                  // The list is short and live; a page break would shuffle
-                  // under the operator on every poll.
-                  pageSize={25}
-                  toolbar={tableToolbar}
-                />
+                <div>
+                  <DataTable
+                    columns={columns}
+                    data={rows}
+                    isLoading={isLoading}
+                    pageSize={PAGE_LIMIT}
+                    manualPagination
+                    toolbar={tableToolbar}
+                  />
+                  {!isLoading && current && (
+                    <ServerPagination
+                      page={page}
+                      pageSize={PAGE_LIMIT}
+                      total={current.report.total}
+                      onPageChange={handlePageChange}
+                    />
+                  )}
+                </div>
               )}
             </>
           )}

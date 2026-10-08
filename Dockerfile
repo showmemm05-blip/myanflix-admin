@@ -24,6 +24,14 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ARG NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD
 ENV NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD=$NEXT_PUBLIC_USE_DIRECT_MINIO_UPLOAD
 
+# Security headers are computed by next.config.ts headers() during `next
+# build` and baked into the image, so the MinIO origin the browser uploads to
+# (backend MINIO_PUBLIC_ENDPOINT) has to be known here. Unset = connect-src is
+# left open to any http/https origin so uploads keep working (see
+# .env.example).
+ARG CSP_CONNECT_SRC_EXTRA
+ENV CSP_CONNECT_SRC_EXTRA=$CSP_CONNECT_SRC_EXTRA
+
 RUN npm run build
 
 # ---- runner stage -----------------------------------------------------------

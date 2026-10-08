@@ -16,6 +16,7 @@ import {
   Landmark,
   LayoutDashboard,
   Medal,
+  Megaphone,
   ListVideo,
   MessageSquare,
   MessageSquareWarning,
@@ -168,6 +169,15 @@ export const navItems: NavItem[] = [
         permission: "BOOKS.VIEW",
       },
     ],
+  },
+  {
+    // What the apps' home page promotes — hero slides, the spotlight,
+    // coming-soon cards and the store/web links. It sits right after the
+    // three catalogue sections because every promo points at their titles.
+    labelKey: "homePromos",
+    href: "/home-promos",
+    icon: Megaphone,
+    permission: "HOME.VIEW",
   },
   {
     labelKey: "people",

@@ -12,12 +12,17 @@ import { DashboardCard } from "@/components/cards/DashboardCard";
 import { StatusFilterTabs, type StatusFilterValue } from "@/components/shared/StatusFilterTabs";
 import { VerificationFilterTabs } from "@/components/shared/VerificationFilterTabs";
 import { VerificationDetailsDialog } from "@/components/shared/VerificationDetailsDialog";
-import { ApproveSuspiciousDialog } from "@/components/shared/ApproveSuspiciousDialog";
+import {
+  ApproveSuspiciousDialog,
+  type AmountMismatch,
+  type AmountOverrideDecision,
+} from "@/components/shared/ApproveSuspiciousDialog";
 import { DateRangeFilter, todayStr, type DateRangeValue } from "@/components/shared/DateRangeFilter";
 import { getDepositColumns } from "@/components/deposits/columns";
 import { ManualDepositDialog } from "@/components/deposits/ManualDepositDialog";
 import { RejectDepositDialog } from "@/components/deposits/RejectDepositDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useNow } from "@/lib/hooks/use-now";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
@@ -39,6 +44,8 @@ import { toast } from "sonner";
 
 /** Rows per server page (H-24): the queue, its search and its totals all live on the server. */
 const PAGE_LIMIT = 25;
+// Live events arriving within this window refresh the stat cards once.
+const STATS_REFETCH_DEBOUNCE_MS = 750;
 
 interface DepositUpdatedEvent {
   id: string;
@@ -108,7 +115,11 @@ export default function DepositsPage() {
   );
   // Cards and tab counts summed by the database over EVERY matching row —
   // never from the page in hand (H-24). Kept on screen while a refetch runs.
-  const { data: stats, refetch: refetchStats } = useAsyncData(() => depositService.getStats(query), [query]);
+  const { data: stats, refetch: refetchStatsNow } = useAsyncData(() => depositService.getStats(query), [query]);
+  // One approval emits several socket events in a row (updated, the
+  // verification twins, plus this page's own call after the action); the
+  // stats are a database aggregate, so a burst is coalesced into one request.
+  const refetchStats = useDebouncedCallback(refetchStatsNow, STATS_REFETCH_DEBOUNCE_MS);
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
   const { data: paymentAccounts, refetch: refetchAccounts } = useAsyncData(
     () => paymentAccountService.getAccounts(),
@@ -260,7 +271,13 @@ export default function DepositsPage() {
 
   }, [canViewQueue, verification, newRowFitsView, updateRows, refetch, refetchStats]);
 
-  const performApprove = async (deposit: Deposit, note?: string) => {
+  /** M-15/M-7: the typed amount next to the bank's, only when they differ. */
+  const amountMismatchOf = (deposit: Deposit): AmountMismatch | null =>
+    deposit.receivingAmount !== null && deposit.receivingAmount !== deposit.amount
+      ? { typed: deposit.amount, bank: deposit.receivingAmount }
+      : null;
+
+  const performApprove = async (deposit: Deposit, note?: string, amountOverride?: AmountOverrideDecision) => {
     setApprovingId(deposit.id);
     try {
       // A note from the suspicious-approve confirm is recorded FIRST through
@@ -272,8 +289,9 @@ export default function DepositsPage() {
       }
       // No account picker anymore — the depositor already declared which of
       // our payment accounts they sent to when submitting, and the backend
-      // auto-credits that declared account on approval.
-      const updated = await depositService.approve(deposit.id);
+      // auto-credits that declared account on approval. The amount override
+      // (credit what the bank saw, with a reason) rides in the same request.
+      const updated = await depositService.approve(deposit.id, amountOverride);
       updateRows((rows) => rows.map((d) => (d.id === updated.id ? { ...d, ...updated } : d)));
       refetchStats();
       setApproveSuspiciousTarget(null);
@@ -291,8 +309,13 @@ export default function DepositsPage() {
 
   const handleApprove = (deposit: Deposit) => {
     // The money decision stays the admin's, but a SUSPICIOUS row (a hard
-    // mismatch against the bank) must be approved deliberately, with a note.
-    if (viewMatchStatus(toDepositVerification(deposit), now) === "SUSPICIOUS") {
+    // mismatch against the bank) must be approved deliberately, with a note
+    // — and a row whose bank amount differs from the typed one needs the
+    // explicit "credit the bank amount" decision the server insists on.
+    if (
+      viewMatchStatus(toDepositVerification(deposit), now) === "SUSPICIOUS" ||
+      amountMismatchOf(deposit) !== null
+    ) {
       setApproveSuspiciousTarget(deposit);
       return;
     }
@@ -499,7 +522,10 @@ export default function DepositsPage() {
           onOpenChange={(open) => !open && setApproveSuspiciousTarget(null)}
           loading={approveSuspiciousTarget !== null && approvingId === approveSuspiciousTarget.id}
           showNote={can("DEPOSITS.EDIT")}
-          onConfirm={(note) => approveSuspiciousTarget && performApprove(approveSuspiciousTarget, note)}
+          amountMismatch={approveSuspiciousTarget ? amountMismatchOf(approveSuspiciousTarget) : null}
+          onConfirm={(note, amountOverride) =>
+            approveSuspiciousTarget && performApprove(approveSuspiciousTarget, note, amountOverride)
+          }
         />
       </div>
     </RequirePermission>

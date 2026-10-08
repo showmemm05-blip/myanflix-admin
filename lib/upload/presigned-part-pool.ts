@@ -38,31 +38,51 @@ export class PresignedPartUrlPool {
     const alreadyFetching = this.inFlight.get(partNumber);
     if (alreadyFetching) return alreadyFetching;
 
+    // Parts already cached or already being fetched by another worker's
+    // batch are left out, so workers that start together share batches
+    // instead of each sending its own overlapping request.
     const windowSize = this.concurrency * WINDOW_MULTIPLIER;
     const batch = [
       partNumber,
       ...remainingPartNumbers.filter(
-        (n) => n !== partNumber && !this.urls.has(n),
+        (n) => n !== partNumber && !this.urls.has(n) && !this.inFlight.has(n),
       ),
     ].slice(0, windowSize);
 
-    const promise = uploadService
+    const request = uploadService
       .multipartGetPartUrls(this.sessionId, batch)
       .then(({ parts }) => {
         for (const part of parts) this.urls.set(part.partNumber, part.url);
-        const url = this.urls.get(partNumber);
-        if (!url)
-          throw new Error(
-            `Backend did not return a presigned URL for part ${partNumber}`,
-          );
-        return url;
-      })
-      .finally(() => {
-        this.inFlight.delete(partNumber);
       });
 
-    this.inFlight.set(partNumber, promise);
-    return promise;
+    // Every part in the batch gets its own promise, so a worker asking for
+    // any of them waits for this request. Each one rejects if the backend
+    // left its URL out, so a caller never gets `undefined` as a URL.
+    const perPart = new Map<number, Promise<string>>();
+    for (const n of batch) {
+      const forPart = request.then(() => {
+        const url = this.urls.get(n);
+        if (!url)
+          throw new Error(
+            `Backend did not return a presigned URL for part ${n}`,
+          );
+        return url;
+      });
+      // Prefetched parts nobody asks for must not surface as unhandled
+      // rejections; whoever awaits a part still sees its own error.
+      forPart.catch(() => {});
+      perPart.set(n, forPart);
+      this.inFlight.set(n, forPart);
+    }
+
+    const clear = () => {
+      for (const [n, forPart] of perPart) {
+        if (this.inFlight.get(n) === forPart) this.inFlight.delete(n);
+      }
+    };
+    request.then(clear, clear);
+
+    return perPart.get(partNumber)!;
   }
 
   /** Call after a 403 (expired presigned URL) so the next getUrl() for this part fetches a fresh one instead of reusing the dead cached URL. */

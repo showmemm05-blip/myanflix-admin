@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 import { uploadService } from "@/services/api/uploadService";
 import { movieService } from "@/services/api/movieService";
 import { videoService } from "@/services/api/videoService";
+import { withTransientRetry } from "@/lib/upload/bundle-upload";
 import type { MovieUploadFormValues, UploadStage } from "@/types/movie";
 
 const CHUNK_UPLOAD_CONCURRENCY = 6;
@@ -112,10 +113,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const uploadVideoChunks = useCallback(
     async (taskId: string, movieId: string, file: File, signal: AbortSignal) => {
-      const { uploadId, chunkSize, totalChunks, uploadedChunks: alreadyUploaded } = await uploadService.init(
-        movieId,
-        file.name,
-        file.size,
+      // Every network call below goes through the same transient-error
+      // retry as the bulk queue (a dropped connection or a 5xx/408/429 is
+      // retried with backoff), so one failed 5 MB chunk no longer fails the
+      // whole upload. A real rejection (other 4xx) or Dismiss still stops it.
+      const { uploadId, chunkSize, totalChunks, uploadedChunks: alreadyUploaded } = await withTransientRetry(
+        () => uploadService.init(movieId, file.name, file.size),
+        signal,
       );
 
       // init() resumes an interrupted session for this exact movie/filename/
@@ -145,7 +149,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
           const chunkNumber = remainingChunks[index];
           const start = chunkNumber * chunkSize;
           const chunk = file.slice(start, start + chunkSize);
-          await uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal);
+          await withTransientRetry(() => uploadService.uploadChunk(uploadId, chunkNumber, chunk, signal), signal);
           completedChunks++;
           totalUploadedBytes += chunk.size;
           sessionUploadedBytes += chunk.size;
@@ -163,7 +167,8 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       await Promise.all(
         Array.from({ length: Math.min(CHUNK_UPLOAD_CONCURRENCY, remainingChunks.length) }, worker),
       );
-      await uploadService.complete(uploadId);
+      // `signal` lets Dismiss stop waiting on this step too.
+      await withTransientRetry(() => uploadService.complete(uploadId, signal), signal);
     },
     [updateTask],
   );

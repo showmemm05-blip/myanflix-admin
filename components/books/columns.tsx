@@ -26,7 +26,8 @@ export const BOOK_STATUS_TONE: Record<BookStatus, StatusTone> = {
   FAILED: "danger",
 };
 
-const FALLBACK_COVER = "https://picsum.photos/seed/myanflix-book/400/560";
+/** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
+const FALLBACK_COVER = "/placeholder-poster.svg";
 
 /**
  * How many language badges a row shows before the rest collapse into "+N".

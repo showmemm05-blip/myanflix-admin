@@ -26,7 +26,8 @@ export const ACCESS_TYPE_TONE: Record<AccessType, StatusTone> = {
   SUBSCRIPTION: "info",
 };
 
-const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
+/** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
+const FALLBACK_POSTER = "/placeholder-poster.svg";
 
 /**
  * Translated equivalents of `STATUS_TONE`/`ACCESS_TYPE_TONE` above — kept as

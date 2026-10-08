@@ -1,12 +1,11 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Banknote, Eye, Film, Lock, TrendingUp, Users as UsersIcon, UserCheck } from "lucide-react";
 import { DashboardCard } from "@/components/cards/DashboardCard";
-import { RevenueChart } from "@/components/charts/RevenueChart";
-import { UserGrowthChart } from "@/components/charts/UserGrowthChart";
-import { MovieAnalyticsPanel } from "@/components/charts/MovieAnalyticsPanel";
 import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
 import { RecentUsersTable } from "@/components/users/RecentUsersTable";
+import { SmsGatewayCard } from "@/components/dashboard/SmsGatewayCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/ErrorState";
@@ -18,6 +17,23 @@ import { paymentService } from "@/services/api/paymentService";
 import { userService } from "@/services/api/userService";
 import { useRole } from "@/lib/context/role-context";
 import { cn } from "@/lib/utils";
+
+// The three chart blocks pull in the charting library (recharts, the
+// biggest piece of this page's JavaScript), and they sit below the headline
+// cards. Loading them as separate chunks lets the cards and tables appear
+// first; the same skeletons the page already uses stand in meanwhile.
+const RevenueChart = dynamic(() => import("@/components/charts/RevenueChart").then((m) => m.RevenueChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-96 rounded-lg" />,
+});
+const UserGrowthChart = dynamic(() => import("@/components/charts/UserGrowthChart").then((m) => m.UserGrowthChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-96 rounded-lg" />,
+});
+const MovieAnalyticsPanel = dynamic(
+  () => import("@/components/charts/MovieAnalyticsPanel").then((m) => m.MovieAnalyticsPanel),
+  { ssr: false, loading: () => <Skeleton className="h-96 rounded-lg" /> },
+);
 
 /** A block the caller's role may not read — a plain lock, never a 403 error. */
 function RestrictedNotice({ message, className }: { message: string; className?: string }) {
@@ -33,7 +49,8 @@ function RestrictedNotice({ message, className }: { message: string; className?:
  * The landing page for every role with DASHBOARD.VIEW. Each block loads on
  * its own and only when the role holds that block's permission (H-26): the
  * headline counts and user growth need only DASHBOARD.VIEW, revenue and the
- * transaction feed need FINANCE.VIEW, the newest users need USERS.VIEW. One
+ * transaction feed need FINANCE.VIEW, the newest users need USERS.VIEW, the
+ * SMS gateway card needs SETTINGS.VIEW (and hides itself on a 403). One
  * refused or failed call therefore costs its own block, never the page —
  * the seeded Admin role (no FINANCE.VIEW, no USERS.VIEW) used to get a
  * whole-page load error here as its first screen.
@@ -43,6 +60,10 @@ export function AdminDashboard() {
   const { can } = useRole();
   const canViewFinance = can("FINANCE.VIEW");
   const canViewUsers = can("USERS.VIEW");
+  // Same gate as GET /sms-gateway/status on the backend (SETTINGS.VIEW,
+  // seeded to Super Admin only). Without it the card is not even mounted,
+  // so nothing is requested.
+  const canViewSmsGateway = can("SETTINGS.VIEW");
 
   const overview = useAsyncData(() => analyticsService.getOverview(), []);
   const growth = useAsyncData(() => analyticsService.getUserGrowthSeries(), []);
@@ -144,6 +165,10 @@ export function AdminDashboard() {
           )}
         </div>
       )}
+
+      {/* The phone that texts every sign-in code — if it is offline, nobody
+          can sign in, so it sits right under the headline numbers. */}
+      {canViewSmsGateway && <SmsGatewayCard />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

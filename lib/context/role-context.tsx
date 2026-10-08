@@ -83,6 +83,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const accessToken = tokenStore.getAccessToken();
     if (!accessToken) {
+      // The token lives in browser storage, which only exists after mount;
+      // with none there is nothing to load. Runs once, so no cascade.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setIsLoading(false);
       return;
     }

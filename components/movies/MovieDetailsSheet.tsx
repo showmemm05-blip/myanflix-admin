@@ -22,7 +22,8 @@ import { formatDuration } from "@/lib/format";
 import { useLanguage } from "@/lib/context/language-context";
 import type { Movie } from "@/types/movie";
 
-const FALLBACK_COVER = "https://picsum.photos/seed/myanflix-cover/1280/720";
+/** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
+const FALLBACK_COVER = "/placeholder-poster.svg";
 
 export function MovieDetailsSheet({
   movie,

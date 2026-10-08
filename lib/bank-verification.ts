@@ -2,7 +2,6 @@ import type {
   BankMatchStatusView,
   BankRiskLevel,
   BankRiskReason,
-  VerificationFilter,
 } from "@/types/bank-verification";
 import type { Deposit } from "@/types/deposit";
 import type { Withdrawal } from "@/types/withdrawal";
@@ -46,6 +45,8 @@ export interface VerificationRecord {
   hasBankScreenshot: boolean;
   /** The stored phone transaction the bank values came from — the modal links to it on /bank-transactions. */
   bankTransactionId: string | null;
+  /** The bank's "from" name on that transaction (deposits only, M-16) — compared with the depositor's own name. */
+  bankCounterparty: string | null;
 }
 
 /**
@@ -79,6 +80,7 @@ export function toDepositVerification(d: Deposit): VerificationRecord {
     riskReasons: d.riskReasons,
     hasBankScreenshot: d.hasBankScreenshot,
     bankTransactionId: d.bankTransactionId,
+    bankCounterparty: d.bankCounterparty,
   };
 }
 
@@ -105,6 +107,7 @@ export function toWithdrawalVerification(w: Withdrawal): VerificationRecord {
     riskReasons: w.riskReasons,
     hasBankScreenshot: w.hasBankScreenshot,
     bankTransactionId: w.bankTransactionId,
+    bankCounterparty: null,
   };
 }
 
@@ -158,30 +161,6 @@ export function viewRiskLevel(r: VerificationRecord, now = Date.now()): BankRisk
   if (!isNoBankTransaction(r, now)) return r.riskLevel;
   if (r.riskLevel === null || RISK_RANK[r.riskLevel] < RISK_RANK.MEDIUM) return "MEDIUM";
   return r.riskLevel;
-}
-
-/**
- * Client-side twin of the server's five `verification` predicates — used only
- * to put counts on the tabs from the loaded page, never to filter what the
- * server already filtered.
- */
-export function matchesVerificationFilter(
-  r: VerificationRecord,
-  filter: VerificationFilter,
-  now = Date.now(),
-): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "verified":
-      return r.matchStatus === "MATCHED";
-    case "needs_review":
-      return r.matchStatus === "PENDING_REVIEW" || r.matchStatus === "SUSPICIOUS";
-    case "no_bank_transaction":
-      return isNoBankTransaction(r, now);
-    case "awaiting_bank":
-      return isAwaitingBank(r) && !isNoBankTransaction(r, now);
-  }
 }
 
 /**

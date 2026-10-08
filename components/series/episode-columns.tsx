@@ -12,7 +12,8 @@ import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AdminEpisode } from "@/types/series";
 
-const FALLBACK_POSTER = "https://picsum.photos/seed/myanflix-poster/400/600";
+/** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
+const FALLBACK_POSTER = "/placeholder-poster.svg";
 
 interface GetEpisodeColumnsOptions {
   t: TranslationShape;

@@ -27,11 +27,13 @@ import {
   type DateRangeValue,
 } from "@/components/shared/DateRangeFilter";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { MaskedPiiNotice } from "@/components/tracking/MaskedPiiNotice";
 import { FeedbackDetailsDialog } from "@/components/tracking/FeedbackDetailsDialog";
 import { getFeedbackColumns } from "@/components/tracking/feedbackColumns";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useClampPage } from "@/lib/hooks/use-clamp-page";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { trackingService } from "@/services/api/trackingService";
@@ -55,7 +57,8 @@ function endOfDayIso(day: string): string {
   return new Date(`${day}T23:59:59.999`).toISOString();
 }
 
-const PAGE_LIMIT = 100;
+/** Rows per server page — the queue is paged on the server, so every item is reachable (not just the newest 100). */
+const PAGE_LIMIT = 25;
 const COUNT_ONLY = 1;
 
 export default function TrackingFeedbackPage() {
@@ -71,14 +74,22 @@ export default function TrackingFeedbackPage() {
   const [categoryFilter, setCategoryFilter] = useState<FeedbackCategory | "">("");
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
   useEffect(() => {
-    const handle = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const handle = setTimeout(() => {
+      const next = search.trim();
+      if (next === appliedSearch) return;
+      // A new search starts again from its first page.
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
     return () => clearTimeout(handle);
-  }, [search]);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       trackingService.getFeedback({
+        page,
         limit: PAGE_LIMIT,
         from: range.from ? startOfDayIso(range.from) : undefined,
         to: range.to ? endOfDayIso(range.to) : undefined,
@@ -86,13 +97,13 @@ export default function TrackingFeedbackPage() {
         category: categoryFilter || undefined,
         search: appliedSearch || undefined,
       }),
-    [range, statusFilter, categoryFilter, appliedSearch],
+    [range, statusFilter, categoryFilter, appliedSearch, page],
   );
 
   /**
    * One SERVER count per status, plus the total. Counting the loaded page
    * instead would make the queue look emptier than it is the moment there
-   * are more than 100 rows — exactly when the counts start to matter.
+   * is more than one page — exactly when the counts start to matter.
    */
   const {
     data: cards,
@@ -121,16 +132,32 @@ export default function TrackingFeedbackPage() {
 
   const handleRangeChange = (next: DateRangeValue) => {
     setRows(null);
+    setPage(1);
     setRange(next);
   };
   const handleStatusChange = (next: FeedbackStatus | "") => {
     setRows(null);
+    setPage(1);
     setStatusFilter(next);
   };
   const handleCategoryChange = (next: FeedbackCategory | "") => {
     setRows(null);
+    setPage(1);
     setCategoryFilter(next);
   };
+  const handlePageChange = (next: number) => {
+    setRows(null);
+    setPage(next);
+  };
+  // Rows removed elsewhere can leave a later page empty: step back to the last page that has rows.
+  useClampPage({
+    page,
+    pageSize: PAGE_LIMIT,
+    rowCount: data?.items.length,
+    total: data?.total,
+    isLoading,
+    onPageChange: handlePageChange,
+  });
   const handleSearchChange = (value: string) => {
     setRows(null);
     setSearch(value);
@@ -278,22 +305,29 @@ export default function TrackingFeedbackPage() {
 
           {error ? (
             <ErrorState description={t.tracking.common.loadError} onRetry={handleRefresh} />
-          ) : !isLoading && activeRows.length === 0 && !isFiltered ? (
+          ) : !isLoading && activeRows.length === 0 && !isFiltered && page === 1 ? (
             <EmptyState
               icon={MessageSquareWarning}
               title={f.empty.title}
               description={f.empty.description}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={activeRows}
-              isLoading={isLoading}
-              searchValue={search}
-              onSearchChange={handleSearchChange}
-              searchPlaceholder={f.filters.searchPlaceholder}
-              toolbar={tableToolbar}
-            />
+            <div>
+              <DataTable
+                columns={columns}
+                data={activeRows}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={handleSearchChange}
+                searchPlaceholder={f.filters.searchPlaceholder}
+                toolbar={tableToolbar}
+              />
+              {!isLoading && data && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={data.total} onPageChange={handlePageChange} />
+              )}
+            </div>
           )}
         </div>
 

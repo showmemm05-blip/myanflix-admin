@@ -17,6 +17,7 @@ import { getWithdrawalColumns } from "@/components/withdrawals/columns";
 import { RejectWithdrawalDialog } from "@/components/withdrawals/RejectWithdrawalDialog";
 import { ViewWithdrawalDialog } from "@/components/withdrawals/ViewWithdrawalDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useNow } from "@/lib/hooks/use-now";
 import { useRole } from "@/lib/context/role-context";
 import { useLanguage } from "@/lib/context/language-context";
@@ -38,6 +39,8 @@ import { toast } from "sonner";
 
 /** Rows per server page (H-24): the queue, its search and its totals all live on the server. */
 const PAGE_LIMIT = 25;
+// Live events arriving within this window refresh the stat cards once.
+const STATS_REFETCH_DEBOUNCE_MS = 750;
 
 interface WithdrawalUpdatedEvent {
   id: string;
@@ -107,7 +110,11 @@ export default function WithdrawalsPage() {
   );
   // Cards and tab counts summed by the database over EVERY matching row —
   // never from the page in hand (H-24). Kept on screen while a refetch runs.
-  const { data: stats, refetch: refetchStats } = useAsyncData(() => withdrawalService.getStats(query), [query]);
+  const { data: stats, refetch: refetchStatsNow } = useAsyncData(() => withdrawalService.getStats(query), [query]);
+  // One approval emits several socket events in a row (updated, the
+  // verification twins, plus this page's own call after the action); the
+  // stats are a database aggregate, so a burst is coalesced into one request.
+  const refetchStats = useDebouncedCallback(refetchStatsNow, STATS_REFETCH_DEBOUNCE_MS);
   const { data: types } = useAsyncData(() => paymentAccountService.getTypes(), []);
   // Full accounts (not just method types) so the "our transfer account"
   // picker in TransferAccountCell can list every subname — a withdrawal

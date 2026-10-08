@@ -12,7 +12,7 @@ import { PresignedPartUrlPool } from "@/lib/upload/presigned-part-pool";
  * bulk-upload-context.tsx verbatim; the only two things that vary between
  * the callers are the `resourceType` the backend's
  * ResourceUploadTypeRegistry maps to a key builder + permission, and where
- * per-file progress goes (`onPatch`). Everything else — concurrency
+ * per-file progress goes (`onPatches`). Everything else — concurrency
  * numbers, retry policy, the 403 -> pool.invalidate path, the ETag check,
  * "finalizing" before multipartComplete — is deliberately identical, so the
  * Bulk Upload page's behaviour does not change by being routed through here.
@@ -66,8 +66,60 @@ export interface BundleUploadAsset {
 }
 
 export type AssetPatch = Partial<BundleUploadAsset>;
-/** Where one file's progress/status goes — the queue context routes it into its job, the Video section into local state. */
-export type OnAssetPatch = (relativePath: string, patch: AssetPatch) => void;
+/** A batch of per-file patches keyed by relativePath. Several patches for the same file are already merged (later fields win), so the receiver applies each entry once. */
+export type AssetPatches = ReadonlyMap<string, AssetPatch>;
+/**
+ * Where file progress/status goes — the queue context routes it into its
+ * job, the Video section into local state. Always called with a batch so
+ * the receiver can update its whole asset list in ONE pass: a bundle has
+ * thousands of small files, and one state update per file used to copy the
+ * full list thousands of times.
+ */
+export type OnAssetPatches = (patches: AssetPatches) => void;
+
+/** One file's patch as a batch of one. */
+function patchOne(onPatches: OnAssetPatches, relativePath: string, patch: AssetPatch): void {
+  onPatches(new Map([[relativePath, patch]]));
+}
+
+/**
+ * Collects per-file patches and hands them over in one batch every
+ * PROGRESS_FLUSH_INTERVAL_MS. Patches for the same file are merged in
+ * arrival order (`{...earlier, ...later}`), so a later "done" can never be
+ * overwritten by an earlier "uploading" from the same window. After
+ * close() (which flushes whatever is pending) any straggler patch is passed
+ * straight through, so nothing that arrives late is ever dropped.
+ */
+class PatchBatcher {
+  private pending = new Map<string, AssetPatch>();
+  private timer: ReturnType<typeof setInterval> | null;
+
+  constructor(private readonly onPatches: OnAssetPatches) {
+    this.timer = setInterval(() => this.flush(), PROGRESS_FLUSH_INTERVAL_MS);
+  }
+
+  add(relativePath: string, patch: AssetPatch): void {
+    if (this.timer === null) {
+      patchOne(this.onPatches, relativePath, patch);
+      return;
+    }
+    const earlier = this.pending.get(relativePath);
+    this.pending.set(relativePath, earlier ? { ...earlier, ...patch } : patch);
+  }
+
+  flush(): void {
+    if (this.pending.size === 0) return;
+    const batch = this.pending;
+    this.pending = new Map();
+    this.onPatches(batch);
+  }
+
+  close(): void {
+    if (this.timer !== null) clearInterval(this.timer);
+    this.timer = null;
+    this.flush();
+  }
+}
 
 /**
  * Classifies an upload error as worth silently retrying vs. a genuine
@@ -121,10 +173,13 @@ export async function uploadLargeAssetDirect(
   resourceId: string,
   asset: BundleUploadAsset,
   signal: AbortSignal,
-  onPatch: OnAssetPatch,
+  onPatches: OnAssetPatches,
 ): Promise<void> {
   if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
   const file = asset.file;
+  // A single large file only patches a handful of times plus once per
+  // flush interval, so each patch goes out on its own.
+  const onPatch = (relativePath: string, patch: AssetPatch) => patchOne(onPatches, relativePath, patch);
   onPatch(asset.relativePath, { status: "uploading" });
 
   const { sessionId, partSize, totalParts, uploadedParts } = await withTransientRetry(
@@ -212,48 +267,59 @@ export async function uploadSmallAssetsDirect(
   resourceId: string,
   assets: BundleUploadAsset[],
   signal: AbortSignal,
-  onPatch: OnAssetPatch,
+  onPatches: OnAssetPatches,
 ): Promise<void> {
   if (assets.length === 0) return;
-  for (const asset of assets) onPatch(asset.relativePath, { status: "uploading" });
-
-  const urlByPath = new Map<string, string>();
-  for (let i = 0; i < assets.length; i += PRESIGN_BATCH_SIZE) {
-    const batch = assets.slice(i, i + PRESIGN_BATCH_SIZE);
-    const { files } = await withTransientRetry(
-      () =>
-        uploadService.presignBatch(
-          resourceType,
-          resourceId,
-          batch.map((a) => ({ relativePath: a.relativePath, filesize: a.size })),
-          signal,
-        ),
-      signal,
-    );
-    for (const f of files) urlByPath.set(f.relativePath, f.url);
-  }
-
-  let nextIndex = 0;
+  // Per-file status changes are batched (see PatchBatcher): one state update
+  // per flush interval instead of one per file, for thousands of files.
+  const batcher = new PatchBatcher(onPatches);
   let firstError: unknown = null;
-  const worker = async () => {
-    for (;;) {
-      const idx = nextIndex++;
-      if (idx >= assets.length) return;
-      const asset = assets[idx];
-      try {
-        const url = urlByPath.get(asset.relativePath);
-        if (!url) throw new Error(`No presigned URL was issued for ${asset.relativePath}`);
-        if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
-        await withTransientRetry(() => putToMinio(url, asset.file!, signal), signal);
-        onPatch(asset.relativePath, { uploadedBytes: asset.size, status: "done" });
-      } catch (err) {
-        if (signal.aborted) throw err;
-        firstError ??= err;
-        onPatch(asset.relativePath, { status: "error" });
-      }
+  try {
+    for (const asset of assets) batcher.add(asset.relativePath, { status: "uploading" });
+    // Show every file as "uploading" straight away, as before.
+    batcher.flush();
+
+    const urlByPath = new Map<string, string>();
+    for (let i = 0; i < assets.length; i += PRESIGN_BATCH_SIZE) {
+      const batch = assets.slice(i, i + PRESIGN_BATCH_SIZE);
+      const { files } = await withTransientRetry(
+        () =>
+          uploadService.presignBatch(
+            resourceType,
+            resourceId,
+            batch.map((a) => ({ relativePath: a.relativePath, filesize: a.size })),
+            signal,
+          ),
+        signal,
+      );
+      for (const f of files) urlByPath.set(f.relativePath, f.url);
     }
-  };
-  await Promise.all(Array.from({ length: Math.min(SMALL_FILE_CONCURRENCY, assets.length) }, worker));
+
+    let nextIndex = 0;
+    const worker = async () => {
+      for (;;) {
+        const idx = nextIndex++;
+        if (idx >= assets.length) return;
+        const asset = assets[idx];
+        try {
+          const url = urlByPath.get(asset.relativePath);
+          if (!url) throw new Error(`No presigned URL was issued for ${asset.relativePath}`);
+          if (!asset.file) throw new Error(`${asset.relativePath} is not attached`);
+          await withTransientRetry(() => putToMinio(url, asset.file!, signal), signal);
+          batcher.add(asset.relativePath, { uploadedBytes: asset.size, status: "done" });
+        } catch (err) {
+          if (signal.aborted) throw err;
+          firstError ??= err;
+          batcher.add(asset.relativePath, { status: "error" });
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(SMALL_FILE_CONCURRENCY, assets.length) }, worker));
+  } finally {
+    // Final flush before returning OR throwing, so the last statuses (and
+    // the "done" flags the queue persists for resume) are never lost.
+    batcher.close();
+  }
   if (firstError) throw firstError;
 }
 
@@ -263,7 +329,7 @@ export interface UploadBundleDirectOptions {
   /** Only assets not already `done` are sent — a resumed job passes its full list and the finished ones are skipped here. */
   assets: BundleUploadAsset[];
   signal: AbortSignal;
-  onPatch: OnAssetPatch;
+  onPatches: OnAssetPatches;
 }
 
 /**
@@ -279,7 +345,7 @@ export async function uploadBundleDirect({
   resourceId,
   assets,
   signal,
-  onPatch,
+  onPatches,
 }: UploadBundleDirectOptions): Promise<void> {
   const pending = assets.filter((a) => a.status !== "done");
   const largeAssets = pending.filter((a) => a.size >= MULTIPART_THRESHOLD_BYTES);
@@ -288,13 +354,13 @@ export async function uploadBundleDirect({
   let firstError: unknown = null;
   await Promise.all([
     ...largeAssets.map((asset) =>
-      uploadLargeAssetDirect(resourceType, resourceId, asset, signal, onPatch).catch((err) => {
+      uploadLargeAssetDirect(resourceType, resourceId, asset, signal, onPatches).catch((err) => {
         if (signal.aborted) throw err;
         firstError ??= err;
-        onPatch(asset.relativePath, { status: "error" });
+        patchOne(onPatches, asset.relativePath, { status: "error" });
       }),
     ),
-    uploadSmallAssetsDirect(resourceType, resourceId, smallAssets, signal, onPatch).catch((err) => {
+    uploadSmallAssetsDirect(resourceType, resourceId, smallAssets, signal, onPatches).catch((err) => {
       if (signal.aborted) throw err;
       firstError ??= err;
     }),

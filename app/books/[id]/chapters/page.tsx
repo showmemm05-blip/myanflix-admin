@@ -81,6 +81,8 @@ const AUTOSAVE_DELAY_MS = 2000;
 
 /** Matches the movies upload flow's cadence — see upload-context.tsx. */
 const POLL_INTERVAL_MS = 2500;
+/** Converted-page thumbnails shown before "Show all" (each one is a full page image). */
+const PREVIEW_PAGE_LIMIT = 24;
 
 const EMPTY_DOC = { type: "doc", content: [{ type: "paragraph" }] };
 
@@ -161,6 +163,10 @@ export default function BookChaptersPage() {
    */
   useEffect(() => {
     if (!book || book.editions.length === 0) return;
+    // Syncs the selection to data that just arrived from the server (an
+    // external system); the updater keeps the current value when it is still
+    // valid, so this settles after one pass and never loops.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditionId((current) =>
       current && book.editions.some((e) => e.id === current)
         ? current
@@ -338,6 +344,10 @@ export default function BookChaptersPage() {
   // Select the first chapter once the list arrives, but never fight the
   // admin's own selection afterwards.
   useEffect(() => {
+    // Runs once per fetched chapter list and only while nothing is selected,
+    // so it cannot cascade; deriving it during render instead would fight
+    // the admin's own later selection.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!selectedId && chapters.length > 0) setSelectedId(chapters[0].id);
   }, [chapters, selectedId]);
 
@@ -429,6 +439,10 @@ export default function BookChaptersPage() {
 
   useEffect(() => {
     if (!chapter) return;
+    // Resetting the editor to a chapter freshly loaded from the server — the
+    // editor's own document lives outside React (docRef), so this effect is
+    // the sync point for both, and it runs once per loaded chapter.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     applyTitle(chapter.title);
     docRef.current = chapter.content;
     setDirty(false);
@@ -675,6 +689,14 @@ export default function BookChaptersPage() {
   }, [bookId, editionId, selectedId, isPdfBook, chapterStatus]);
   const pages =
     fetchedPages && fetchedPages.key === pagesKey ? fetchedPages.pages : null;
+  // The preview shows the first PREVIEW_PAGE_LIMIT pages; each thumbnail is a
+  // full reader-size page image, so a 300-page chapter is not pulled in full
+  // unless asked for. "Show all" applies to the chapter it was clicked on
+  // only — opening another chapter starts collapsed again.
+  const [showAllPagesKey, setShowAllPagesKey] = useState<string | null>(null);
+  const showAllPages = showAllPagesKey === pagesKey;
+  const previewPages =
+    pages && !showAllPages ? pages.slice(0, PREVIEW_PAGE_LIMIT) : pages;
 
   /**
    * Starts — or restarts — ONE chapter's conversion. The ids are passed in
@@ -1658,30 +1680,46 @@ export default function BookChaptersPage() {
                             {t.books.conversion.previewEmpty}
                           </p>
                         ) : (
-                          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                            {pages.map((page) => (
-                              <figure
-                                key={page.pageNumber}
-                                className="space-y-1"
+                          <>
+                            <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                              {(previewPages ?? pages).map((page) => (
+                                <figure
+                                  key={page.pageNumber}
+                                  className="space-y-1"
+                                >
+                                  <div className="relative aspect-[3/4] overflow-hidden rounded border bg-muted">
+                                    <Image
+                                      src={page.url}
+                                      alt={t.books.conversion.pageAlt(
+                                        page.pageNumber,
+                                      )}
+                                      fill
+                                      className="object-contain"
+                                      sizes="160px"
+                                      unoptimized
+                                    />
+                                  </div>
+                                  <figcaption className="text-center text-xs tabular-nums text-muted-foreground">
+                                    {page.pageNumber}
+                                  </figcaption>
+                                </figure>
+                              ))}
+                            </div>
+                            {pages.length > PREVIEW_PAGE_LIMIT && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="self-start"
+                                onClick={() =>
+                                  setShowAllPagesKey(showAllPages ? null : pagesKey)
+                                }
                               >
-                                <div className="relative aspect-[3/4] overflow-hidden rounded border bg-muted">
-                                  <Image
-                                    src={page.url}
-                                    alt={t.books.conversion.pageAlt(
-                                      page.pageNumber,
-                                    )}
-                                    fill
-                                    className="object-contain"
-                                    sizes="160px"
-                                    unoptimized
-                                  />
-                                </div>
-                                <figcaption className="text-center text-xs tabular-nums text-muted-foreground">
-                                  {page.pageNumber}
-                                </figcaption>
-                              </figure>
-                            ))}
-                          </div>
+                                {showAllPages
+                                  ? t.books.conversion.previewShowFewer
+                                  : t.books.conversion.previewShowAll(pages.length)}
+                              </Button>
+                            )}
+                          </>
                         )}
                       </Card>
                     )}

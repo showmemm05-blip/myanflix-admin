@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ErrorState } from "@/components/shared/ErrorState";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useDebouncedCallback } from "@/lib/hooks/use-debounced-callback";
 import { useLanguage } from "@/lib/context/language-context";
 import { formatKyat } from "@/lib/currency";
 import { getSocket } from "@/lib/socket";
@@ -28,10 +29,12 @@ import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account
  * finance views mount it — the balances are not part of the revenue
  * breakdown that FINANCE.EXPORT unlocks.
  */
+const ACCOUNTS_REFRESH_DEBOUNCE_MS = 1500;
+
 export function PaymentAccountsOverview() {
   const { t } = useLanguage();
   const m = t.finance.accountsOverview;
-  const { data, isLoading, error, refetch } = useAsyncData(async () => {
+  const { data, isInitialLoading, error, refetch } = useAsyncData(async () => {
     const [accounts, types] = await Promise.all([
       paymentAccountService.getAccounts(),
       paymentAccountService.getTypes(),
@@ -39,20 +42,21 @@ export function PaymentAccountsOverview() {
     return { accounts, types };
   }, []);
 
+  // A burst of balance changes (one approval can touch an account more than
+  // once) is coalesced into one reload.
+  const refetchSoon = useDebouncedCallback(refetch, ACCOUNTS_REFRESH_DEBOUNCE_MS);
+
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
     // Same signal the ledger page uses: every balance change on any account
     // emits it, and the Decimal fields are re-read rather than patched.
-    const handleUpdated = () => refetch();
+    const handleUpdated = () => refetchSoon();
     socket.on("payment-account.updated", handleUpdated);
     return () => {
       socket.off("payment-account.updated", handleUpdated);
     };
-    // refetch is a fresh closure every render; every instance does the same
-    // thing, so resubscribing per render would be churn (see the ledger page).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refetchSoon]);
 
   return (
     <Card className="glass-card">
@@ -70,7 +74,9 @@ export function PaymentAccountsOverview() {
         </Button>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {/* Skeleton only on the first load — a live refresh keeps the
+            current balances on screen until the new ones arrive. */}
+        {isInitialLoading ? (
           <div className="flex flex-col gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-10 rounded-md" />

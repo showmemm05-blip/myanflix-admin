@@ -3,7 +3,18 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Camera, Check, Landmark, Lightbulb, ListChecks, Loader2, ShieldAlert, Unlink, UserRound, X } from "lucide-react";
+import {
+  Camera,
+  Check,
+  Landmark,
+  Lightbulb,
+  ListChecks,
+  Loader2,
+  ShieldAlert,
+  Unlink,
+  UserRound,
+  X,
+} from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,8 +40,14 @@ import {
   viewRiskReasons,
   type VerificationRecord,
 } from "@/lib/bank-verification";
-import type { BankMatchStatusView, VerificationReviewAction } from "@/types/bank-verification";
-import type { PaymentAccount, PaymentAccountType } from "@/types/payment-account";
+import type {
+  BankMatchStatusView,
+  VerificationReviewAction,
+} from "@/types/bank-verification";
+import type {
+  PaymentAccount,
+  PaymentAccountType,
+} from "@/types/payment-account";
 import { BankScreenshot } from "@/components/shared/BankScreenshot";
 
 const EM_DASH = "—";
@@ -42,7 +59,15 @@ function formatDateTime(iso: string | null) {
   return format(parsed, "d MMM yyyy, HH:mm:ss");
 }
 
-function Section({ title, icon: Icon, children }: { title: string; icon: typeof Landmark; children: ReactNode }) {
+function Section({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: typeof Landmark;
+  children: ReactNode;
+}) {
   return (
     <section className="rounded-lg border border-border bg-secondary/20 px-3 py-2.5">
       <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
@@ -74,7 +99,9 @@ function Field({
   const empty = value === null || value === undefined || value === "";
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] leading-tight text-muted-foreground">{label}</dt>
+      <dt className="text-[11px] leading-tight text-muted-foreground">
+        {label}
+      </dt>
       <dd
         className={`min-w-0 text-sm leading-snug font-medium ${mono ? "font-mono text-xs break-all" : "break-words"} ${
           mismatch ? "text-destructive" : ""
@@ -86,11 +113,16 @@ function Field({
   );
 }
 
-function accountLabel(id: string | null, accounts: PaymentAccount[], types: PaymentAccountType[]) {
+function accountLabel(
+  id: string | null,
+  accounts: PaymentAccount[],
+  types: PaymentAccountType[],
+) {
   if (!id) return null;
   const account = accounts.find((a) => a.id === id);
   if (!account) return id;
-  const typeLabel = types.find((ty) => ty.value === account.type)?.label ?? account.type;
+  const typeLabel =
+    types.find((ty) => ty.value === account.type)?.label ?? account.type;
   return `${typeLabel}${account.subname ? ` — ${account.subname}` : ""} (${account.accountName})`;
 }
 
@@ -171,7 +203,10 @@ export function VerificationDetailsDialog({
   const reasons = viewRiskReasons(record, now);
   const riskLevel = viewRiskLevel(record, now);
   const bankSeen = record.bankCheckedAt !== null;
-  const amountMismatch = bankSeen && record.bankAmount !== null && record.bankAmount !== record.amount;
+  const amountMismatch =
+    bankSeen &&
+    record.bankAmount !== null &&
+    record.bankAmount !== record.amount;
   const codeMismatch =
     bankSeen &&
     record.reference !== null &&
@@ -179,6 +214,17 @@ export function VerificationDetailsDialog({
     record.reference.toUpperCase() !== record.bankCode.toUpperCase();
   const gap = timeGapMs(record);
   const account = accountLabel(record.paymentAccountId, paymentAccounts, types);
+  // M-16: the bank's "from" name beside the depositor's own name. Red only
+  // when the matcher actually flagged it — the compare lives server-side.
+  const nameMismatch = reasons.includes("COUNTERPARTY_MISMATCH");
+  // The server compares the bank's "from" name with the customer's DISPLAY
+  // name only. The row label falls back to the username when there is no
+  // display name, so in that case say "no display name" instead of showing
+  // a username as if it had been compared.
+  const depositorName =
+    record.userUsername !== null && record.userName === record.userUsername
+      ? null
+      : record.userName;
 
   const suggested = suggestedText(status, isDeposit, t.verification.suggested);
   const gapText =
@@ -205,27 +251,60 @@ export function VerificationDetailsDialog({
           <span className="flex flex-col">
             <span className="font-semibold">{record.userName}</span>
             {record.userUsername && (
-              <span className="text-xs text-muted-foreground">@{record.userUsername}</span>
+              <span className="text-xs text-muted-foreground">
+                @{record.userUsername}
+              </span>
             )}
           </span>
-          <span className="text-base font-semibold tabular-nums">{formatKyat(record.amount)}</span>
+          <span className="text-base font-semibold tabular-nums">
+            {formatKyat(record.amount)}
+          </span>
           <BankMatchBadge status={status} />
           <RiskBadge level={riskLevel} reasons={reasons} />
         </div>
 
         <div className="flex flex-col gap-2.5">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <Section title={isDeposit ? m.submittedSection : m.approvedSection} icon={UserRound}>
+            <Section
+              title={isDeposit ? m.submittedSection : m.approvedSection}
+              icon={UserRound}
+            >
               <dl className="grid grid-cols-1 gap-y-2">
-                <Field label={m.amount} value={formatKyat(record.amount)} mismatch={amountMismatch} />
-                {isDeposit && <Field label={m.reference} value={record.reference} mono mismatch={codeMismatch} />}
-                <Field label={m.account} value={account ?? m.accountNotDeclared} />
+                <Field
+                  label={m.amount}
+                  value={formatKyat(record.amount)}
+                  mismatch={amountMismatch}
+                />
+                {isDeposit && (
+                  <Field
+                    label={m.reference}
+                    value={record.reference}
+                    mono
+                    mismatch={codeMismatch}
+                  />
+                )}
+                {isDeposit && (
+                  <Field
+                    label={m.depositorName}
+                    value={depositorName ?? m.depositorNameNotSet}
+                    mismatch={nameMismatch}
+                  />
+                )}
+                <Field
+                  label={m.account}
+                  value={account ?? m.accountNotDeclared}
+                />
                 <Field
                   label={isDeposit ? m.submittedAt : m.approvedAt}
-                  value={formatDateTime(isDeposit ? record.submittedAt : record.approvedAt)}
+                  value={formatDateTime(
+                    isDeposit ? record.submittedAt : record.approvedAt,
+                  )}
                 />
                 {record.declaredTransferAt && (
-                  <Field label={m.declaredTransferAt} value={formatDateTime(record.declaredTransferAt)} />
+                  <Field
+                    label={m.declaredTransferAt}
+                    value={formatDateTime(record.declaredTransferAt)}
+                  />
                 )}
               </dl>
             </Section>
@@ -234,7 +313,11 @@ export function VerificationDetailsDialog({
               <dl className="grid grid-cols-1 gap-y-2">
                 <Field
                   label={m.amount}
-                  value={record.bankAmount !== null ? formatKyat(record.bankAmount) : null}
+                  value={
+                    record.bankAmount !== null
+                      ? formatKyat(record.bankAmount)
+                      : null
+                  }
                   mismatch={amountMismatch}
                 />
                 <Field
@@ -243,10 +326,27 @@ export function VerificationDetailsDialog({
                   mono
                   mismatch={codeMismatch}
                 />
+                {isDeposit && (
+                  <Field
+                    label={m.senderName}
+                    value={
+                      bankSeen
+                        ? (record.bankCounterparty ?? m.senderNameUnknown)
+                        : null
+                    }
+                    mismatch={nameMismatch}
+                  />
+                )}
                 {/* The matcher only ever matches on the declared account, so
                     the bank side is that same account by construction. */}
-                <Field label={m.account} value={bankSeen ? (account ?? m.accountNotDeclared) : null} />
-                <Field label={m.bankTime} value={formatDateTime(record.bankAt)} />
+                <Field
+                  label={m.account}
+                  value={bankSeen ? (account ?? m.accountNotDeclared) : null}
+                />
+                <Field
+                  label={m.bankTime}
+                  value={formatDateTime(record.bankAt)}
+                />
                 <Field
                   label={m.checkedAt}
                   value={
@@ -280,7 +380,8 @@ export function VerificationDetailsDialog({
 
           {gapText && (
             <p className="px-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">{m.timeGap}:</span> {gapText}
+              <span className="font-medium text-foreground">{m.timeGap}:</span>{" "}
+              {gapText}
             </p>
           )}
 
@@ -296,8 +397,12 @@ export function VerificationDetailsDialog({
                   <li key={code} className="flex items-start gap-2 text-sm">
                     <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-warning" />
                     <span className="flex flex-col">
-                      <span className="font-medium">{t.verification.reasons[code]}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground">{code}</span>
+                      <span className="font-medium">
+                        {t.verification.reasons[code]}
+                      </span>
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {code}
+                      </span>
                     </span>
                   </li>
                 ))}
@@ -305,19 +410,31 @@ export function VerificationDetailsDialog({
             )}
           </Section>
 
-          <Alert variant={status === "SUSPICIOUS" || status === "NO_BANK_TRANSACTION" ? "destructive" : "default"}>
+          <Alert
+            variant={
+              status === "SUSPICIOUS" || status === "NO_BANK_TRANSACTION"
+                ? "destructive"
+                : "default"
+            }
+          >
             <Lightbulb />
             <AlertDescription>
-              <span className="font-medium">{m.suggestedAction}:</span> {suggested}
+              <span className="font-medium">{m.suggestedAction}:</span>{" "}
+              {suggested}
             </AlertDescription>
           </Alert>
 
           <Section title={m.screenshotSection} icon={Camera}>
             {record.hasBankScreenshot ? (
               canViewScreenshot ? (
-                <BankScreenshot rowId={record.id} load={() => fetchScreenshot(record.id)} />
+                <BankScreenshot
+                  rowId={record.id}
+                  load={() => fetchScreenshot(record.id)}
+                />
               ) : (
-                <p className="text-xs text-muted-foreground">{m.screenshotRestricted}</p>
+                <p className="text-xs text-muted-foreground">
+                  {m.screenshotRestricted}
+                </p>
               )
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -331,7 +448,9 @@ export function VerificationDetailsDialog({
 
           {canReview && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="verification-note">{t.verification.actions.noteLabel}</Label>
+              <Label htmlFor="verification-note">
+                {t.verification.actions.noteLabel}
+              </Label>
               <Textarea
                 id="verification-note"
                 value={note}
@@ -354,7 +473,11 @@ export function VerificationDetailsDialog({
                 disabled={busy !== null}
                 onClick={() => runReview("clear")}
               >
-                {busy === "clear" ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5 text-success" />}
+                {busy === "clear" ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Check className="size-3.5 text-success" />
+                )}
                 {t.verification.actions.markReviewed}
               </Button>
               <Button
@@ -379,7 +502,11 @@ export function VerificationDetailsDialog({
                   disabled={busy !== null}
                   onClick={() => setUnlinkOpen(true)}
                 >
-                  {busy === "unlink" ? <Loader2 className="size-3.5 animate-spin" /> : <Unlink className="size-3.5" />}
+                  {busy === "unlink" ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Unlink className="size-3.5" />
+                  )}
                   {t.verification.actions.unlink}
                 </Button>
               )}
@@ -388,8 +515,17 @@ export function VerificationDetailsDialog({
           {record.status === "PENDING" && (canApprove || canReject) && (
             <>
               {canApprove && (
-                <Button size="sm" className="gap-1" disabled={approving || busy !== null} onClick={onApprove}>
-                  {approving ? <Loader2 className="size-3.5 animate-spin" /> : <Check className="size-3.5" />}
+                <Button
+                  size="sm"
+                  className="gap-1"
+                  disabled={approving || busy !== null}
+                  onClick={onApprove}
+                >
+                  {approving ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Check className="size-3.5" />
+                  )}
                   {t.common.approve}
                 </Button>
               )}

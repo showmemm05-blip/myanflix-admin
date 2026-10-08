@@ -8,10 +8,12 @@ import { ErrorState } from "@/components/shared/ErrorState";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
+import { ServerPagination } from "@/components/tables/ServerPagination";
 import { Button } from "@/components/ui/button";
 import { getBookAuthorColumns } from "@/components/book-authors/columns";
 import { BookAuthorFormDialog } from "@/components/book-authors/BookAuthorFormDialog";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
+import { useClampPage } from "@/lib/hooks/use-clamp-page";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import { bookAuthorService } from "@/services/api/bookAuthorService";
@@ -19,7 +21,8 @@ import { ApiError } from "@/services/api/apiClient";
 import type { BookAuthor } from "@/types/bookAuthor";
 import { toast } from "sonner";
 
-const PAGE_LIMIT = 100;
+/** Rows per server page — the list is paged on the server, so every author is reachable (not just the first 100). */
+const PAGE_LIMIT = 25;
 
 /**
  * Authors are book metadata, so the page is gated like the book categories:
@@ -37,20 +40,37 @@ export default function BookAuthorsPage() {
   // the endpoint's own ?search= is the only one that sees the whole library.
   const [search, setSearch] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
+  const [page, setPage] = useState(1);
   useEffect(() => {
-    const handle = setTimeout(() => setAppliedSearch(search.trim()), 300);
+    const handle = setTimeout(() => {
+      const next = search.trim();
+      if (next === appliedSearch) return;
+      // A new search starts again from its first page.
+      setPage(1);
+      setAppliedSearch(next);
+    }, 300);
     return () => clearTimeout(handle);
-  }, [search]);
+  }, [search, appliedSearch]);
 
   const { data, isLoading, error, refetch } = useAsyncData(
     () =>
       bookAuthorService.getAuthors({
+        page,
         limit: PAGE_LIMIT,
         search: appliedSearch || undefined,
       }),
-    [appliedSearch],
+    [appliedSearch, page],
   );
   const authors = data?.items ?? [];
+  // Rows removed elsewhere can leave a later page empty: step back to the last page that has rows.
+  useClampPage({
+    page,
+    pageSize: PAGE_LIMIT,
+    rowCount: data?.items.length,
+    total: data?.total,
+    isLoading,
+    onPageChange: setPage,
+  });
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BookAuthor | null>(null);
@@ -79,7 +99,10 @@ export default function BookAuthorsPage() {
       await bookAuthorService.deleteAuthor(deleteTarget.id);
       toast.success(t.bookAuthors.page.deletedToast);
       setDeleteTarget(null);
-      refetch();
+      // The last row of a later page was removed: step back a page instead
+      // of showing an empty table.
+      if (authors.length === 1 && page > 1) setPage(page - 1);
+      else refetch();
     } catch (err) {
       // An author still credited on a book is refused with a 409 whose
       // message says how many. That is a rule, not a failure — name the
@@ -147,7 +170,7 @@ export default function BookAuthorsPage() {
           {/* The full-page empty state stands in only for a genuinely empty
               library — with a term typed the table (and the box being typed
               into) must stay mounted, showing its own no-results row. */}
-          {!isLoading && authors.length === 0 && !search ? (
+          {!isLoading && authors.length === 0 && !search && page === 1 ? (
             <EmptyState
               icon={Feather}
               title={t.bookAuthors.page.emptyTitle}
@@ -155,14 +178,21 @@ export default function BookAuthorsPage() {
               action={addButton}
             />
           ) : (
-            <DataTable
-              columns={columns}
-              data={authors}
-              isLoading={isLoading}
-              searchValue={search}
-              onSearchChange={setSearch}
-              searchPlaceholder={t.bookAuthors.page.searchPlaceholder}
-            />
+            <>
+              <DataTable
+                columns={columns}
+                data={authors}
+                isLoading={isLoading}
+                pageSize={PAGE_LIMIT}
+                manualPagination
+                searchValue={search}
+                onSearchChange={setSearch}
+                searchPlaceholder={t.bookAuthors.page.searchPlaceholder}
+              />
+              {!isLoading && data && (
+                <ServerPagination page={page} pageSize={PAGE_LIMIT} total={data.total} onPageChange={setPage} />
+              )}
+            </>
           )}
 
           <BookAuthorFormDialog

@@ -27,6 +27,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
+    // Reading localStorage (an external system) after mount is the point:
+    // doing it during render would make the server and client HTML differ.
+    // It runs once, on mount, so there is no cascade.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "en" || stored === "mm") setLanguageState(stored);
   }, []);
 

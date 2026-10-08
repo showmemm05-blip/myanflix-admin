@@ -55,6 +55,9 @@ export const AUDIT_TARGET_TYPES = [
   "peak_users",
   "comment",
   "feedback",
+  // The admin "Home promos" page: one promo, or the single settings row.
+  "home_promo",
+  "home_settings",
 ] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
@@ -116,6 +119,12 @@ export const AUDIT_ACTIONS = [
   "book_category.create",
   "book_category.update",
   "book_category.delete",
+  // Home promos page — a reorder is ONE row for the whole list.
+  "home_promo.create",
+  "home_promo.update",
+  "home_promo.delete",
+  "home_promo.reorder",
+  "home_settings.update",
   // USERS
   "user.status_change",
   "user.role_change",

@@ -108,6 +108,9 @@ export type ImagePurpose =
   | "category"
   | "payment"
   | "music"
+  // Home promo art (hero slides, spotlight, coming-soon cards) — shown to
+  // guests on the public home page, like every images/ folder.
+  | "promo"
   | "other";
 
 export const uploadService = {

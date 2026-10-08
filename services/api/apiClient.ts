@@ -17,11 +17,14 @@ export const API_ORIGIN = new URL(API_BASE_URL).origin;
 
 export class ApiError extends Error {
   status: number;
+  /** The backend's machine-readable `code`, when the error envelope carries one (e.g. "HOME_PROMO_NOT_FOUND"). */
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -167,7 +170,8 @@ async function request<T>(
 
   if (!response.ok || !json || json.success === false) {
     const message = json?.message ?? `Request to ${path} failed`;
-    throw new ApiError(message, response.status);
+    const code = typeof json?.code === "string" ? json.code : undefined;
+    throw new ApiError(message, response.status, code);
   }
 
   return json.data as T;
