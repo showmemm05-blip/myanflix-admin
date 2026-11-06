@@ -30,6 +30,8 @@ export interface Movie {
   accessType: AccessType;
   status: MovieStatus;
   rating: number;
+  /** The movie TYPE ("Korean", "English"… — MEDIA_TYPES), null = not set. Episodes leave it empty: they follow the show. */
+  country: string | null;
   /** Set only for episodes — null means a standalone movie. */
   seriesId: string | null;
   seasonNumber: number | null;
@@ -59,6 +61,8 @@ export interface MovieUploadFormValues {
    */
   actorIds: string[];
   language: string;
+  /** The movie TYPE word; "" clears it (stored as null). Omit to leave it alone. */
+  country?: string;
   releaseYear: number;
   duration: number;
   /** 0–10, one decimal; 0 = not rated. Only the edit dialog sets it — upload never does. */

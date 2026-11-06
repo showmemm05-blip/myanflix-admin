@@ -105,6 +105,10 @@ export interface SecurityHeaderOptions {
  *
  * style-src 'unsafe-inline': React/recharts/sonner set inline styles.
  * blob:/data: in img-src are the screenshot and upload previews.
+ * media-src is open to http/https for the same reason img-src is: the ad
+ * video preview (Advertisements, 2026-11-03) plays a signed URL on the
+ * cache server, whose host the build cannot know; blob: is the local
+ * preview of a file picked but not yet uploaded.
  */
 export function buildSecurityHeaders({
   apiBaseUrl,
@@ -123,7 +127,7 @@ export function buildSecurityHeaders({
     ["img-src", "'self'", "data:", "blob:", "http:", "https:"],
     ["font-src", "'self'", "data:"],
     ["connect-src", ...connectSrc],
-    ["media-src", "'self'", "blob:"],
+    ["media-src", "'self'", "blob:", "http:", "https:"],
     ["worker-src", "'self'", "blob:"],
     ["object-src", "'none'"],
     ["base-uri", "'self'"],

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ActorPicker } from "@/components/actors/ActorPicker";
+import { MediaTypeSelect } from "@/components/shared/MediaTypeSelect";
 import { seriesService } from "@/services/api/seriesService";
 import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
 import { parseRatingInput, ratingToInput } from "@/lib/rating";
@@ -37,6 +38,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
   const [description, setDescription] = useState(series?.description ?? "");
   const [genre, setGenre] = useState(series?.genre ?? "");
   const [language, setLanguage] = useState(series?.language ?? "English");
+  const [country, setCountry] = useState<string | null>(series?.country ?? null);
   const [releaseYear, setReleaseYear] = useState(String(series?.releaseYear ?? new Date().getFullYear()));
   const [rating, setRating] = useState(ratingToInput(series?.rating));
   const [accessType, setAccessType] = useState<Series["accessType"]>(series?.accessType ?? "SUBSCRIPTION");
@@ -63,6 +65,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
         description: description.trim(),
         genre,
         language,
+        country: country ?? "",
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
         rating: ratingValue,
         accessType,
@@ -138,6 +141,7 @@ function SeriesForm({ series, onOpenChange, onSaved }: Omit<SeriesFormDialogProp
             {rating === "" && <p className="text-xs text-muted-foreground">{t.series.form.ratingHint}</p>}
           </div>
         </div>
+        <MediaTypeSelect kind="series" value={country} onChange={setCountry} />
         <div className="flex flex-col gap-1.5">
           <Label>{t.series.form.accessTypeLabel}</Label>
           <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Series["accessType"])}>

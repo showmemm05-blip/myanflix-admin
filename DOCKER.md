@@ -11,6 +11,12 @@ docker compose up -d --build
 
 Serves on `http://localhost:3002`.
 
+`docker compose ps` shows `(healthy)` once the container's own check — a
+request to `/login` through Node's `fetch`, every 30 s — gets an answer, and
+the container log is capped at 5 × 50 MB. Docker marks a failing container
+unhealthy but does not restart it for that: see `../backend/DOCKER.md`,
+"Health checks, start order and log rotation".
+
 ## Why a build arg, not a runtime env var
 
 `NEXT_PUBLIC_API_BASE_URL` gets compiled directly into the client-side JS

@@ -111,7 +111,26 @@ export type ImagePurpose =
   // Home promo art (hero slides, spotlight, coming-soon cards) — shown to
   // guests on the public home page, like every images/ folder.
   | "promo"
+  // Lottery dream pictures (the Dream 1000 / Dream 100 books) and the
+  // per-draw ticket pictures — public, like every images/ folder; the
+  // customer apps show them to guests.
+  | "lottery"
+  // The ticket FRAME (the whole 1800 × 940 or 3600 × 1880 background a
+  // ticket prints on), uploaded once in Lottery → Settings and copied into
+  // each draw at creation. Its own folder with a larger size cap than
+  // "lottery", which is sized for the picture window.
+  | "lottery_frame"
   | "other";
+
+/**
+ * The most bytes POST /uploads/image takes, per purpose — mirrors
+ * IMAGE_UPLOAD_MAX_BYTES / FRAME_IMAGE_UPLOAD_MAX_BYTES in the backend's
+ * uploads.service.ts (a 413 with code IMAGE_UPLOAD_TOO_LARGE past them). A
+ * form checks a picked file against these before Save, so the staff member
+ * is told at once instead of after the whole file was sent.
+ */
+export const IMAGE_UPLOAD_MAX_BYTES = 10 * 1024 * 1024;
+export const FRAME_UPLOAD_MAX_BYTES = 25 * 1024 * 1024;
 
 export const uploadService = {
   /**

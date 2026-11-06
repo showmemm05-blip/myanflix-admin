@@ -17,6 +17,7 @@ import {
   categoryLabel,
   isSystemEntry,
   targetHref,
+  targetName,
   targetTypeLabel,
 } from "@/components/audit/auditFormat";
 import { userLabel } from "@/lib/user-label";
@@ -105,7 +106,8 @@ export function getAuditColumns({
       cell: ({ row }) => {
         const entry = row.original;
         const href = targetHref(entry);
-        const label = entry.targetLabel ?? entry.targetId ?? a.details.none;
+        const name = targetName(t, entry);
+        const label = name ?? entry.targetId ?? a.details.none;
         return (
           <div className="flex max-w-56 flex-col" title={entry.targetId ?? undefined}>
             <span className="text-xs text-muted-foreground">
@@ -121,7 +123,7 @@ export function getAuditColumns({
             ) : (
               <span className="truncate text-sm font-medium">{label}</span>
             )}
-            {!entry.targetLabel && entry.targetId && (
+            {!name && entry.targetId && (
               <span className="truncate font-mono text-[11px] text-muted-foreground">
                 {entry.targetId}
               </span>

@@ -2,6 +2,11 @@
 // further down), so a missing or mistyped Burmese key is a compile error,
 // not a silent fallback to English at runtime. Mirrors the pattern already
 // established in userwebsite/lib/i18n/translations.ts.
+//
+// The Advertisements pages' newer copy (2026-11-04) lives in lib/i18n/ads/,
+// one module per part, and is attached below as `adsUi`.
+import { adsUiEn, adsUiMm } from "@/lib/i18n/ads";
+
 const en = {
   common: {
     save: "Save",
@@ -82,6 +87,15 @@ const en = {
     roles: "Roles & Permissions",
     auditLog: "Audit Log",
     homePromos: "Home promos",
+    ads: "Advertisements",
+    adsList: "All ads",
+    adsAnalytics: "Ad results",
+    lottery: "Lottery",
+    lotteryDreams: "Dreams",
+    lotteryDraws: "Draws",
+    lotterySettings: "Settings",
+    lotteryAnalytics: "Analytics",
+    lotteryClaims: "Prize claims",
     subscriptions: "Subscriptions",
     settings: "Settings",
   },
@@ -112,8 +126,18 @@ const en = {
     tryAgain: "Try again",
     errorTitle: "Something went wrong",
     errorDescription: "We couldn't load this data. Please try again.",
+    serverUnreachableTitle: "Couldn't reach the server",
+    serverUnreachableDescription:
+      "You're still signed in. Check your connection, then try again.",
+    // Raised by the API client itself (services/api/apiClient.ts), which
+    // reads them from here so the toasts and alerts that show `err.message`
+    // get the staff member's language.
+    serverUnreachable:
+      "Couldn't reach the server. Check your connection and try again.",
+    sessionExpired: "Your session has expired. Please log in again.",
     noAccessTitle: "You don't have access to this page",
-    noAccessDescription: "This section requires a higher permission level than your current role.",
+    noAccessDescription:
+      "This section requires a higher permission level than your current role.",
     signedInAs: "Signed in as",
     statusAll: "All",
     statusPending: "Pending",
@@ -121,7 +145,8 @@ const en = {
     statusRejected: "Rejected",
     searchPlaceholder: "Search...",
     noResultsFound: "No results found.",
-    showingResults: (from: number, to: number, total: number) => `Showing ${from} to ${to} of ${total} results`,
+    showingResults: (from: number, to: number, total: number) =>
+      `Showing ${from} to ${to} of ${total} results`,
     previous: "Previous",
     next: "Next",
     pageOf: (current: number, total: number) => `Page ${current} of ${total}`,
@@ -147,7 +172,8 @@ const en = {
     revenueRestricted: "Revenue figures are restricted to Super Admin",
     totalViews: "Total Views",
     revenue: "Revenue",
-    revenueRestrictedDetail: "Detailed revenue analytics are limited to Super Admin.",
+    revenueRestrictedDetail:
+      "Detailed revenue analytics are limited to Super Admin.",
     recentTransactions: "Recent Transactions",
     recentUsers: "Recent Users",
     recentTransactionsRestricted: "Your role can't see transactions.",
@@ -239,8 +265,10 @@ const en = {
       waitingHint: "Queued or being sent",
       usage: (used: number, cap: number) =>
         `${used.toLocaleString("en-US")} of ${cap.toLocaleString("en-US")} SMS used today`,
-      perPhoneCap: (cap: number) => `At most ${cap.toLocaleString("en-US")} SMS to one number per day`,
-      capReached: "Today's SMS cap is used up — new codes are refused until 00:00 UTC.",
+      perPhoneCap: (cap: number) =>
+        `At most ${cap.toLocaleString("en-US")} SMS to one number per day`,
+      capReached:
+        "Today's SMS cap is used up — new codes are refused until 00:00 UTC.",
       loadError: "The SMS gateway status couldn't be loaded.",
       staleNote: "Couldn't refresh — showing the last status received.",
       justNow: "just now",
@@ -255,26 +283,65 @@ const en = {
        * and noted so staff can see someone else tried the token.
        */
       pinnedPhone: "Allowed phone",
-      pinnedPhoneHint: "The only phone the gateway token works for (its device ID).",
+      pinnedPhoneHint:
+        "The only phone the gateway token works for (its device ID).",
       notPinned: "Not set yet",
       notPinnedNote:
         "No phone is pinned to the gateway token yet. The first phone to present the token will become the only phone allowed to use it; every other phone is refused.",
       rejectedNote: (deviceId: string, when: string) =>
         `Another device (${deviceId}) tried to use the gateway token at ${when} and was refused. If the company phone was reinstalled or replaced, press "Reset phone". If not — or if this warning came back right after a reset — the token has leaked: change SMS_GATEWAY_TOKEN on the server and on the phone, then reset again.`,
-      rejectedCount: (count: number) => (count === 1 ? "1 refused attempt" : `${count} refused attempts`),
+      rejectedCount: (count: number) =>
+        count === 1 ? "1 refused attempt" : `${count} refused attempts`,
       resetPin: "Reset phone",
       resetPinTitle: "Reset the gateway phone?",
       resetPinDescription:
         'The allowed phone is cleared, and the next phone to present the gateway token becomes the allowed one — so start the SMS Gateway app on the company phone right away. Only do this after reinstalling the app or changing phones. If the red "another device" warning comes back right after the reset, someone else took the pin first: change SMS_GATEWAY_TOKEN on the server and on the phone, then reset again.',
-      resetPinDone: "Phone reset — start the SMS Gateway app on the company phone now.",
+      resetPinDone:
+        "Phone reset — start the SMS Gateway app on the company phone now.",
       resetPinFailed: "The phone could not be reset.",
+    },
+    /**
+     * The phone-monitor's device pin (SEC-004, 2026-10-09): which PC the
+     * bank-events token is bound to. The twin of the SMS card's pin block,
+     * shown right under it to staff who may read GET /bank-events/binding.
+     */
+    bankMonitor: {
+      title: "Bank monitor",
+      description:
+        "The PC that watches the bank phones and reports transfers to MyanFlix.",
+      refresh: "Refresh",
+      refreshing: "Refreshing…",
+      pinnedBadge: "Pinned",
+      rejectedBadge: "Another PC tried",
+      loadError: "The bank monitor status couldn't be loaded.",
+      staleNote: "Couldn't refresh — showing the last status received.",
+      pinnedMonitor: "Allowed PC",
+      pinnedMonitorHint:
+        "The only phone-monitor the bank-events token works for (its device serial — shown in the app's MyanFlix settings).",
+      notPinned: "Not set yet",
+      notPinnedNote:
+        "No PC is pinned to the bank-events token yet. The first phone-monitor to post with the token will become the only PC allowed to use it; every other PC is refused.",
+      rejectedNote: (serial: string, when: string) =>
+        `Another PC (${serial}) tried to use the bank-events token at ${when} and was refused. If the phone-monitor was reinstalled or moved to a new PC, press "Reset monitor". If not — or if this warning came back right after a reset — the token has leaked: change BANK_EVENTS_TOKEN on the server and in the monitor's config.json, then reset again.`,
+      rejectedCount: (count: number) =>
+        count === 1 ? "1 refused attempt" : `${count} refused attempts`,
+      resetPin: "Reset monitor",
+      resetPinTitle: "Reset the bank monitor PC?",
+      resetPinDescription:
+        'The allowed PC is cleared, and the next phone-monitor to post with the token becomes the allowed one — so press "Post now" in the monitor on the owner\'s PC right away. Only do this after reinstalling the app or changing PCs. If the red "another PC" warning comes back right after the reset, someone else took the pin first: change BANK_EVENTS_TOKEN on the server and in the monitor, then reset again.',
+      resetPinDone:
+        "Monitor reset — press Post now in the phone-monitor on the owner's PC.",
+      resetPinFailed: "The monitor could not be reset.",
+      screenshotRuleNote:
+        "A deposit matched from a bank notification shows \"Pending review\" (reason: no screenshot) until the phone's screenshot arrives, usually within seconds; the phone's text alone never earns the green badge.",
     },
   },
   movies: {
     uploadMovie: "Upload Movie",
     publish: "Publish",
     publishedToast: "Movie published",
-    publishedDescription: (title: string) => `"${title}" is now live on MyanFlix.`,
+    publishedDescription: (title: string) =>
+      `"${title}" is now live on MyanFlix.`,
     publishFailedToast: "Couldn't publish this movie",
     pleaseTryAgain: "Please try again.",
     status: {
@@ -295,7 +362,8 @@ const en = {
       description: "Browse and manage the MyanFlix catalog.",
       loadError: "We couldn't load the movie catalog.",
       emptyTitle: "No movies yet",
-      emptyDescription: "Upload your first title to start building the catalog.",
+      emptyDescription:
+        "Upload your first title to start building the catalog.",
       accessTypeFilterPlaceholder: "Access type",
       allAccessTypes: "All access types",
       searchPlaceholder: "Search movies by title...",
@@ -303,12 +371,14 @@ const en = {
       deleteDescription: (title: string) =>
         `"${title}" will be permanently removed from the catalog. This action cannot be undone.`,
       deletedToast: "Movie deleted",
-      deletedDescription: (title: string) => `"${title}" was removed from the catalog.`,
+      deletedDescription: (title: string) =>
+        `"${title}" was removed from the catalog.`,
       reprocessStartedToast: "Reprocessing started",
       reprocessStartedDescription: (title: string) =>
         `"${title}" is transcoding again — no re-upload needed.`,
       reprocessFailedToast: "Couldn't reprocess this movie",
-      reprocessFailedFallback: "Only a movie whose video failed to process can be reprocessed.",
+      reprocessFailedFallback:
+        "Only a movie whose video failed to process can be reprocessed.",
       backfillButton: "Fill missing runtimes",
       backfillDoneToast: "Runtimes filled",
       backfillDoneDescription: (updated: number, scanned: number) =>
@@ -386,7 +456,8 @@ const en = {
       languageLabel: "Language",
       releaseYearLabel: "Release Year",
       durationLabel: "Duration (min)",
-      durationDetectedHint: "Detected from the video file — adjust it if it looks wrong.",
+      durationDetectedHint:
+        "Detected from the video file — adjust it if it looks wrong.",
       accessTypeLabel: "Access type",
       subscriptionRequires: "Requires an active subscription to watch",
       freeAvailable: "Available to all users",
@@ -410,37 +481,45 @@ const en = {
       publishMovie: "Publish Movie",
       busyEllipsis: (label: string) => `${label}...`,
       missingFieldsToast: "Missing required fields",
-      missingFieldsDescription: "Title, description, genre, a poster and a video file are required.",
+      missingFieldsDescription:
+        "Title, description, genre, a poster and a video file are required.",
       draftMissingFields: "Title and genre are required to save a draft.",
       draftSavedToast: "Draft saved",
-      draftSavedDescription: (title: string) => `"${title}" was saved to Movies as a draft.`,
+      draftSavedDescription: (title: string) =>
+        `"${title}" was saved to Movies as a draft.`,
       failedToSaveDraft: "Failed to save draft",
       publishFailedFallback: "Publish failed",
       publishedTitle: (title: string) => `"${title}" is published`,
-      publishedDescription: "Your movie has finished processing and is now live in the catalog.",
+      publishedDescription:
+        "Your movie has finished processing and is now live in the catalog.",
       uploadAnother: "Upload another",
       goToCatalog: "Go to catalog",
     },
     externalUpload: {
-      description: "Drop movie folders — they upload one at a time in order, the rest wait in queue.",
+      description:
+        "Drop movie folders — they upload one at a time in order, the rest wait in queue.",
       pageDescription:
         "Drop movie folders — they upload one at a time in order, the rest wait in queue. This system never runs ffmpeg for this flow, and never publishes a movie automatically.",
       waitingForConnection: "Waiting for internet connection...",
       waitingForConnectionDescription:
         "Uploads are paused and will resume automatically from where they left off — nothing is lost.",
       dropFoldersHere: "Drop movie folders here",
-      folderStructureHint: "Each folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+      folderStructureHint:
+        "Each folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
       addFolder: "Add folder",
       moviesQueued: (n: number) => `${n} movie${n === 1 ? "" : "s"} queued`,
       restoringSession: " · restoring your last session...",
       emptyFolderToast: "That folder appears to be empty.",
-      moviesAddedToast: (n: number) => `${n} movie${n === 1 ? "" : "s"} added to the queue`,
-      noFoldersToast: "Drop one or more movie folders — individual files aren't supported here.",
+      moviesAddedToast: (n: number) =>
+        `${n} movie${n === 1 ? "" : "s"} added to the queue`,
+      noFoldersToast:
+        "Drop one or more movie folders — individual files aren't supported here.",
       readFoldersFailedToast: "Couldn't read the dropped folders",
       readFoldersFailedDescription: (addFolderLabel: string) =>
         `Try again, or use "${addFolderLabel}" instead.`,
       loadMovieFailedToast: "Couldn't load this movie's details",
-      emptyQueueText: "No movies queued yet — drop or add a folder above to get started.",
+      emptyQueueText:
+        "No movies queued yet — drop or add a folder above to get started.",
     },
     editDialog: {
       title: "Edit movie",
@@ -478,6 +557,23 @@ const en = {
       rating: "Rating",
       lastUpdated: (date: string) => `Last updated ${date}`,
     },
+    /** The movie / series TYPE picker and its words (lib/constants/movie-options.ts MEDIA_TYPES). */
+    mediaType: {
+      movieLabel: "Movie type",
+      seriesLabel: "Series type",
+      detailsLabel: "Type",
+      notSet: "Not set",
+      names: {
+        English: "English",
+        Korean: "Korean",
+        Chinese: "Chinese",
+        Thai: "Thai",
+        Japanese: "Japanese",
+        Indian: "Indian",
+        Myanmar: "Myanmar",
+        Other: "Other",
+      },
+    },
     subtitles: {
       title: "Subtitles",
       empty: "No subtitles uploaded yet.",
@@ -486,7 +582,8 @@ const en = {
       setAsDefault: "Set as default",
       default: "default",
       uploadSubtitle: "Upload subtitle",
-      missingFieldsToast: "A subtitle file, language code, and label are all required.",
+      missingFieldsToast:
+        "A subtitle file, language code, and label are all required.",
       uploadedToast: "Subtitle uploaded",
       uploadFailedToast: "Couldn't upload subtitle",
       setDefaultFailedToast: "Couldn't set default subtitle",
@@ -499,7 +596,8 @@ const en = {
       addSubtitle: "Add subtitle",
       fileLabel: "Subtitle file",
       fileHint: "SRT, VTT or ASS",
-      uploadedDescription: (label: string, language: string) => `${label} (${language}) is now listed above.`,
+      uploadedDescription: (label: string, language: string) =>
+        `${label} (${language}) is now listed above.`,
       deleteTitle: "Remove this subtitle?",
       deleteDescription: (label: string, language: string) =>
         `"${label}" (${language}) will disappear from the player's captions menu. This can't be undone.`,
@@ -550,13 +648,15 @@ const en = {
         hint: "One folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
         addFolder: "Choose folder",
         oneFolderOnly: "Drop exactly one bundle folder.",
-        invalidBundle: (reason: string) => `This folder is not a valid bundle: ${reason}`,
+        invalidBundle: (reason: string) =>
+          `This folder is not a valid bundle: ${reason}`,
         invalid: {
           original: "original.mp4 is missing at the root",
           master: "master.m3u8 is missing",
           rendition: "no 240p–1080p rendition folder with an index.m3u8",
         },
-        notReplaceable: "Only a published, ready-to-publish or failed title can have its video replaced.",
+        notReplaceable:
+          "Only a published, ready-to-publish or failed title can have its video replaced.",
         removeFolder: "Remove",
         confirmTitle: (title: string) => `Replace the video of "${title}"?`,
         confirmDescription:
@@ -567,12 +667,14 @@ const en = {
         doneToast: "Video replaced",
         doneDescription: (renditions: number, subtitles: number) =>
           `${renditions} renditions and ${subtitles} subtitle tracks are now live.`,
-        cacheNotice: "Viewers may still get cached segments of the old video for up to 7 days.",
+        cacheNotice:
+          "Viewers may still get cached segments of the old video for up to 7 days.",
         failedToast: "Couldn't replace the video",
         retry: "Retry",
         cancel: "Cancel upload",
         cancelledToast: "Replacement cancelled — the old video is untouched.",
-        filesSummary: (done: number, total: number) => `${done} of ${total} files`,
+        filesSummary: (done: number, total: number) =>
+          `${done} of ${total} files`,
       },
     },
     fileUpload: {
@@ -601,16 +703,19 @@ const en = {
     unpublishConfirmDescription: (title: string) =>
       `"${title}" will be hidden from users. Nothing is deleted — its seasons and episodes stay fully manageable here.`,
     publishedToast: "Series published",
-    publishedDescription: (title: string) => `"${title}" is now live on MyanFlix.`,
+    publishedDescription: (title: string) =>
+      `"${title}" is now live on MyanFlix.`,
     unpublishedToast: "Series unpublished",
-    unpublishedDescription: (title: string) => `"${title}" is now hidden from users.`,
+    unpublishedDescription: (title: string) =>
+      `"${title}" is now hidden from users.`,
     statusUpdateFailedToast: "Couldn't update the series status",
     page: {
       title: "All Series",
       description: "Manage shows and their episodes.",
       loadError: "We couldn't load the series list.",
       emptyTitle: "No series yet",
-      emptyDescription: "Create your first show, then add episodes with Bulk Upload Episodes.",
+      emptyDescription:
+        "Create your first show, then add episodes with Bulk Upload Episodes.",
       searchPlaceholder: "Search series by title...",
       deleteTitle: "Delete this series?",
       deleteDescription:
@@ -632,7 +737,8 @@ const en = {
       editTitle: "Edit series",
       createTitle: "Create series",
       editDescriptionFor: (title: string) => `Update details for "${title}".`,
-      createDescription: "Show-level details — episodes are added via Bulk Upload Episodes.",
+      createDescription:
+        "Show-level details — episodes are added via Bulk Upload Episodes.",
       titleLabel: "Title",
       descriptionLabel: "Description",
       genreLabel: "Genre",
@@ -642,25 +748,30 @@ const en = {
       ratingHint: "Leave empty for no rating.",
       ratingInvalidToast: "Rating must be a number between 0 and 10.",
       accessTypeLabel: "Access type",
-      accessTypeHelp: "Governs every season and episode, including ones added later.",
+      accessTypeHelp:
+        "Governs every season and episode, including ones added later.",
       createSeriesButton: "Create series",
     },
     manage: {
       errorTitle: "Series",
       errorDescription: "Manage this show.",
       loadError: "We couldn't load this series.",
-      description: "Everything about this show — details, seasons, and episode uploads — in one place.",
+      description:
+        "Everything about this show — details, seasons, and episode uploads — in one place.",
       infoCardTitle: "Series information",
       categoriesLabel: "Categories",
       thumbnailLabel: "Thumbnail",
       bannerLabel: "Banner",
       saveInfo: "Save series information",
       savedToast: "Series saved",
-      addEpisodesTitle: (seasonNumber: number) => `Add episodes to Season ${seasonNumber}`,
+      addEpisodesTitle: (seasonNumber: number) =>
+        `Add episodes to Season ${seasonNumber}`,
       seasonTitle: (seasonNumber: number) => `Season ${seasonNumber}`,
-      noEpisodesYet: "No episodes yet — click + to add pre-transcoded episode folders.",
+      noEpisodesYet:
+        "No episodes yet — click + to add pre-transcoded episode folders.",
       addSeason: (n: number) => `Add Season ${n}`,
-      tooManyEpisodesToast: (max: number) => `You can only queue up to ${max} episodes at once.`,
+      tooManyEpisodesToast: (max: number) =>
+        `You can only queue up to ${max} episodes at once.`,
       partialAddToast: (added: number, total: number, max: number) =>
         `Only added ${added} of ${total} folders — the ${max}-episode limit was reached.`,
       queueFailedToast: "Couldn't queue those folders",
@@ -691,7 +802,8 @@ const en = {
       description: "Review completed episode uploads before they go live.",
       pageDescription:
         "Episodes that finished uploading, waiting on your review. They stay hidden from users until you publish them.",
-      emptyDescription: "Episodes show up here once a bulk upload finishes, or adjust the filters above.",
+      emptyDescription:
+        "Episodes show up here once a bulk upload finishes, or adjust the filters above.",
       searchPlaceholder: "Search by episode or series title...",
       seriesFilterPlaceholder: "Series",
       allSeries: "All series",
@@ -725,7 +837,8 @@ const en = {
     finalizingUpload: "Finalizing upload...",
     validatingBundle: "Validating bundle...",
     pausedAt: (pct: number) => `Paused at ${pct}%`,
-    needsReattachText: "This queue was restored after a refresh — re-select this folder to resume.",
+    needsReattachText:
+      "This queue was restored after a refresh — re-select this folder to resume.",
     attachFolder: "Attach folder",
     pause: "Pause",
     resume: "Resume",
@@ -779,7 +892,8 @@ const en = {
       description: "Description",
       descriptionPlaceholder: "What is this book about?",
       categories: "Categories",
-      noCategories: "No categories yet — create some under Movies > Categories.",
+      noCategories:
+        "No categories yet — create some under Movies > Categories.",
       cover: "Cover image",
       coverHint: "Portrait artwork, shown everywhere the book appears.",
       pdfHint: "The complete book as a single PDF.",
@@ -800,7 +914,8 @@ const en = {
       deleteDescription: (title: string) =>
         `"${title}" and everything in it — chapters, converted pages and the original file — will be permanently removed.`,
       deletedToast: "Book deleted",
-      deletedDescription: (title: string) => `"${title}" was removed from the library.`,
+      deletedDescription: (title: string) =>
+        `"${title}" was removed from the library.`,
       deleteFailedToast: "Couldn't delete this book",
     },
     columns: {
@@ -820,7 +935,8 @@ const en = {
       savedToast: "Book updated",
       saveFailedToast: "Couldn't save this book",
       chaptersTitle: "Chapters",
-      chaptersDescription: "Drag to reorder. Readers move through them in this order.",
+      chaptersDescription:
+        "Drag to reorder. Readers move through them in this order.",
       addChapter: "Add chapter",
       newChapterTitle: "Untitled chapter",
       chapterCreatedToast: "Chapter added",
@@ -856,7 +972,8 @@ const en = {
       sections: "Sections",
       sectionsHint: "Split this chapter into sections — optional.",
       addSection: "Add section",
-      noPagesLeft: "Every page is already covered — change a start page to make room.",
+      noPagesLeft:
+        "Every page is already covered — change a start page to make room.",
       newSectionTitle: "Untitled section",
       sectionTitle: "Section title",
       sectionLabel: (n: string) => `Section ${n}`,
@@ -915,7 +1032,8 @@ const en = {
     },
     categories: {
       title: "Book Categories",
-      description: "Shelves for the book library — separate from the movie categories.",
+      description:
+        "Shelves for the book library — separate from the movie categories.",
       add: "Add category",
       addTitle: "New book category",
       editTitle: "Edit book category",
@@ -923,8 +1041,7 @@ const en = {
       namePlaceholder: "Manga, Light Novel, Biography…",
       descriptionLabel: "Description",
       descriptionPlaceholder: "What belongs on this shelf?",
-      bookCount: (count: number) =>
-        count === 1 ? "1 book" : `${count} books`,
+      bookCount: (count: number) => (count === 1 ? "1 book" : `${count} books`),
       emptyTitle: "No categories yet",
       emptyDescription: "Create a shelf to group books by genre.",
       loadError: "We couldn't load the book categories.",
@@ -948,7 +1065,8 @@ const en = {
       failed: "Conversion failed",
       retry: "Retry conversion",
       noFile: "No file uploaded yet.",
-      pagesConverted: (done: number, total: number) => `${done} of ${total} pages`,
+      pagesConverted: (done: number, total: number) =>
+        `${done} of ${total} pages`,
       uploadFailedToast: "The chapter PDF upload failed",
       startedToast: "Conversion started",
       startFailedToast: "Couldn't start the conversion",
@@ -958,7 +1076,8 @@ const en = {
     },
     editions: {
       title: "Languages",
-      description: "Each language has its own content and publishes on its own.",
+      description:
+        "Each language has its own content and publishes on its own.",
       add: "Add language",
       addTitle: "Add a language",
       addDescription:
@@ -981,11 +1100,13 @@ const en = {
       title: "Books Ready to Publish",
       description: "Converted and written books waiting for a final review.",
       emptyTitle: "Nothing waiting",
-      emptyDescription: "Books appear here once they're finished and ready to go live.",
+      emptyDescription:
+        "Books appear here once they're finished and ready to go live.",
       loadError: "We couldn't load the publish queue.",
     },
     publishedToast: "Book published",
-    publishedDescription: (title: string) => `"${title}" is now live on MyanFlix.`,
+    publishedDescription: (title: string) =>
+      `"${title}" is now live on MyanFlix.`,
     unpublishedToast: "Book unpublished",
     publishFailedToast: "Couldn't publish this book",
     createdToast: "Book created",
@@ -994,11 +1115,13 @@ const en = {
   actors: {
     page: {
       title: "Actors",
-      description: "The people in your catalog, and how many films each appears in.",
+      description:
+        "The people in your catalog, and how many films each appears in.",
       add: "Add actor",
       searchPlaceholder: "Search by name…",
       emptyTitle: "No actors yet",
-      emptyDescription: "Add the people in your films so their work can be found together.",
+      emptyDescription:
+        "Add the people in your films so their work can be found together.",
       loadError: "We couldn't load the actors.",
       deleteTitle: "Remove this actor?",
       deleteDescription: (name: string) =>
@@ -1026,7 +1149,8 @@ const en = {
     picker: {
       label: "Cast",
       hint: "Pick the actors in this film.",
-      seriesHint: "Pick the actors in this show. Episodes can carry their own cast on top.",
+      seriesHint:
+        "Pick the actors in this show. Episodes can carry their own cast on top.",
       empty: "No actors yet — add them under Movies › Actors.",
       searchPlaceholder: "Search actors…",
       selected: (count: number) =>
@@ -1034,7 +1158,8 @@ const en = {
       noMatches: "No actor matches that name.",
     },
     movieCount: (count: number) => (count === 1 ? "1 film" : `${count} films`),
-    seriesCount: (count: number) => (count === 1 ? "1 series" : `${count} series`),
+    seriesCount: (count: number) =>
+      count === 1 ? "1 series" : `${count} series`,
   },
   bookAuthors: {
     page: {
@@ -1043,7 +1168,8 @@ const en = {
       add: "Add author",
       searchPlaceholder: "Search by name…",
       emptyTitle: "No authors yet",
-      emptyDescription: "Add the people who wrote your books so their work can be found together.",
+      emptyDescription:
+        "Add the people who wrote your books so their work can be found together.",
       loadError: "We couldn't load the authors.",
       deleteTitle: "Remove this author?",
       deleteDescription: (name: string) =>
@@ -1051,7 +1177,9 @@ const en = {
       deletedToast: "Author removed",
       deleteFailedToast: "Couldn't remove this author",
       deleteBlockedToast: (count: number) =>
-        count === 1 ? "Still credited on 1 book" : `Still credited on ${count} books`,
+        count === 1
+          ? "Still credited on 1 book"
+          : `Still credited on ${count} books`,
     },
     columns: {
       author: "Author",
@@ -1077,7 +1205,8 @@ const en = {
       hint: "Pick who wrote this book, or type a new name to add them.",
       empty: "No authors yet — type a name below to add one.",
       hintNoCreate: "Pick who wrote this book.",
-      emptyNoCreate: "No authors yet — ask an editor to add them under Books › Book Authors.",
+      emptyNoCreate:
+        "No authors yet — ask an editor to add them under Books › Book Authors.",
       searchPlaceholder: "Search authors…",
       noMatches: "No author matches that name.",
       create: (name: string) => `Add "${name}" as a new author`,
@@ -1119,14 +1248,18 @@ const en = {
     },
     suspendTitle: "Suspend this user?",
     reactivateTitle: "Reactivate this user?",
-    suspendDescription: (name: string) => `${name} will lose access to their account until reactivated.`,
-    reactivateDescription: (name: string) => `${name} will regain access to their account.`,
+    suspendDescription: (name: string) =>
+      `${name} will lose access to their account until reactivated.`,
+    reactivateDescription: (name: string) =>
+      `${name} will regain access to their account.`,
     suspend: "Suspend",
     reactivate: "Reactivate",
     suspendedToast: "User suspended",
     reactivatedToast: "User reactivated",
-    suspendedDescription: (name: string) => `${name}'s account is now suspended.`,
-    reactivatedDescription: (name: string) => `${name}'s account is now active.`,
+    suspendedDescription: (name: string) =>
+      `${name}'s account is now suspended.`,
+    reactivatedDescription: (name: string) =>
+      `${name}'s account is now active.`,
     closedAccount: "This account was closed by its owner and can't be changed.",
     editRoleDialog: {
       title: "Edit role",
@@ -1135,7 +1268,8 @@ const en = {
       newRoleLabel: "New role",
       saveRole: "Save role",
       updatedToast: "Role updated",
-      updatedDescription: (name: string, role: string) => `${name} is now ${role}.`,
+      updatedDescription: (name: string, role: string) =>
+        `${name} is now ${role}.`,
     },
     recentUsersTable: {
       emptyTitle: "No new users",
@@ -1149,7 +1283,8 @@ const en = {
       noLevel: "No level yet",
       nextLevel: "Next level",
       qualifyingTotal: (amount: string) => `${amount} total subscribed`,
-      remainingTo: (amount: string, name: string) => `${amount} more to reach ${name}`,
+      remainingTo: (amount: string, name: string) =>
+        `${amount} more to reach ${name}`,
       topLevel: "Top level reached",
       allDisabled: "No membership levels are enabled right now.",
     },
@@ -1159,7 +1294,8 @@ const en = {
       pendingWithdrawals: "Pending Withdrawals",
       rejected: "Rejected Requests",
       netFlow: "Net Flow",
-      rejectedValue: (deposits: number, withdrawals: number) => `${deposits} dep · ${withdrawals} wd`,
+      rejectedValue: (deposits: number, withdrawals: number) =>
+        `${deposits} dep · ${withdrawals} wd`,
       countAndAmount: (count: number, amount: string) => `${count} · ${amount}`,
       partialNote: (shown: number, total: number) =>
         `Summary and tables cover the latest ${shown} of ${total} records.`,
@@ -1186,12 +1322,15 @@ const en = {
         refund: "Refund",
         adjustmentCredit: "Adjustment (credit)",
         adjustmentDebit: "Adjustment (debit)",
+        lotteryPurchase: "Lottery tickets",
+        lotteryPrize: "Lottery prize",
       },
       searchPlaceholder: "Search reference, account, movie...",
       detailUnavailable:
         "Deposit and withdrawal details are not visible to your role — showing wallet transactions only.",
       emptyTitle: "No payments yet",
-      emptyDescription: "Deposits, withdrawals and purchases will show up here.",
+      emptyDescription:
+        "Deposits, withdrawals and purchases will show up here.",
       referenceLine: (reference: string) => `Ref ${reference}`,
       receivedInto: (account: string) => `Received into ${account}`,
       sentFrom: (account: string) => `Sent from ${account}`,
@@ -1199,6 +1338,8 @@ const en = {
       subscriptionDetail: "Subscription plan payment",
       adjustmentCreditDetail: "Admin credit to wallet balance",
       adjustmentDebitDetail: "Admin debit from wallet balance",
+      lotteryPurchaseDetail: "Lottery ticket purchase",
+      lotteryPrizeDetail: "Lottery prize paid into wallet",
       withdrawalRefundDetail: "Returned from a rejected withdrawal",
     },
     profile: {
@@ -1219,7 +1360,8 @@ const en = {
       openFullGraph: "Full graph",
       linkedAccounts: "linked accounts",
       sharedNumbers: "shared numbers",
-      noPhone: "No phone number on this account, so there is nothing to link on.",
+      noPhone:
+        "No phone number on this account, so there is nothing to link on.",
       emptyTitle: "No linked accounts.",
       emptyDescription: "No other account shares this user's numbers.",
       moreCount: (count: number) => `+${count} more linked accounts`,
@@ -1363,7 +1505,8 @@ const en = {
       profileTag: "Profile",
       withdrawalTag: "Withdrawal",
       emptyTitle: "No node selected",
-      emptyDescription: "Pick a user or a phone number to see everything we hold on it.",
+      emptyDescription:
+        "Pick a user or a phone number to see everything we hold on it.",
       notRecorded: "Not recorded",
     },
     activity: {
@@ -1380,14 +1523,16 @@ const en = {
       typeDeposit: "Deposit",
       typeWithdrawal: "Withdrawal",
       emptyTitle: "No recent activity",
-      emptyDescription: "Deposits and withdrawals from these accounts will show up here.",
+      emptyDescription:
+        "Deposits and withdrawals from these accounts will show up here.",
     },
     states: {
       idleTitle: "Search a phone number to begin",
       idleDescription:
         "Enter a number and we'll walk outward from it — every account that used it, every other number those accounts used, and so on.",
       loadingTitle: "Building the relationship network…",
-      loadingDescription: "Walking outward from the number, one level at a time.",
+      loadingDescription:
+        "Walking outward from the number, one level at a time.",
       emptyCanvas: "Nothing to draw yet.",
       // Worded to stay true after the admin folds more of it by hand, not just
       // on the initial auto-collapsed load.
@@ -1395,7 +1540,8 @@ const en = {
       partiallyFoldedDescription: (hidden: number) =>
         `Large networks open at the first two levels — ${hidden} deeper node${hidden === 1 ? " is" : "s are"} hidden right now. Expand a number to walk further, or open everything at once.`,
       errorTitle: "We couldn't build this network",
-      errorDescription: "The lookup failed before it finished. Try the search again.",
+      errorDescription:
+        "The lookup failed before it finished. Try the search again.",
       noResultsTitle: (phone: string) => `Nothing linked to ${phone}`,
       noResultsDescription:
         "No user profile carries this number and no withdrawal was ever sent to it. Check the digits and try again.",
@@ -1408,7 +1554,8 @@ const en = {
       deductTitle: "Deduct money",
       addTab: "Add money",
       deductTab: "Deduct money",
-      descriptionFor: (name: string) => `Manually adjust ${name}'s wallet balance.`,
+      descriptionFor: (name: string) =>
+        `Manually adjust ${name}'s wallet balance.`,
       amountLabel: "Amount (Ks)",
       amountPlaceholder: "0",
       balancePreview: "Balance after adjustment",
@@ -1416,11 +1563,13 @@ const en = {
         "This would take the user's balance below zero — the amount can't exceed their current balance.",
       reasonLabel: "Reason",
       reasonPlaceholder: "Internal note — why is this adjustment needed?",
-      reasonNote: "Kept for staff records only — the user is notified without the reason.",
+      reasonNote:
+        "Kept for staff records only — the user is notified without the reason.",
       save: "Apply adjustment",
       creditedToast: "Balance credited",
       debitedToast: "Balance debited",
-      savedDescription: (name: string) => `${name}'s wallet balance has been updated.`,
+      savedDescription: (name: string) =>
+        `${name}'s wallet balance has been updated.`,
     },
     section: {
       title: "Balance Adjustments",
@@ -1437,7 +1586,8 @@ const en = {
       },
       directionCredit: "Credit",
       directionDebit: "Debit",
-      pageOf: (page: number, totalPages: number) => `Page ${page} of ${totalPages}`,
+      pageOf: (page: number, totalPages: number) =>
+        `Page ${page} of ${totalPages}`,
       previousPage: "Previous page",
       nextPage: "Next page",
     },
@@ -1446,11 +1596,13 @@ const en = {
     page: {
       title: "Staff",
       descriptionShort: "Manage admin dashboard staff accounts.",
-      description: "Create and manage Super Admin, Admin, and Content Uploader accounts.",
+      description:
+        "Create and manage Super Admin, Admin, and Content Uploader accounts.",
       loadError: "We couldn't load the staff list.",
       createStaff: "Create Staff",
       emptyTitle: "No staff accounts yet",
-      emptyDescription: "Create a staff account to give someone access to this dashboard.",
+      emptyDescription:
+        "Create a staff account to give someone access to this dashboard.",
       searchPlaceholder: "Search staff by username...",
     },
     columns: {
@@ -1471,12 +1623,15 @@ const en = {
     deactivate: "Deactivate",
     activateTitle: "Activate this account?",
     deactivateTitle: "Deactivate this account?",
-    activateDescription: (username: string) => `${username} will regain access to the dashboard.`,
-    deactivateDescription: (username: string) => `${username} will immediately lose access to the dashboard.`,
+    activateDescription: (username: string) =>
+      `${username} will regain access to the dashboard.`,
+    deactivateDescription: (username: string) =>
+      `${username} will immediately lose access to the dashboard.`,
     activatedToast: "Account activated",
     deactivatedToast: "Account deactivated",
     activatedDescription: (username: string) => `${username} is now active.`,
-    deactivatedDescription: (username: string) => `${username} is now inactive.`,
+    deactivatedDescription: (username: string) =>
+      `${username} is now inactive.`,
     deleteTitle: "Delete this staff account?",
     deleteDescription: (username: string) =>
       `${username} will permanently lose access to the dashboard. This action cannot be undone.`,
@@ -1499,22 +1654,27 @@ const en = {
     },
     editDialog: {
       title: "Edit staff account",
-      descriptionFor: (username: string) => `Update the username or role for ${username}.`,
+      descriptionFor: (username: string) =>
+        `Update the username or role for ${username}.`,
       usernameLabel: "Username",
       roleLabel: "Role",
-      rolesLoadFailed: "Custom roles couldn't be loaded — showing the built-in roles only.",
-      selfRoleNote: "You cannot change your own role. Ask another Super Admin to do this.",
+      rolesLoadFailed:
+        "Custom roles couldn't be loaded — showing the built-in roles only.",
+      selfRoleNote:
+        "You cannot change your own role. Ask another Super Admin to do this.",
       saveChanges: "Save changes",
       updatedToast: "Staff account updated",
     },
     resetPasswordDialog: {
       title: "Reset password",
-      descriptionFor: (username: string) => `Set a new password for ${username}.`,
+      descriptionFor: (username: string) =>
+        `Set a new password for ${username}.`,
       newPasswordLabel: "New password",
       passwordPlaceholder: "••••••••",
       resetPassword: "Reset password",
       resetToast: "Password reset",
-      resetDescription: (username: string) => `${username}'s password has been changed.`,
+      resetDescription: (username: string) =>
+        `${username}'s password has been changed.`,
     },
   },
   finance: {
@@ -1545,7 +1705,8 @@ const en = {
       totalSpent: "Total Spent",
     },
     recentTable: {
-      emptyDescription: "Purchases and subscriptions will show up here as they happen.",
+      emptyDescription:
+        "Purchases and subscriptions will show up here as they happen.",
     },
     columns: {
       transactionId: "Transaction ID",
@@ -1561,10 +1722,13 @@ const en = {
       typeWithdrawal: "Withdrawal",
       typeAdjustmentCredit: "Adjustment (credit)",
       typeAdjustmentDebit: "Adjustment (debit)",
+      typeLotteryPurchase: "Lottery tickets",
+      typeLotteryPrize: "Lottery prize",
     },
     limits: {
       title: "Deposit & Withdrawal Limits",
-      description: "Control the minimum and maximum amounts users can deposit or withdraw.",
+      description:
+        "Control the minimum and maximum amounts users can deposit or withdraw.",
       loadError: "We couldn't load the current limits.",
       depositLimitsTitle: "Deposit Limits",
       withdrawalLimitsTitle: "Withdrawal Limits",
@@ -1572,9 +1736,12 @@ const en = {
       maxDepositLabel: "Maximum Deposit Amount (Ks)",
       minWithdrawalLabel: "Minimum Withdrawal Amount (Ks)",
       maxWithdrawalLabel: "Maximum Withdrawal Amount (Ks)",
-      depositInvalid: "Minimum deposit amount cannot be greater than the maximum.",
-      withdrawalInvalid: "Minimum withdrawal amount cannot be greater than the maximum.",
-      lastUpdatedBy: (username: string, date: string) => `Last updated by ${username} on ${date}`,
+      depositInvalid:
+        "Minimum deposit amount cannot be greater than the maximum.",
+      withdrawalInvalid:
+        "Minimum withdrawal amount cannot be greater than the maximum.",
+      lastUpdatedBy: (username: string, date: string) =>
+        `Last updated by ${username} on ${date}`,
       notCustomized: "Not yet customized — showing default limits.",
       saveChanges: "Save changes",
       updatedToast: "Limits updated",
@@ -1593,17 +1760,25 @@ const en = {
     approvedAmount: "Approved Amount",
     totalDeposits: "Total Deposits",
     approvedToast: "Deposit approved",
-    approvedDescription: (name: string) => `${name}'s balance has been updated.`,
+    approvedDescription: (name: string) =>
+      `${name}'s balance has been updated.`,
     approveFailedToast: "Failed to approve deposit",
     notifications: {
       newRequestTitle: "New deposit request",
-      newRequestDescription: (username: string, amount: string, method: string) =>
-        `${username} submitted ${amount} via ${method}.`,
+      newRequestDescription: (
+        username: string,
+        amount: string,
+        method: string,
+      ) => `${username} submitted ${amount} via ${method}.`,
     },
     rejectDialog: {
       title: "Reject deposit",
-      descriptionFor: (userName: string, amount: string, method: string, reference: string) =>
-        `${userName} — ${amount} via ${method} (ref ${reference})`,
+      descriptionFor: (
+        userName: string,
+        amount: string,
+        method: string,
+        reference: string,
+      ) => `${userName} — ${amount} via ${method} (ref ${reference})`,
       reasonLabel: "Reason",
       reasonPlaceholder: "e.g. Reference does not match our records",
       reasonRequired: "A rejection reason is required.",
@@ -1615,7 +1790,8 @@ const en = {
     userAccountCell: {
       notAdded: "Not added",
       heading: "User deposit account",
-      subtext: "What the user says they sent from — not verified against our accounts.",
+      subtext:
+        "What the user says they sent from — not verified against our accounts.",
       accountNameLabel: "User's account name",
       accountNamePlaceholder: "Name on the sending account",
       accountNumberLabel: "Phone / account number",
@@ -1635,7 +1811,8 @@ const en = {
       declared: "declared",
       declaredTitle: "Declared by the user",
       heading: "Destination account",
-      subtext: "Which of our accounts this money actually landed in — hidden accounts included.",
+      subtext:
+        "Which of our accounts this money actually landed in — hidden accounts included.",
       accountLabel: "Destination account",
       accountPlaceholder: "Pick one of our accounts…",
       hidden: "Hidden",
@@ -1653,8 +1830,10 @@ const en = {
       userSearchPlaceholder: "Search by name or phone…",
       userSearching: "Searching…",
       userNoResults: "No users found",
-      userSearchForbidden: "Your role can't look up customers for a deposit. Ask a Super Admin to check its permissions.",
-      userSearchFailed: "Couldn't search customers. Check your connection and try again.",
+      userSearchForbidden:
+        "Your role can't look up customers for a deposit. Ask a Super Admin to check its permissions.",
+      userSearchFailed:
+        "Couldn't search customers. Check your connection and try again.",
       clearUserAriaLabel: "Change user",
       amountLabel: "Amount (Ks)",
       amountPlaceholder: "0",
@@ -1662,14 +1841,16 @@ const en = {
       destinationAccountPlaceholder: "Pick one of our accounts…",
       referenceLabel: "Reference / Txn ID",
       referencePlaceholder: "6-digit transaction reference",
-      referenceHint: "Exactly 6 digits — same format users enter when submitting a deposit.",
+      referenceHint:
+        "Exactly 6 digits — same format users enter when submitting a deposit.",
       dateTimeLabel: "Transaction date & time",
       now: "Now",
       pickDateTime: "Pick a date and time",
       onlyTimeStored: " · only the time is stored for now",
       save: "Record deposit",
       savedToast: "Deposit recorded",
-      savedDescription: (name: string) => `${name}'s balance has been credited.`,
+      savedDescription: (name: string) =>
+        `${name}'s balance has been credited.`,
     },
     columns: {
       customer: "Customer",
@@ -1701,8 +1882,12 @@ const en = {
     approveFailedToast: "Failed to approve withdrawal",
     rejectDialog: {
       title: "Reject withdrawal",
-      descriptionFor: (userName: string, amount: string, accountName: string, accountType: string) =>
-        `${userName} — ${amount} to ${accountName} (${accountType})`,
+      descriptionFor: (
+        userName: string,
+        amount: string,
+        accountName: string,
+        accountType: string,
+      ) => `${userName} — ${amount} to ${accountName} (${accountType})`,
       reasonLabel: "Reason",
       reasonPlaceholder: "e.g. Account details could not be verified",
       reasonRequired: "A rejection reason is required.",
@@ -1711,7 +1896,8 @@ const en = {
       rejectedToast: "Withdrawal rejected",
       rejectedDescription: (name: string) =>
         `${name}'s withdrawal was rejected and the held amount was returned to their wallet.`,
-      refundNote: "This amount was held from the user's wallet when they asked. Rejecting returns it to their wallet.",
+      refundNote:
+        "This amount was held from the user's wallet when they asked. Rejecting returns it to their wallet.",
     },
     transferAccountCell: {
       notAdded: "Not added",
@@ -1818,9 +2004,12 @@ const en = {
       notChecked: "Not checked yet",
       waitingForBank: "Waiting for the bank notification",
       timeGap: "Time gap",
-      submittedAfterBank: (gap: string) => `Submitted ${gap} after the bank transfer`,
-      submittedBeforeBank: (gap: string) => `Submitted ${gap} before the bank transfer`,
-      approvedBeforePayout: (gap: string) => `Approved ${gap} before the payout`,
+      submittedAfterBank: (gap: string) =>
+        `Submitted ${gap} after the bank transfer`,
+      submittedBeforeBank: (gap: string) =>
+        `Submitted ${gap} before the bank transfer`,
+      approvedBeforePayout: (gap: string) =>
+        `Approved ${gap} before the payout`,
       approvedAfterPayout: (gap: string) => `Approved ${gap} after the payout`,
       reasonsSection: "Reasons",
       noReasons: "No issues found",
@@ -1829,7 +2018,8 @@ const en = {
       screenshotLoading: "Loading screenshot…",
       noScreenshot: "No screenshot",
       screenshotBlockedHint: "The bank app blocks screenshots on this phone.",
-      screenshotRestricted: "Viewing the bank screenshot needs the bank-evidence permission.",
+      screenshotRestricted:
+        "Viewing the bank screenshot needs the bank-evidence permission.",
       screenshotLoadError: "Couldn't load the screenshot.",
       openFullSize: "Open full size",
       transactionId: "Bank transaction",
@@ -1837,12 +2027,20 @@ const en = {
       depositorNameNotSet: "No display name (not compared)",
       senderName: "Sender name (bank)",
       senderNameUnknown: "Not captured",
+      /**
+       * SEC-004: the phone serial the phone-monitor DECLARED in the event
+       * body (bank_transactions.deviceSerial) — not checked by the server,
+       * so the label says so; the authenticated monitor identity is the
+       * dashboard's Bank monitor card.
+       */
+      postingDevice: "Phone serial (as reported by the monitor)",
     },
     reasons: {
       AMOUNT_MISMATCH: "Amount differs from the bank",
       CODE_MISMATCH: "Transaction code differs from the bank",
       DUPLICATE_REFERENCE: "Reference used on another deposit",
-      SHARED_REFERENCE_ACROSS_USERS: "Same reference and amount from another user",
+      SHARED_REFERENCE_ACROSS_USERS:
+        "Same reference and amount from another user",
       TIME_GAP_TOO_LARGE: "Submitted long after the transfer",
       SUBMITTED_BEFORE_TRANSFER: "Submitted before the bank transfer",
       VELOCITY: "Many deposits in a short time",
@@ -1850,7 +2048,10 @@ const en = {
       AMBIGUOUS_MATCH: "Bank transfer fits more than one request",
       NO_BANK_TRANSACTION: "No bank transaction found within 24 hours",
       DUPLICATE_PAYOUT_CODE: "Payout code already used on another withdrawal",
-      COUNTERPARTY_MISMATCH: "Bank sender name differs from the depositor's name",
+      COUNTERPARTY_MISMATCH:
+        "Bank sender name differs from the depositor's name",
+      // SEC-004: cleared on its own the moment the phone's screenshot lands.
+      NO_SCREENSHOT: "Bank screenshot not received yet",
     },
     suggested: {
       matched: "Safe to approve.",
@@ -1863,36 +2064,45 @@ const en = {
       withdrawalMatched: "The bank confirmed this payout.",
       // A suspicious payout already carries a code (typed by staff or
       // written by the bank), so the advice is to correct it, not record it.
-      withdrawalSuspicious: "Check this payout against the bank statement and correct the recorded code if it is wrong.",
-      withdrawalPendingReview: "Review the flagged payouts, then record the correct code.",
+      withdrawalSuspicious:
+        "Check this payout against the bank statement and correct the recorded code if it is wrong.",
+      withdrawalPendingReview:
+        "Review the flagged payouts, then record the correct code.",
       withdrawalAwaiting: "Waiting for the bank's payout notification.",
-      withdrawalNoBank: "No payout notification within 24 hours — check the bank app.",
+      withdrawalNoBank:
+        "No payout notification within 24 hours — check the bank app.",
     },
     actions: {
       markReviewed: "Mark as reviewed",
       confirmSuspicious: "Confirm suspicious",
       unlink: "Unlink bank event",
-      unlinkConfirm: "Remove the bank values from this row so it can be matched again?",
+      unlinkConfirm:
+        "Remove the bank values from this row so it can be matched again?",
       noteLabel: "Note (optional)",
       notePlaceholder: "Why you made this decision",
       reviewedToast: "Verification updated",
       reviewFailedToast: "Failed to update verification",
       approveSuspiciousTitle: "Approve a suspicious deposit?",
-      approveSuspiciousDescription: "The bank details do not match what the user submitted. Approve anyway?",
+      approveSuspiciousDescription:
+        "The bank details do not match what the user submitted. Approve anyway?",
       approveSuspiciousWithdrawalTitle: "Approve a suspicious withdrawal?",
-      approveSuspiciousWithdrawalDescription: "This request is flagged by the fraud checks. Approve anyway?",
+      approveSuspiciousWithdrawalDescription:
+        "This request is flagged by the fraud checks. Approve anyway?",
       approveAnyway: "Approve anyway",
       amountMismatchNotice: (typed: string, bank: string) =>
         `The user typed ${typed}, but the bank saw ${bank}. Only the amount the bank saw can be credited.`,
-      creditBankAmountLabel: (bank: string) => `Credit the bank amount (${bank}) instead of the typed amount`,
+      creditBankAmountLabel: (bank: string) =>
+        `Credit the bank amount (${bank}) instead of the typed amount`,
       overrideReasonLabel: "Reason (required)",
-      overrideReasonPlaceholder: "Why the bank amount is the right one, e.g. the receipt shows it",
+      overrideReasonPlaceholder:
+        "Why the bank amount is the right one, e.g. the receipt shows it",
       approveBankAmount: "Approve bank amount",
     },
   },
   bankTransactions: {
     title: "Bank transactions",
-    description: "Every bank notification each phone captured — matched to a deposit or withdrawal, or still waiting.",
+    description:
+      "Every bank notification each phone captured — matched to a deposit or withdrawal, or still waiting.",
     loadError: "Couldn't load bank transactions.",
     searchPlaceholder: "Search by code or sender…",
     filters: {
@@ -1952,14 +2162,18 @@ const en = {
       viewScreenshot: "View screenshot",
       viewDetails: "View details",
     },
-    screenshotRestricted: "Viewing the bank screenshot needs the bank-evidence permission.",
+    screenshotRestricted:
+      "Viewing the bank screenshot needs the bank-evidence permission.",
     noScreenshot: "No screenshot",
     totalCapped: "10,000+ rows — narrow the filters to see an exact count.",
     lastSeen: (when: string) => `Last seen ${when}`,
     neverSeen: "Never seen",
-    unclaimedHint: "Unclaimed = stored, unmatched, and older than 48 hours. A late deposit can still claim it.",
-    ambiguousHint: "An ambiguous row stays here until the candidates are resolved and the phone re-sends it.",
-    empty: "No bank transactions for these filters. Every notification a phone captures appears here as soon as it is stored.",
+    unclaimedHint:
+      "Unclaimed = stored, unmatched, and older than 48 hours. A late deposit can still claim it.",
+    ambiguousHint:
+      "An ambiguous row stays here until the candidates are resolved and the phone re-sends it.",
+    empty:
+      "No bank transactions for these filters. Every notification a phone captures appears here as soon as it is stored.",
     linkedLoadError: "Couldn't open the linked record.",
   },
   paymentAccounts: {
@@ -1970,18 +2184,23 @@ const en = {
       manageMethods: "Manage Methods",
       addAccount: "Add Account",
       emptyTitle: "No payment accounts yet",
-      emptyDescription: "Add a payment account so users have somewhere to send deposits.",
+      emptyDescription:
+        "Add a payment account so users have somewhere to send deposits.",
       searchPlaceholder: "Search by account name...",
     },
     toggleStatus: {
       activatedToast: "Account activated",
       deactivatedToast: "Account deactivated",
-      activatedDescription: (name: string) => `${name} is now visible to users.`,
-      deactivatedDescription: (name: string) => `${name} is now hidden to users.`,
+      activatedDescription: (name: string) =>
+        `${name} is now visible to users.`,
+      deactivatedDescription: (name: string) =>
+        `${name} is now hidden to users.`,
       activateTitle: "Activate this account?",
       deactivateTitle: "Deactivate this account?",
-      activateDescription: (name: string) => `${name} will be shown to users making a deposit.`,
-      deactivateDescription: (name: string) => `${name} will no longer be shown to users making a deposit.`,
+      activateDescription: (name: string) =>
+        `${name} will be shown to users making a deposit.`,
+      deactivateDescription: (name: string) =>
+        `${name} will no longer be shown to users making a deposit.`,
       activate: "Activate",
       deactivate: "Deactivate",
     },
@@ -1989,7 +2208,8 @@ const en = {
       deletedToast: "Payment account deleted",
       deletedDescription: (name: string) => `${name} has been removed.`,
       title: "Delete this payment account?",
-      description: (name: string) => `${name} will be permanently removed. This action cannot be undone.`,
+      description: (name: string) =>
+        `${name} will be permanently removed. This action cannot be undone.`,
     },
     columns: {
       subname: "Subname",
@@ -2046,7 +2266,8 @@ const en = {
       addSave: "Add account",
       updatedToast: "Payment account updated",
       createdToast: "Payment account created",
-      savedDescription: (name: string) => `${name} is ready to receive deposits.`,
+      savedDescription: (name: string) =>
+        `${name} is ready to receive deposits.`,
     },
   },
   roles: {
@@ -2059,7 +2280,8 @@ const en = {
       heading: "Roles",
       newRole: "New role",
       searchPlaceholder: "Search roles…",
-      memberCount: (count: number) => (count === 1 ? "1 member" : `${count} members`),
+      memberCount: (count: number) =>
+        count === 1 ? "1 member" : `${count} members`,
       permissionCount: (count: number) =>
         count === 1 ? "1 permission" : `${count} permissions`,
       systemBadge: "Built-in",
@@ -2084,7 +2306,8 @@ const en = {
       enableAll: "Enable all",
       disableAll: "Disable all",
       moduleSelectAll: (module: string) => `Toggle every ${module} permission`,
-      selectedOfTotal: (selected: number, total: number) => `${selected} of ${total}`,
+      selectedOfTotal: (selected: number, total: number) =>
+        `${selected} of ${total}`,
     },
     saveBar: {
       unsavedChanges: (count: number) =>
@@ -2092,31 +2315,36 @@ const en = {
       discard: "Discard",
       save: "Save permissions",
       savedToast: "Permissions updated",
-      savedDescription: (name: string) => `${name} now has the permissions you selected.`,
+      savedDescription: (name: string) =>
+        `${name} now has the permissions you selected.`,
       saveFailed: "We couldn't save those permissions.",
     },
     create: {
       title: "New role",
-      description: "Give the role a name — you can pick its permissions right after.",
+      description:
+        "Give the role a name — you can pick its permissions right after.",
       nameLabel: "Role name",
       namePlaceholder: "Movie Manager",
       descriptionLabel: "Description (optional)",
       descriptionPlaceholder: "What this role is for.",
       submit: "Create role",
       createdToast: "Role created",
-      createdDescription: (name: string) => `${name} starts with no permissions — pick them now.`,
+      createdDescription: (name: string) =>
+        `${name} starts with no permissions — pick them now.`,
       failed: "We couldn't create that role.",
     },
     rename: {
       title: "Rename role",
-      description: "The role key never changes, so existing assignments are unaffected.",
+      description:
+        "The role key never changes, so existing assignments are unaffected.",
       submit: "Save changes",
       savedToast: "Role updated",
       failed: "We couldn't update that role.",
     },
     remove: {
       title: "Delete this role?",
-      description: (name: string) => `${name} will be removed permanently. This can't be undone.`,
+      description: (name: string) =>
+        `${name} will be removed permanently. This can't be undone.`,
       deletedToast: "Role deleted",
       failed: "We couldn't delete that role.",
       blockedSystem: "Built-in roles can't be deleted.",
@@ -2131,7 +2359,8 @@ const en = {
       loadError: "We couldn't load subscription plans.",
       addPlan: "Add Plan",
       emptyTitle: "No subscription plans yet",
-      emptyDescription: "Create a plan so users can subscribe to premium content.",
+      emptyDescription:
+        "Create a plan so users can subscribe to premium content.",
     },
     columns: {
       name: "Name",
@@ -2147,7 +2376,8 @@ const en = {
       namePlaceholder: "e.g. Premium",
       priceLabel: "Price (Ks)",
       durationLabel: "Duration (days)",
-      durationHint: "How many days one purchase unlocks. Renewing adds this on top of the current expiry.",
+      durationHint:
+        "How many days one purchase unlocks. Renewing adds this on top of the current expiry.",
       durationPresets: "Quick picks",
       durationInvalid: "Enter a whole number of days from 1 to 3650.",
       create: "Create",
@@ -2191,13 +2421,15 @@ const en = {
       newUserAlertsDescription: "Alert when a new user registers",
       contentAlertsLabel: "Content updates",
       contentAlertsDescriptionUser: "New releases in your favorite genres",
-      contentAlertsDescriptionStaff: "Upload, processing and publish status changes",
+      contentAlertsDescriptionStaff:
+        "Upload, processing and publish status changes",
       savePreferences: "Save preferences",
       savedToast: "Notification preferences saved",
     },
     appearance: {
       cardTitle: "Appearance",
-      cardDescription: "MyanFlix Admin is designed for a premium dark experience.",
+      cardDescription:
+        "MyanFlix Admin is designed for a premium dark experience.",
       darkThemeLabel: "Dark theme",
       darkThemeDescription: "Locked for this admin dashboard",
     },
@@ -2205,7 +2437,8 @@ const en = {
       cardTitle: "Security",
       cardDescription: "Password and authentication settings.",
       dialogTitle: "Change password",
-      dialogDescription: "Choose a new password for your admin account. You stay signed in on this device.",
+      dialogDescription:
+        "Choose a new password for your admin account. You stay signed in on this device.",
       currentPasswordLabel: "Current password",
       newPasswordLabel: "New password",
       confirmPasswordLabel: "Confirm password",
@@ -2220,13 +2453,15 @@ const en = {
     },
     peakUsers: {
       cardTitle: "Peak Users",
-      cardDescription: "Control the peak concurrent users number shown on the public site.",
+      cardDescription:
+        "Control the peak concurrent users number shown on the public site.",
       loadError: "We couldn't load the peak users settings.",
       actualPeakLabel: "Actual peak (tracked)",
       sinceDate: (date: string) => `Since ${date}`,
       notRecordedYet: "No peak recorded yet",
       additionalLabel: "Additional peak",
-      additionalHint: "Added on top of the tracked peak. Set to 0 to show only the real number.",
+      additionalHint:
+        "Added on top of the tracked peak. Set to 0 to show only the real number.",
       invalidValue: "Additional peak must be a whole number of 0 or more.",
       displayedLabel: "Displayed peak users",
       displayedHint: "The total visitors see on the public site.",
@@ -2241,7 +2476,8 @@ const en = {
       loadError: "We couldn't load payment account balances.",
       searchPlaceholder: "Search by account name...",
       emptyTitle: "No payment accounts yet",
-      emptyDescription: "Add a payment account under Payment Methods to start tracking its balance.",
+      emptyDescription:
+        "Add a payment account under Payment Methods to start tracking its balance.",
       viewHistory: "View history",
       allTransactionsLink: "View all transactions",
     },
@@ -2265,7 +2501,8 @@ const en = {
       historyTitle: "Transaction History",
       historyDescription: "Every movement recorded against this account.",
       emptyHistoryTitle: "No transactions yet",
-      emptyHistoryDescription: "Manual entries and linked deposits/withdrawals will show up here.",
+      emptyHistoryDescription:
+        "Manual entries and linked deposits/withdrawals will show up here.",
     },
     transactionColumns: {
       dateTime: "Date & time",
@@ -2452,7 +2689,8 @@ const en = {
       daysAgo: (days: number) => `${days}d ago`,
       // Watch time arrives in seconds; these are the pieces a page needs to
       // render it without inventing its own wording.
-      durationHoursMinutes: (hours: number, minutes: number) => `${hours}h ${minutes}m`,
+      durationHoursMinutes: (hours: number, minutes: number) =>
+        `${hours}h ${minutes}m`,
       durationMinutes: (minutes: number) => `${minutes}m`,
       durationSeconds: (seconds: number) => `${seconds}s`,
     },
@@ -2509,7 +2747,8 @@ const en = {
       readMore: "Read more",
       empty: {
         title: "No comments yet",
-        description: "Comments posted on the website or in the app will appear here.",
+        description:
+          "Comments posted on the website or in the app will appear here.",
       },
       details: {
         title: "Comment",
@@ -2524,7 +2763,8 @@ const en = {
         delete: "Delete comment",
         // Explains a disabled control rather than hiding it, so a reviewer
         // can see that moderation exists and ask for the permission.
-        needsPermission: "Moderating comments needs the Tracking → Comments Moderate permission.",
+        needsPermission:
+          "Moderating comments needs the Tracking → Comments Moderate permission.",
       },
       hideDialog: {
         title: "Hide this comment?",
@@ -2552,7 +2792,8 @@ const en = {
     },
     feedback: {
       title: "Feedback",
-      subtitle: "What users are telling us — bugs, suggestions and complaints from the website and the app.",
+      subtitle:
+        "What users are telling us — bugs, suggestions and complaints from the website and the app.",
       cards: {
         total: "Total",
         new: "New",
@@ -2595,7 +2836,8 @@ const en = {
       },
       empty: {
         title: "No feedback yet",
-        description: "Messages sent from the website or the app will appear here.",
+        description:
+          "Messages sent from the website or the app will appear here.",
       },
       details: {
         title: "Feedback",
@@ -2608,10 +2850,12 @@ const en = {
         statusLabel: "Status",
         adminNote: "Internal note",
         adminNotePlaceholder: "What was done about this…",
-        adminNoteHint: "Only staff can see this. The person who sent the feedback is never shown it.",
+        adminNoteHint:
+          "Only staff can see this. The person who sent the feedback is never shown it.",
         save: "Save changes",
         saving: "Saving…",
-        needsPermission: "Changing feedback status needs the Tracking → Feedback Manage permission.",
+        needsPermission:
+          "Changing feedback status needs the Tracking → Feedback Manage permission.",
       },
       toast: {
         updated: "Feedback updated",
@@ -2620,14 +2864,16 @@ const en = {
     },
     activeUsers: {
       title: "Active Users",
-      subtitle: "Who is using MyanFlix right now — one row per person, however many devices they are on.",
+      subtitle:
+        "Who is using MyanFlix right now — one row per person, however many devices they are on.",
       cards: {
         total: "Active now",
         totalHint: "Distinct people",
         web: "On website",
         mobile: "On mobile",
         // The one thing that stops the three cards looking like they don't add up.
-        overlapHint: "Someone on web and mobile counts once in the total, and in both platform cards.",
+        overlapHint:
+          "Someone on web and mobile counts once in the total, and in both platform cards.",
       },
       columns: {
         user: "User",
@@ -2647,10 +2893,12 @@ const en = {
       },
       onlineHint: "A live connection is open right now.",
       recentHint: "Seen within the last 5 minutes.",
-      windowNote: "Active means a live connection, or any activity in the last 5 minutes.",
+      windowNote:
+        "Active means a live connection, or any activity in the last 5 minutes.",
       empty: {
         title: "Nobody is active right now",
-        description: "This list fills in as people open the website or the app.",
+        description:
+          "This list fills in as people open the website or the app.",
       },
     },
     watchTime: {
@@ -2658,7 +2906,8 @@ const en = {
       subtitle: "When people watch — by hour of the day and day of the week.",
       // Load-bearing: "most watched" reads as "most watched titles" to
       // almost everyone. Say plainly that it isn't.
-      notTitlesNote: "This report is about times of day, not about which titles are popular.",
+      notTitlesNote:
+        "This report is about times of day, not about which titles are popular.",
       timezoneNote: "Hours and days are shown in the server's timezone.",
       cards: {
         peak: "Peak period",
@@ -2680,7 +2929,8 @@ const en = {
         description: "Darker cells mean more time spent watching.",
         legendLess: "Less",
         legendMore: "More",
-        cellLabel: (day: string, hour: string, duration: string) => `${day}, ${hour} · ${duration}`,
+        cellLabel: (day: string, hour: string, duration: string) =>
+          `${day}, ${hour} · ${duration}`,
         empty: "No watch activity recorded for this period yet.",
       },
       hourChart: {
@@ -2714,28 +2964,73 @@ const en = {
       weekdaysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
       /** Indexed by hour 0–23. Two characters, for the heatmap's 24 column headers. */
       hours: [
-        "00", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11",
-        "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23",
+        "00",
+        "01",
+        "02",
+        "03",
+        "04",
+        "05",
+        "06",
+        "07",
+        "08",
+        "09",
+        "10",
+        "11",
+        "12",
+        "13",
+        "14",
+        "15",
+        "16",
+        "17",
+        "18",
+        "19",
+        "20",
+        "21",
+        "22",
+        "23",
       ],
       /** Indexed by hour 0–23. Full labels, for tooltips and peak cards. */
       hourLabels: [
-        "12 AM", "1 AM", "2 AM", "3 AM", "4 AM", "5 AM",
-        "6 AM", "7 AM", "8 AM", "9 AM", "10 AM", "11 AM",
-        "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM",
-        "6 PM", "7 PM", "8 PM", "9 PM", "10 PM", "11 PM",
+        "12 AM",
+        "1 AM",
+        "2 AM",
+        "3 AM",
+        "4 AM",
+        "5 AM",
+        "6 AM",
+        "7 AM",
+        "8 AM",
+        "9 AM",
+        "10 AM",
+        "11 AM",
+        "12 PM",
+        "1 PM",
+        "2 PM",
+        "3 PM",
+        "4 PM",
+        "5 PM",
+        "6 PM",
+        "7 PM",
+        "8 PM",
+        "9 PM",
+        "10 PM",
+        "11 PM",
       ],
       /** "8 PM – 9 PM" — an hour bucket covers the hour that FOLLOWS its label. */
       hourRange: (from: string, to: string) => `${from} – ${to}`,
       empty: {
         title: "No watch data yet",
-        description: "Watch activity is recorded as people play something. Nothing has been recorded for this period.",
+        description:
+          "Watch activity is recorded as people play something. Nothing has been recorded for this period.",
       },
     },
     searches: {
       title: "Most Search Results",
-      subtitle: "The words people type into the search box, and how many results came back.",
+      subtitle:
+        "The words people type into the search box, and how many results came back.",
       // The same ambiguity trap as watch time, from the other direction.
-      typedTextNote: "These are search terms people typed — not titles they watched.",
+      typedTextNote:
+        "These are search terms people typed — not titles they watched.",
       tabs: {
         top: "Top terms",
         recent: "Recent searches",
@@ -2775,17 +3070,20 @@ const en = {
       },
       empty: {
         topTitle: "No searches yet",
-        topDescription: "Search terms are recorded as people use the search box on the website or in the app.",
+        topDescription:
+          "Search terms are recorded as people use the search box on the website or in the app.",
         recentTitle: "No recent searches",
         recentDescription: "Nothing has been searched in this period.",
       },
       // Staff searches are deliberately not recorded, which otherwise looks
       // like a bug the first time an admin tests it.
-      staffExcludedNote: "Searches made by staff accounts are not recorded here.",
+      staffExcludedNote:
+        "Searches made by staff accounts are not recorded here.",
     },
     phoneIp: {
       title: "User Phone / IP",
-      subtitle: "The phone number and network address on record for each account, and where accounts overlap.",
+      subtitle:
+        "The phone number and network address on record for each account, and where accounts overlap.",
       columns: {
         user: "User",
         phone: "Phone",
@@ -2810,7 +3108,8 @@ const en = {
         sharedIp: "Shared IP",
         sharedIpHint: "More than one account has connected from this address.",
         sharedPhone: "Shared phone",
-        sharedPhoneHint: "More than one account carries this number — this is not supposed to be possible.",
+        sharedPhoneHint:
+          "More than one account carries this number — this is not supposed to be possible.",
         none: "None",
       },
       sessionCount: (count: number) => `${count} sessions`,
@@ -2833,7 +3132,8 @@ const en = {
       },
       empty: {
         title: "No sessions recorded yet",
-        description: "Sessions are recorded when people sign in from the website or the app.",
+        description:
+          "Sessions are recorded when people sign in from the website or the app.",
       },
     },
   },
@@ -2857,19 +3157,22 @@ const en = {
     kindHelp: {
       HERO: "Slides take turns with the five featured titles at the top of the home page (title, promo, title, promo…). They appear in the order below.",
       SPOTLIGHT:
-        "The \"New this week\" banner. The apps show the first live spotlight whose title people can open; if there is none, they show the newest movie.",
+        'The "New this week" banner. The apps show the first live spotlight whose title people can open; if there is none, they show the newest movie.',
       COMING_SOON:
         "Cards in the Coming soon strip near the bottom of the home page. The strip hides when it has nothing to show.",
     },
     countOfMax: (count: number, max: number) => `${count} of ${max}`,
-    listFull: (max: number) => `This list is full (${max}). Delete a promo to add another.`,
+    listFull: (max: number) =>
+      `This list is full (${max}). Delete a promo to add another.`,
     phoneHeroCap: (max: number) =>
       `The phone app shows only the first ${max} live banner slides. Slides after the ${max}th appear on the website only.`,
     emptyTitle: "Nothing here yet",
     emptyDescription: {
       HERO: "With no slides, the top of the home page shows only the featured titles.",
-      SPOTLIGHT: "With no spotlight, the banner shows the newest published movie.",
-      COMING_SOON: "With no cards (and the games teaser off), the Coming soon strip is hidden.",
+      SPOTLIGHT:
+        "With no spotlight, the banner shows the newest published movie.",
+      COMING_SOON:
+        "With no cards (and the games teaser off), the Coming soon strip is hidden.",
     },
     liveStates: {
       LIVE: "Live",
@@ -2892,8 +3195,10 @@ const en = {
     },
     targetMissing:
       "The linked title was deleted. Edit the promo to link another title, or delete it. Until then it cannot be switched on or off.",
-    targetHiddenSkipped: "The linked title is not published, so the apps skip this promo until it is.",
-    targetHiddenNoButton: "The linked title is not published yet, so the card shows without a button until it is.",
+    targetHiddenSkipped:
+      "The linked title is not published, so the apps skip this promo until it is.",
+    targetHiddenNoButton:
+      "The linked title is not published yet, so the card shows without a button until it is.",
     bookSignedInOnly: "Books show only to people who are signed in.",
     addedBy: (name: string) => `Added by ${name}`,
     moveUp: "Move up",
@@ -2935,7 +3240,8 @@ const en = {
         BOOK: "A book",
         URL: "A web link",
       },
-      spotlightTargetHint: "A spotlight always opens a movie, a series or a book.",
+      spotlightTargetHint:
+        "A spotlight always opens a movie, a series or a book.",
       targetLabel: {
         MOVIE: "Movie",
         SERIES: "Series",
@@ -2954,8 +3260,10 @@ const en = {
       replaceImage: "Replace image",
       removeImage: "Remove image",
       uploadingImage: "Uploading image…",
-      imageHint: "An uploaded image replaces the drawn background. Wide pictures (16:9) work best.",
-      spotlightImageHint: "Without an image, the spotlight uses the title's own artwork.",
+      imageHint:
+        "An uploaded image replaces the drawn background. Wide pictures (16:9) work best.",
+      spotlightImageHint:
+        "Without an image, the spotlight uses the title's own artwork.",
       previewLabel: "Preview",
       scheduleHeading: "When it shows",
       startsAtLabel: "Start",
@@ -2964,7 +3272,8 @@ const en = {
       scheduleHint:
         "Leave empty to start now and never end. Times are in this computer's time zone.",
       dateTextLabel: "Date text on the card",
-      dateTextHint: "Optional, e.g. \"Coming November\". Leave empty to show no date.",
+      dateTextHint:
+        'Optional, e.g. "Coming November". Leave empty to show no date.',
       activeLabel: "Show in the apps",
       activeHint: "Switch off to hide it without deleting it.",
     },
@@ -2978,19 +3287,26 @@ const en = {
     },
     problems: {
       titleRequired: "Enter the title in English and in Burmese.",
-      pairMissing: (field: string) => `${field}: fill in both English and Burmese, or leave both empty.`,
+      pairMissing: (field: string) =>
+        `${field}: fill in both English and Burmese, or leave both empty.`,
       spotlightNeedsTitle: "A spotlight must link a movie, a series or a book.",
       targetRequired: "Choose the title this promo opens.",
-      targetDeleted: "The linked title was deleted. Choose another title, or change what the button opens.",
+      targetDeleted:
+        "The linked title was deleted. Choose another title, or change what the button opens.",
       urlRequired: "Enter the web link.",
-      urlInvalid: "Enter a full web address that starts with http:// or https://, e.g. https://example.com.",
-      ctaLabelRequired: "A hero slide with a button needs the button text in English and in Burmese.",
+      urlInvalid:
+        "Enter a full web address that starts with http:// or https://, e.g. https://example.com.",
+      ctaLabelRequired:
+        "A hero slide with a button needs the button text in English and in Burmese.",
       windowInvalid: "The end must be after the start.",
-      tooLong: (field: string, max: number) => `${field} is too long (at most ${max} characters).`,
+      tooLong: (field: string, max: number) =>
+        `${field} is too long (at most ${max} characters).`,
     },
     serverErrors: {
-      HOME_PROMO_NOT_FOUND: "This promo no longer exists. The list has been refreshed.",
-      HOME_PROMO_TRANSLATION_MISSING: "Fill in each text in both English and Burmese, or leave both empty.",
+      HOME_PROMO_NOT_FOUND:
+        "This promo no longer exists. The list has been refreshed.",
+      HOME_PROMO_TRANSLATION_MISSING:
+        "Fill in each text in both English and Burmese, or leave both empty.",
       HOME_PROMO_TARGET_NOT_FOUND:
         "That title does not exist any more (episodes are linked through their series).",
       HOME_PROMO_REORDER_MISMATCH:
@@ -3013,16 +3329,19 @@ const en = {
       description:
         "Where the apps send people to get the other app, and the games card in the Coming soon strip.",
       webUrlLabel: "Website address",
-      webUrlHint: "Shown in the phone app's \"Also on the web\" card. Leave empty to hide the card.",
+      webUrlHint:
+        'Shown in the phone app\'s "Also on the web" card. Leave empty to hide the card.',
       appStoreUrlLabel: "App Store link",
       playStoreUrlLabel: "Google Play link",
       storeHint:
-        "Shown as store badges on the website's \"Watch on your phone\" card. Only the links you fill in appear.",
+        'Shown as store badges on the website\'s "Watch on your phone" card. Only the links you fill in appear.',
       gamesEnabledLabel: "Show the games teaser",
-      gamesEnabledHint: "A \"Games are coming\" card in the Coming soon strip.",
+      gamesEnabledHint: 'A "Games are coming" card in the Coming soon strip.',
       gamesDateLabel: "Games date text",
-      gamesDateHint: "Optional, e.g. \"2027\". Leave empty to show just \"Coming soon\".",
-      urlInvalid: "Enter a full web address that starts with http:// or https://",
+      gamesDateHint:
+        'Optional, e.g. "2027". Leave empty to show just "Coming soon".',
+      urlInvalid:
+        "Enter a full web address that starts with http:// or https://",
       tooLong: (max: number) => `At most ${max} characters`,
       save: "Save settings",
       savedToast: "Home settings saved",
@@ -3030,20 +3349,1345 @@ const en = {
       rejected:
         "The server refused these settings. Check that each link is a full web address that starts with http:// or https://.",
       loadError: "Could not load the home settings.",
-      lastChanged: (who: string, when: string) => `Last changed by ${who} on ${when}`,
+      lastChanged: (who: string, when: string) =>
+        `Last changed by ${who} on ${when}`,
       neverChanged: "Not changed yet — the apps use the defaults.",
+    },
+  },
+  /**
+   * What is left of the first Advertisements copy (2026-11-03): the picture's
+   * alt text and the backend's refusal codes (adForm.ts `adErrorMessage`,
+   * which lays the wizard's own sentences over them). Everything else moved
+   * to lib/i18n/ads/ with the plain-words redesign (2026-11-04).
+   */
+  ads: {
+    thumbnailAlt: (title: string) => `${title} — corner picture`,
+    serverErrors: {
+      AD_NOT_FOUND: "This ad no longer exists. The list has been refreshed.",
+      AD_TARGET_MOVIE_NOT_FOUND: "One of the chosen movies does not exist any more.",
+      AD_VIDEO_MISSING:
+        "The uploaded video could not be found on the server. Please upload it again.",
+      AD_VIDEO_NOT_MP4: "The file is not an MP4 video.",
+      AD_VIDEO_TOO_LARGE: "The video is larger than 200 MB.",
+      AD_VIDEO_TOO_LONG: "The video runs outside 1 second to 10 minutes.",
+      AD_VIDEO_UNREADABLE:
+        "The server could not read the video. Export it again as MP4 (H.264 video, AAC audio).",
+      AD_VIDEO_ATTACH_CONFLICT: "Another upload landed on this ad meanwhile. Upload and attach again.",
+      AD_VIDEO_REQUIRED: "Upload a video before switching the ad on.",
+      AD_FORMAT_MISMATCH:
+        "That does not fit this type of ad (video or corner picture). Reload the page and try again.",
+      AD_CORNER_TIMING_INVALID:
+        "The corner timing is not valid: show for 3–600 seconds, come back every 1–240 minutes, and longer than it shows.",
+      AD_ANALYTICS_RANGE_INVALID: "The dates are not a valid range.",
+      AD_ANALYTICS_RANGE_TOO_LONG: "The range is longer than 366 days.",
+    },
+  },
+  /** The Advertisements pages' copy by part — lib/i18n/ads/index.ts. */
+  adsUi: adsUiEn,
+  lottery: {
+    /** The nine prize groups of a Thai draw, in sheet order — the boards' names. */
+    prizeGroups: {
+      first: "1st prize",
+      nearFirst: "Next to 1st prize",
+      second: "2nd prize",
+      third: "3rd prize",
+      fourth: "4th prize",
+      fifth: "5th prize",
+      front3: "First 3 digits",
+      back3: "Last 3 digits",
+      back2: "Last 2 digits",
+    },
+    dreams: {
+      title: "Lottery dreams",
+      description:
+        "The two dream books the Lottery app shows: a name and a picture for every number. A number with no name stays hidden from customers.",
+      readOnly: "You can look at these but not change them.",
+      loadError: "Could not load the dreams.",
+      books: {
+        "1000": "Dream 1000",
+        "100": "Dream 100",
+      },
+      bookHelp: {
+        "1000": "One dream for every three-digit number, 000 to 999.",
+        "100": "One dream for every two-digit number, 00 to 99.",
+      },
+      searchPlaceholder: "Search by name or number…",
+      filters: {
+        all: "All",
+        missing_name: "Missing name",
+        missing_picture: "No picture",
+        inactive: "Off",
+      },
+      noMatches: {
+        all: "No numbers match.",
+        missing_name: "Every number has a name.",
+        missing_picture: "Every number has a picture.",
+        inactive: "No numbers are off.",
+      },
+      emptyTitle: "No dreams yet",
+      emptyDescription:
+        "The dream books are created with the lottery tables. Once the backend is set up, every number appears here.",
+      columns: {
+        number: "Number",
+        picture: "Picture",
+        nameEn: "English name",
+        nameMy: "Burmese name",
+        status: "Status",
+      },
+      statuses: {
+        shown: "Shown",
+        unnamed: "No name",
+        off: "Off",
+      },
+      export: "Export",
+      exporting: "Exporting…",
+      exportFailedToast: "Could not export the book",
+      savedToast: "Dream saved",
+      saveFailedToast: "Could not save the dream",
+      form: {
+        title: "Edit dream",
+        numberLabel: "Number",
+        numberHint:
+          "The number cannot change — every number has exactly one row.",
+        nameEnLabel: "English name",
+        nameEnPlaceholder: "e.g. Snake",
+        nameMyLabel: "Burmese name",
+        nameMyPlaceholder: "e.g. မြွေ",
+        nameHint:
+          "Customers see the dream once it has at least one name. Leave a field empty to clear it.",
+        pictureLabel: "Picture",
+        pictureHint:
+          "Square pictures work best. Without one, the apps show a placeholder.",
+        uploadPicture: "Upload picture",
+        replacePicture: "Replace picture",
+        removePicture: "Remove",
+        uploadingPicture: "Uploading picture…",
+        activeLabel: "Show in the apps",
+        activeHint: "Switch off to hide this number without clearing its name.",
+      },
+      import: {
+        open: "Import",
+        title: "Import names",
+        description:
+          "Fill in names from a spreadsheet. The file is checked first; nothing changes until you apply.",
+        columnsHint:
+          "An .xlsx or .csv file with a header row and the columns book, number, name_en, name_my. book is 1000 or 100.",
+        blankHint:
+          "A blank name cell leaves that name as it is. Rows with errors are skipped.",
+        templateLink: "Download the current book as a template",
+        chooseFile: "Choose an .xlsx or .csv file",
+        clearFile: "Remove file",
+        checking: "Checking the file…",
+        checkFailed: "The file could not be checked",
+        summary: (updated: number, unchanged: number, errors: number) =>
+          `${updated} to update · ${unchanged} unchanged · ${errors} errors`,
+        appliedSummary: (updated: number, unchanged: number, errors: number) =>
+          `${updated} updated · ${unchanged} unchanged · ${errors} errors`,
+        applyHint: "Apply writes the names above into the dream books.",
+        nothingToApply: "There is nothing to apply.",
+        rowLabel: (row: number) => `Row ${row}`,
+        moreErrors: (count: number) => `+${count} more`,
+        apply: "Apply",
+        applying: "Applying…",
+        appliedToast: "Names imported",
+        applyFailedToast: "Could not import the names",
+      },
+      pictures: {
+        open: "Import pictures",
+        title: "Import pictures",
+        description: (book: string) =>
+          `Give many numbers in ${book} their picture in one go. Each file is uploaded and saved to its number as you watch.`,
+        namingHint:
+          "Name each file by its number: 027.png in Dream 1000, 07.png in Dream 100. Letters after the number are ignored (027-fish.png).",
+        replaceHint:
+          "PNG, JPEG or WebP, up to 10 MB each. A number that already has a picture gets the new one.",
+        chooseFiles: "Choose pictures",
+        chooseAgain: "Choose different pictures",
+        planSummary: (files: number, matched: number, skipped: number) =>
+          `${files} files · ${matched} match a number · ${skipped} skipped`,
+        skipReasons: {
+          no_number: "Name does not start with a number",
+          out_of_range: "Number is not in this book",
+          duplicate: "Same number as an earlier file",
+          wrong_type: "Not a PNG, JPEG or WebP",
+          too_large: "Over 10 MB",
+        },
+        startHint: "Start uploads the matching files and saves each to its number.",
+        nothingToStart: "No file matches a number.",
+        start: "Start",
+        progressLabel: "Pictures imported",
+        progress: (done: number, total: number, failed: number) =>
+          `${done} of ${total} done · ${failed} failed`,
+        doneSummary: (done: number, failed: number, left: number) =>
+          left > 0
+            ? `${done} done · ${failed} failed · ${left} not started`
+            : `${done} done · ${failed} failed`,
+        stopping: "Stopping after the current files…",
+        rowMissing: "No row for this number",
+        continueRun: "Continue",
+        retryFailed: "Retry failed",
+        moreNames: (count: number) => `+${count} more`,
+        doneToast: "Pictures imported",
+        stoppedToast: "Import stopped",
+      },
+    },
+    settings: {
+      title: "Lottery settings",
+      description:
+        "What a ticket costs, how many tickets one customer may hold per number, the exchange rate for prizes, and when sales close before the Thai draw.",
+      readOnly: "You can look at these but not change them.",
+      loadError: "Could not load the lottery settings.",
+      ticketsTitle: "Tickets",
+      ticketPriceLabel: "Ticket price (Ks)",
+      maxPerNumberLabel: "Tickets per number",
+      maxPerNumberHint:
+        "The most tickets one customer may hold for one number in a draw, counting the ones they already have.",
+      copiedNote:
+        "The price and the limit are copied into a draw when it is created. Changing them here does not change a draw already on sale.",
+      prizesTitle: "Prizes",
+      exchangeRateLabel: "Exchange rate (Ks per 1 Baht)",
+      exchangeRateHint:
+        "The Thai lottery sets prizes in Baht; they are worked out in kyat at this rate when the results are published and paid when each claim is confirmed.",
+      exchangeExample: (baht: string, rate: string, ks: string) =>
+        `${baht} Baht × ${rate} = ${ks} Ks`,
+      claimDeadlineLabel: "Prize claim deadline (days)",
+      claimDeadlineHint:
+        "After this many days from publishing, a prize that was never requested expires.",
+      closingTitle: "Sales close",
+      closeMinutesLabel: "Minutes before the Thai draw",
+      closeMinutesHint:
+        "The Thai draw is at 14:00 Myanmar time on the draw date. A draw can be given its own closing time.",
+      closesAt: (time: string) =>
+        `Sales close at ${time} Myanmar time on draw day.`,
+      closesAtDayBefore: (time: string) =>
+        `Sales close at ${time} Myanmar time on the day before the draw.`,
+      invalid: {
+        ticketPrice: "Enter a price of 1 Ks or more, with at most 2 decimals.",
+        maxPerNumber: (min: number, max: number) =>
+          `Enter a whole number from ${min} to ${max}.`,
+        exchangeRate: (decimals: number) =>
+          `Enter a rate above 0 with at most ${decimals} decimals.`,
+        closeMinutes: (min: number, max: number) =>
+          `Enter a whole number from ${min} to ${max}.`,
+        claimDeadline: (min: number, max: number) =>
+          `Enter a whole number from ${min} to ${max}.`,
+      },
+      lastChanged: (who: string, when: string) =>
+        `Last changed by ${who} on ${when}`,
+      neverChanged: "Not changed yet — the defaults are in use.",
+      saveChanges: "Save changes",
+      updatedToast: "Lottery settings saved",
+      saveFailedToast: "Could not save the settings",
+      frame: {
+        title: "Ticket frame",
+        description:
+          "The background every ticket prints on, with all the printed parts. The frame is copied into a draw when it is created, so tickets already sold keep the frame they were sold with.",
+        builtIn: "Using the built-in frame.",
+        uploaded: "Using an uploaded frame.",
+        picked: (name: string) => `${name} — uploaded when you save.`,
+        upload: "Upload frame",
+        replace: "Replace frame",
+        remove: "Remove",
+        hint: "PNG 1800 × 940 or 3600 × 1880, up to 25 MB. Keep the layout of the guide: only the background artwork changes.",
+        tooLargeToast:
+          "That file is over 25 MB. Export the frame smaller and pick it again.",
+        downloadGuide: "Download layout guide",
+        guideFailedToast: "Could not build the layout guide",
+        sampleTitle: "Sample ticket",
+        sampleHint:
+          "How a ticket prints on this frame, with a sample picture and number. The phone uses its own fonts; the positions are the same.",
+        previewLabel: "Sample ticket on the current frame",
+        uploading: "Uploading frame…",
+      },
+      resultsSource: {
+        title: "Results source",
+        description:
+          "Where the winning numbers are fetched from after each Thai draw. They are shown on the draw's page; nothing is paid until you publish them there.",
+        urlLabel: "Results URL",
+        urlPlaceholder: "https://",
+        urlHint:
+          "Leave empty to enter results by hand. Use {date} in the URL for a per-date endpoint; without it the URL must return the latest draw.",
+        urlInvalid: "Enter an http or https address.",
+        offLine:
+          "Fetching is off: the numbers are entered by hand on each draw's page.",
+        test: "Test the source",
+        testing: "Testing…",
+        testUnsaved: "Save the URL first — the test calls the saved one.",
+        testOk: (date: string) =>
+          `The source answered with the draw of ${date}.`,
+        testOkNoDate: "The source answered.",
+        testFailed: "The source did not answer.",
+        testGroups: (summary: string) => `Groups: ${summary}`,
+        testFailedToast: "Could not test the source",
+      },
+    },
+    draws: {
+      title: "Lottery draws",
+      description:
+        "One draw per Thai lottery date. Open sales, watch the tickets come in, and close before the draw.",
+      readOnly: "You can look at these but not change them.",
+      loadError: "Could not load the draws.",
+      emptyTitle: "No draws yet",
+      emptyDescription: "Create the first draw to start selling tickets.",
+      noMatches: "No draws with this status.",
+      newDraw: "New draw",
+      filters: {
+        all: "All",
+        scheduled: "Scheduled",
+        open: "Open",
+        paused: "Paused",
+        closed: "Closed",
+        published: "Published",
+      },
+      statuses: {
+        scheduled: "Scheduled",
+        open: "Open",
+        paused: "Paused",
+        closed: "Closed",
+        published: "Published",
+      },
+      columns: {
+        drawNo: "Draw no",
+        thaiDrawDate: "Thai draw date",
+        salesClose: "Sales close (MMT)",
+        status: "Status",
+        ticketsSold: "Tickets sold",
+        revenue: "Revenue (Ks)",
+        buyers: "Buyers",
+      },
+      /** Under a published draw's status badge in the list. */
+      publishedLine: (winners: number, ks: string) =>
+        `${winners} winners · ${ks} paid`,
+      open: "Open",
+      drawLabel: (drawNo: number) => `Draw ${drawNo}`,
+      mmt: "MMT",
+      form: {
+        createTitle: "New draw",
+        createDescription:
+          "The draw starts as scheduled. Open sales from its page when it is ready.",
+        editTitle: "Edit draw",
+        drawNoLabel: "Draw no",
+        drawNoHint: "The next number is filled in.",
+        drawNoInvalid: "Enter a whole number of 1 or more.",
+        thaiDrawDateLabel: "Thai draw date",
+        thaiDrawDateHint:
+          "The Thai lottery draws on the 1st and the 16th at 14:00 Myanmar time.",
+        dateInvalid: "Enter a date.",
+        salesCloseLabel: "Sales close (Myanmar time)",
+        salesClosePreview: (when: string, minutes: number) =>
+          `${when} — ${minutes} minutes before the draw, from Settings.`,
+        overrideSalesClose: "Set a different closing time",
+        useDefaultSalesClose: "Use the time from Settings",
+        salesCloseInvalid: "Sales must close before the Thai draw.",
+        pictureLabel: "Picture",
+        pictureHint:
+          "Shown on the draw in the apps. It locks once tickets are sold.",
+        uploadPicture: "Upload picture",
+        replacePicture: "Replace picture",
+        removePicture: "Remove",
+        uploadingPicture: "Uploading picture…",
+        frame: {
+          label: "Ticket frame",
+          fromSettings: "From Settings",
+          builtIn: "Built-in frame",
+          own: "This draw's own frame",
+          picked: (name: string) => `${name} — uploaded on Save`,
+          useDifferent: "Use a different frame",
+          useSettings: "Use the frame from Settings",
+          useBuiltIn: "Use the built-in frame",
+          keepCurrent: "Keep the current frame",
+          hint: "Copied from Settings when the draw is created. It locks once tickets are sold. PNG up to 25 MB.",
+          tooLargeToast:
+            "That file is over 25 MB. Export the frame smaller and pick it again.",
+          uploading: "Uploading frame…",
+        },
+        copiedNote: (price: string, max: number) =>
+          `Price ${price} and up to ${max} per number are copied from Settings.`,
+        settingsUnavailable:
+          "Settings could not be loaded. The backend fills in the price and the limit.",
+        ticketPriceLabel: "Ticket price (Ks)",
+        priceInvalid: "Enter a price of 1 Ks or more, with at most 2 decimals.",
+        maxPerNumberLabel: "Tickets per number",
+        maxPerNumberInvalid: (min: number, max: number) =>
+          `Enter a whole number from ${min} to ${max}.`,
+        locked: {
+          sold: "Locked: tickets have been sold.",
+          published: "Locked: the draw is published.",
+          closed: "Locked: sales are closed.",
+        },
+        createdToast: "Draw created",
+        updatedToast: "Draw saved",
+        saveFailedToast: "Could not save the draw",
+      },
+      detail: {
+        backToList: "Back to draws",
+        loadError: "Could not load the draw.",
+        notFoundTitle: "Draw not found",
+        notFoundDescription: "This draw does not exist or was removed.",
+        ticketsSoldCard: "Tickets sold",
+        revenueCard: "Revenue",
+        buyersCard: "Buyers",
+        winnersCard: "Winners",
+        prizesPaidCard: "Prizes paid",
+        drawCardTitle: "Draw",
+        thaiDrawDate: "Thai draw date",
+        drawAt: "Thai draw",
+        salesCloseAt: "Sales close",
+        ticketPrice: "Ticket price",
+        maxPerNumber: "Tickets per number",
+        exchangeRate: "Exchange rate",
+        exchangeRateUnset: "Set when the results are published",
+        exchangeRateValue: (rate: string) => `${rate} Ks per Baht`,
+        openedAt: "Opened",
+        closedAt: "Closed",
+        publishedAt: "Published",
+        ticketPreview: (drawNo: number) =>
+          `Sample ticket for draw ${drawNo}: its frame and picture as the apps print them.`,
+        edit: "Edit",
+        actions: {
+          open: "Open sales",
+          pause: "Pause sales",
+          close: "Close sales",
+          reopen: "Reopen sales",
+        },
+        cannotOpenPast:
+          "Sales cannot open: the closing time has passed. Edit the draw to move it.",
+        cannotReopenPast: "Sales cannot reopen: the closing time has passed.",
+        cannotReopenResults:
+          "Sales cannot reopen: the results are already in for this draw.",
+        confirm: {
+          openTitle: "Open sales?",
+          openDescription: (drawNo: number, until: string) =>
+            `Customers can buy tickets for draw ${drawNo} until ${until} Myanmar time.`,
+          pauseTitle: "Pause sales?",
+          pauseDescription: (drawNo: number) =>
+            `Customers cannot buy tickets for draw ${drawNo} until sales are opened again.`,
+          closeTitle: "Close sales?",
+          closeDescription: (drawNo: number) =>
+            `Customers can no longer buy tickets for draw ${drawNo}. Sales can reopen only while the closing time is still ahead and no results are in.`,
+          reopenTitle: "Reopen sales?",
+          reopenDescription: (drawNo: number, until: string) =>
+            `Sales open again until ${until} Myanmar time. Customers can buy tickets for draw ${drawNo}.`,
+        },
+        openedToast: "Sales open",
+        pausedToast: "Sales paused",
+        closedToast: "Sales closed",
+        reopenedToast: "Sales open again",
+        actionFailedToast: "Could not change the draw",
+        offSale: {
+          title: "Off-sale numbers",
+          description:
+            "Numbers customers cannot buy in this draw. Save replaces the whole list.",
+          empty: "Every number is on sale.",
+          count: (count: number) => `${count} off sale`,
+          addPlaceholder: "6-digit number",
+          add: "Add",
+          addHint:
+            "Several numbers can be pasted at once, separated by spaces or commas.",
+          invalid: "Enter a 6-digit number.",
+          duplicate: "That number is already on the list.",
+          tooMany: (max: number) => `At most ${max} numbers.`,
+          remove: (number: string) => `Remove ${number}`,
+          unsaved: "Unsaved changes",
+          save: "Save list",
+          savedToast: "Off-sale numbers saved",
+          saveFailedToast: "Could not save the list",
+        },
+        tickets: {
+          title: "Tickets",
+          description: "Every ticket sold in this draw, newest first.",
+          loadError: "Could not load the tickets.",
+          searchPlaceholder:
+            "Search ticket ID, number, purchase ref or customer…",
+          empty: "No tickets sold yet.",
+          noMatches: "No tickets match.",
+          columns: {
+            ticket: "Ticket",
+            number: "Number",
+            customer: "Customer",
+            purchaseRef: "Purchase",
+            boughtAt: "Bought (MMT)",
+            status: "Status",
+          },
+          statuses: {
+            waiting: "Waiting",
+            won: "Won",
+            notwon: "Not won",
+          },
+        },
+        results: {
+          title: "Results",
+          description:
+            "The winning numbers of the Thai draw. Check them, set the rate, then publish to mark every ticket and work out every prize. Winners request their payment in the app; you confirm each one on Prize claims.",
+          loadError: "Could not load the results.",
+          status: {
+            beforeDraw: "Waiting for the Thai draw",
+            pending: "Waiting for results",
+            pendingHint: (when: string) =>
+              `Fetched automatically after the Thai draw at ${when} Myanmar time.`,
+            fetchedApi: (when: string) =>
+              `Fetched at ${when} MMT from the source`,
+            fetchedManual: (when: string, by: string | null) =>
+              by
+                ? `Entered by hand at ${when} MMT by ${by}`
+                : `Entered by hand at ${when} MMT`,
+            failed: "The last fetch failed",
+            /** The badge next to the card title. */
+            badges: {
+              waiting: "Waiting",
+              fetched: "Fetched",
+              manual: "Entered by hand",
+              failed: "Fetch failed",
+            },
+            published: (when: string) => `Published at ${when} MMT`,
+            /** Under the published line: what publishing worked out, and that it paid nobody. */
+            publishedHint: (winners: number, ks: string, rate: string) =>
+              `${winners} winning ${winners === 1 ? "ticket" : "tickets"} · ${ks} in prizes worked out at ${rate} Ks per Baht · nobody was paid by publishing: winners request, you confirm.`,
+            attempts: (count: number) => `${count} attempts`,
+            sourceDate: (date: string) =>
+              `The source showed the draw of ${date}.`,
+          },
+          noNumbers: "No numbers yet.",
+          noSource:
+            "No results source is set: enter the numbers by hand, or set a URL in Settings.",
+          notClosed:
+            "The numbers can be fetched or entered once sales are closed.",
+          perTicket: "per winning ticket",
+          bahtValue: (baht: string) => `${baht} Baht`,
+          ksValue: (ks: string) => `= ${ks}`,
+          countOf: (shown: number, total: number) => `${shown} of ${total}`,
+          showAll: (count: number) => `Show all ${count}`,
+          showFewer: "Show fewer",
+          rateLabel: "Rate for this draw (Ks per 1 Baht)",
+          rateHint:
+            "Prefilled from Settings. Prizes are worked out at this rate; it locks when the draw is published.",
+          rateInvalid: (decimals: number) =>
+            `Enter a rate above 0 with at most ${decimals} decimals.`,
+          ratePaid: (rate: string) =>
+            `Prizes at ${rate} Ks per Baht. The rate locked when the draw was published.`,
+          nearFirstWarning: "Next to 1st prize should be the 1st prize ±1.",
+          incompleteSheet:
+            "The sheet is incomplete: every group needs its full count of numbers.",
+          fetchNow: "Fetch now",
+          fetching: "Fetching…",
+          fetchedToast: "Results fetched",
+          fetchNoMatchToast: "The source does not show this draw yet",
+          fetchFailedToast: "Could not fetch the results",
+          enterByHand: "Enter by hand",
+          publish: "Publish results",
+          /** The one-line note under the buttons: publishing pays nobody. */
+          publishNoteLead: "Publishing pays nobody.",
+          publishNote:
+            "Every ticket is marked won or not won and every prize is worked out at this rate. Winners request their payment in the app; you confirm each one on Prize claims.",
+          counting: "Counting the winners…",
+          previewFailedToast: "Could not count the winners",
+          publishedToast: "Draw published",
+          publishedDescription: (winners: number, ks: string) =>
+            `${winners} winning ${winners === 1 ? "ticket" : "tickets"} · ${ks} in prizes awarded. Nobody was paid: winners request, you confirm on Prize claims.`,
+          publishFailedToast: "Could not publish the draw",
+          /** The claims strip on a published draw's Results card (2026-10-24). */
+          claims: {
+            title: "Prize claims for this draw",
+            winningTickets: "Winning tickets",
+            prizeTotal: "Prize total",
+            waiting: "Waiting",
+            paid: "Paid",
+            notRequested: "Not requested",
+            rejected: "Rejected",
+            expired: "Expired",
+            tickets: (count: number): string => (count === 1 ? "ticket" : "tickets"),
+            note: "Each claim is confirmed one at a time on Prize claims; there is no pay-all.",
+            deadline: (when: string) => `Deadline for requests: ${when} MMT.`,
+            open: "Open prize claims for this draw",
+            headerButton: "Prize claims for this draw",
+            unavailable: "The claims summary is not available for this draw yet.",
+          },
+          enter: {
+            title: "Enter results by hand",
+            description: (drawNo: number, date: string) =>
+              `Draw ${drawNo} · Thai draw of ${date}. Type every group's numbers as the Thai lottery published them.`,
+            numbersLabel: (count: number, digits: number) =>
+              `${count} numbers of ${digits} digits`,
+            numbersHint: "Paste the numbers separated by spaces or commas.",
+            bahtLabel: "Baht per ticket",
+            countLine: (have: number, need: number) => `${have} of ${need}`,
+            wrongDigits: (digits: number) =>
+              `Every number needs ${digits} digits.`,
+            duplicate: "A number is repeated.",
+            bahtInvalid: "Enter a Baht amount of 0 or more.",
+            noteLabel: "Note",
+            notePlaceholder:
+              "e.g. The source was down, copied from the lottery site",
+            replaceHint:
+              "Save replaces the whole sheet. It can be changed again until the draw is published.",
+            save: "Save sheet",
+            savedToast: "Results saved",
+            saveFailedToast: "Could not save the results",
+          },
+          publishDialog: {
+            title: "Publish results?",
+            description: (drawNo: number) =>
+              `Draw ${drawNo} is shown to customers as published, every ticket is marked won or not won and the prizes are worked out. Nobody is paid now: the winners request their payment in the app and you confirm each one on Prize claims. This cannot be undone.`,
+            summary: (winners: number, ks: string) =>
+              `${winners} winning ${winners === 1 ? "ticket" : "tickets"} · ${ks} in prizes`,
+            noWinners:
+              "No ticket won. The draw is published and every ticket is marked not won.",
+            ticketsChecked: (count: number) => `${count} tickets checked`,
+            rateLine: (rate: string) => `At ${rate} Ks per Baht.`,
+            rateDiffers: (rate: string) =>
+              `The totals were counted at ${rate} Ks per Baht and scaled to the rate above, which is the one used when you publish.`,
+            byGroup: "By group",
+            groupLine: (winners: number, ks: string) => `${winners} · ${ks}`,
+            confirm: "Publish results",
+            paying: "Publishing the results… this can take a minute.",
+          },
+        },
+        winners: {
+          title: "Winners",
+          description:
+            "Every winning ticket in this draw, biggest prize first. The Claim column says where each ticket's payment stands.",
+          loadError: "Could not load the winners.",
+          searchPlaceholder: "Search ticket ID, number or customer…",
+          empty: "No ticket won in this draw.",
+          noMatches: "No winners match.",
+          columns: {
+            ticket: "Ticket",
+            number: "Number",
+            customer: "Customer",
+            groups: "Prize groups",
+            baht: "Baht",
+            ks: "Prize (Ks)",
+            claim: "Claim",
+            paidAt: "Paid (MMT)",
+            transaction: "Transaction",
+          },
+        },
+      },
+    },
+    /**
+     * Prize claims (/lottery/claims, 2026-10-24): winners request their
+     * prize in the app, staff confirm or reject each claim here. The copy is
+     * the approved board's (docs/lottery-design-2026-10-13/app/project/
+     * AdminClaims.dc.html); every time is Myanmar time.
+     */
+    claims: {
+      title: "Prize claims",
+      description:
+        "Winners ask for their prize in the app; you confirm or reject each request here. One row per customer per draw. There is no pay-all: every payment is one confirmed claim.",
+      timezone: "Myanmar time (MMT, UTC+6:30)",
+      updated: (when: string) => `Updated ${when} MMT`,
+      readOnly:
+        "You can look at the claims but not confirm or reject them — that needs LOTTERY.CLAIMS_CONFIRM.",
+      openDraw: (drawNo: number) => `Open Draw ${drawNo}`,
+      drawLabel: (drawNo: number, date: string) => `Draw ${drawNo} · ${date}`,
+      oneAtATime: "Confirm one claim at a time",
+      permissionLine: "Viewing needs LOTTERY.VIEW · paying and rejecting need LOTTERY.CLAIMS_CONFIRM",
+      /** Where a prize's payment stands — the chips on this page and in the draw page's Claim column. */
+      statuses: {
+        not_requested: "Not requested",
+        requested: "Waiting",
+        paid: "Paid",
+        rejected: "Rejected",
+        expired: "Expired",
+      },
+      reasons: {
+        suspicious_account: "Suspicious account",
+        duplicate_request: "Duplicate request",
+        ticket_under_review: "Ticket under review",
+        other: "Other",
+      },
+      tiles: {
+        waiting: "Waiting for confirmation",
+        waitingSub: (ks: string) => `${ks} to pay`,
+        waitingEmpty: "Nothing to confirm right now",
+        paidToday: "Paid today",
+        paidTodaySub: (ks: string) => `${ks} · each with one audit row`,
+        paidTodayEmpty: "Nothing paid yet today",
+        notRequested: "Not yet requested",
+        notRequestedSub: (ks: string, tickets: number) => `${ks} across ${tickets} ${tickets === 1 ? "ticket" : "tickets"}`,
+        notRequestedEmpty: "Every prize has been requested",
+        expiredSub: (tickets: number, ks: string) => `${tickets} ${tickets === 1 ? "ticket" : "tickets"} expired (${ks})`,
+        rejected: "Rejected",
+        rejectedSub: (ks: string) => `${ks} · a rejected claim can be reviewed again`,
+        rejectedEmpty: "No rejected claims",
+        claimUnit: (count: number): string => (count === 1 ? "claim" : "claims"),
+        winnerUnit: (count: number): string => (count === 1 ? "winner" : "winners"),
+        loadError: "The totals could not be loaded.",
+      },
+      tabs: {
+        requested: "Waiting",
+        paid: "Paid",
+        rejected: "Rejected",
+        not_requested: "Not requested",
+        all: "All",
+      },
+      filters: {
+        draw: "Draw",
+        search: "Search",
+        searchPlaceholder: "Phone, name or ticket no…",
+        drawsLoadError: "The draw list could not be loaded; the list still shows all draws.",
+      },
+      loadError: "Could not load the claims.",
+      columns: {
+        requestedAt: "Requested (MMT)",
+        customer: "Customer",
+        draw: "Draw",
+        tickets: "Tickets",
+        ks: "Prize (Ks)",
+        status: "Status",
+        action: "Action",
+      },
+      notRequestedCell: "not requested",
+      ticketCount: (count: number) => `${count} ${count === 1 ? "ticket" : "tickets"}`,
+      review: "Review",
+      view: "View",
+      empty: {
+        requested: {
+          title: "No claims waiting",
+          description:
+            "Every request has been confirmed or rejected. New requests appear here as customers send them from the app.",
+        },
+        paid: {
+          title: "No paid claims",
+          description: "Nothing has been paid in this selection yet.",
+        },
+        rejected: {
+          title: "No rejected claims",
+          description: "No claim has been rejected in this selection.",
+        },
+        not_requested: {
+          title: "No prizes waiting to be requested",
+          description: "Every winner in this selection has asked for their prize.",
+        },
+        all: {
+          title: "No claims yet",
+          description:
+            "Claims appear here once a draw is published and its winners request their prizes.",
+        },
+        searchTitle: "No claims match",
+        searchDescription: (q: string, draw: string) =>
+          `Nothing matches "${q}" in ${draw}. Search by phone, name or ticket no.`,
+        inDraw: (draw: string) => `Nothing in ${draw} under this tab. Try another tab or all draws.`,
+        showAll: "Show all claims",
+        clearSearch: "Clear the search",
+      },
+      /** The Review dialog: the customer beside every ticket of the claim, then one decision. */
+      dialog: {
+        title: (name: string) => `Claim · ${name}`,
+        requestedAt: (when: string) => `requested ${when} MMT`,
+        loadError: "Could not load the claim.",
+        notFound: "This claim does not exist any more.",
+        customer: "Customer",
+        name: "Name",
+        phone: "Phone",
+        memberSince: "Member since",
+        walletBalance: "Wallet balance now",
+        earlierClaims: "Earlier claims",
+        account: "Account",
+        earlier: (paid: number, rejected: number) => `${paid} paid · ${rejected} rejected`,
+        earlierNone: "None (first claim)",
+        accountActive: "Active",
+        accountNew: "New account",
+        openCustomer: "Open the customer",
+        ticketsTitleOne: "The winning ticket",
+        ticketsTitle: (count: number) => `The ${count} winning tickets`,
+        ticketColumns: {
+          ticket: "Ticket",
+          number: "Number",
+          group: "Prize group",
+          baht: "Baht",
+          ks: "Ks",
+        },
+        total: "Total",
+        ticketsSummary: (count: number, ks: string) => `${count} winning ${count === 1 ? "ticket" : "tickets"} · ${ks}`,
+        ticketsUnavailable: "The ticket lines arrive with the request.",
+        rateLine: (rate: string, draw: string, when: string) =>
+          `Prizes at ${rate} Ks per Baht, the rate published with ${draw} on ${when} MMT.`,
+        whenRequested: (when: string) => `Requested ${when} MMT from the app.`,
+        whenNotRequested: (deadline: string) =>
+          `Not requested yet · prizes can be requested until ${deadline} MMT.`,
+        whenNotRequestedNoDeadline: "Not requested yet.",
+        banner: {
+          newAccountTitle: "New account, first claim",
+          newAccountRepeatTitle: "New account",
+          newAccountText: (since: string, wallet: string) =>
+            `Joined ${since}, wallet ${wallet}. Worth a look before paying; reject with "Ticket under review" if Finance should check first.`,
+          payTitle: "Confirm and pay credits the wallet at once",
+          payText: (ks: string, name: string) =>
+            `${ks} is added to ${name}'s MyanFlix wallet as a LOTTERY_PRIZE ledger row, and one audit row names you. This cannot be undone.`,
+          paidTitle: (when: string, by: string) => `Paid ${when} MMT by ${by}`,
+          paidAtPublishTitle: (when: string) => `Paid ${when} MMT when the draw was published`,
+          paidText: (transactionId: string) =>
+            `Ledger ${transactionId} (LOTTERY_PRIZE) · audit row written · the customer sees "Paid into your wallet" in the app.`,
+          paidTextNoLedger: `The customer sees "Paid into your wallet" in the app.`,
+          rejectedTitle: (when: string, by: string, reason: string) =>
+            `Rejected ${when} MMT by ${by} · ${reason}`,
+          rejectedText: (note: string) =>
+            `${note} The customer sees this reason in the app. "Review again" puts the claim back to Waiting.`,
+          noNote: "No note.",
+          notRequestedTitle: "Not requested yet",
+          notRequestedText: (deadline: string) =>
+            `The customer has not asked for this prize. Nothing can be paid from here: the request has to come from the app (deadline ${deadline} MMT).`,
+          notRequestedTextNoDeadline:
+            "The customer has not asked for this prize. Nothing can be paid from here: the request has to come from the app.",
+        },
+        perm: {
+          pay: "Needs LOTTERY.CLAIMS_CONFIRM · writes one audit row",
+          reopen: "Review again needs LOTTERY.CLAIMS_CONFIRM",
+          readOnly: "Read-only · LOTTERY.VIEW",
+        },
+        reviewAgain: "Review again",
+        reject: "Reject…",
+        confirmPay: (ks: string) => `Confirm and pay ${ks}`,
+        paying: "Paying…",
+        paidToast: (ks: string, name: string) => `Paid ${ks} to ${name}`,
+        paidToastDescription: (draw: string) =>
+          `${draw} · wallet credited (LOTTERY_PRIZE) · one audit row · the customer now sees "Paid into your wallet".`,
+        payFailedToast: "Could not pay the claim",
+        reopenedToast: "Claim reopened for review",
+        reopenedToastDescription: (name: string, draw: string) =>
+          `${name} · ${draw} · it is Waiting again; the customer no longer sees the rejection reason.`,
+        reopenFailedToast: "Could not reopen the claim",
+        stateChanged: "The claim changed since this page loaded. It has been reloaded.",
+      },
+      /** The Reject dialog: a preset reason + a note the customer reads. */
+      rejectDialog: {
+        title: "Reject this claim?",
+        text: (name: string, draw: string, ks: string) =>
+          `${name} · ${draw} · ${ks}. The customer sees the reason in the app under "Payment not confirmed". You can review the claim again later.`,
+        reason: "Reason",
+        reasonHelp: {
+          suspicious_account:
+            "Use when the account or device looks wrong. Finance should check the account before anything is paid.",
+          duplicate_request:
+            "Use when this prize was already requested or paid from another account or request.",
+          ticket_under_review:
+            "Use when the ticket itself needs checking first. Support contacts the customer.",
+          other: "Write the reason in the note: the customer reads it word for word.",
+        },
+        noteRequired: "Note (required, shown to the customer)",
+        noteOptional: "Note (optional, shown to the customer)",
+        notePlaceholder:
+          "e.g. We are checking this ticket before paying. Support will contact you within 2 working days.",
+        noteHelp: "Plain words. The customer reads this under the reason.",
+        noteMissing: "Write the reason so the customer understands.",
+        noteTooLong: (max: number) => `At most ${max} characters.`,
+        noteCount: (used: number, max: number) => `${used}/${max}`,
+        submit: "Reject claim",
+        rejectedToast: (reason: string) => `Claim rejected · ${reason}`,
+        rejectedToastDescription: (name: string, draw: string, ks: string) =>
+          `${name} · ${draw} · ${ks} not paid · the customer sees the reason · one audit row.`,
+        rejectFailedToast: "Could not reject the claim",
+      },
+    },
+    /**
+     * The Analytics dashboard (/lottery/analytics) and its Reports page
+     * (2026-10-23). Every figure is in Myanmar time; the copy is the approved
+     * boards' (docs/lottery-design-2026-10-13/app/project/AdminAnalytics*).
+     */
+    analytics: {
+      title: "Lottery analytics",
+      description:
+        "Tickets, purchases, buyers and when people play — observed from paid purchases, in Myanmar time.",
+      reportingTime: "Reporting time: Myanmar time (MMT, UTC+6:30)",
+      updated: (when: string) => `Updated ${when} MMT`,
+      reportsButton: "Reports",
+      exportCsv: "Export CSV",
+      exporting: "Exporting…",
+      exportFailedToast: "Could not export the CSV",
+      exportedToast: (file: string) => `${file} downloaded. Times are MMT.`,
+      exportedNumbersToast: (file: string) =>
+        `${file} downloaded. Times are MMT; lottery numbers are written as text (="000007") so spreadsheets keep their leading zeros.`,
+      mmt: "MMT",
+      none: "—",
+      /** Monday first — the wire's weekday 0. */
+      weekdays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      weekdaysShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+      /** Indexed by hour 0–23 (MMT): the start of the hour. */
+      hourLabels: [
+        "12:00 AM", "1:00 AM", "2:00 AM", "3:00 AM", "4:00 AM", "5:00 AM",
+        "6:00 AM", "7:00 AM", "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
+        "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM",
+        "6:00 PM", "7:00 PM", "8:00 PM", "9:00 PM", "10:00 PM", "11:00 PM",
+      ],
+      /** "2:00 PM–3:00 PM" — an hour bucket covers the hour that FOLLOWS its label. */
+      hourRange: (from: string, to: string) => `${from}–${to}`,
+      /** "3:40 PM": the two halves of the day and how a clock time reads. */
+      dayHalves: ["AM", "PM"],
+      clock: (half: string, hour12: number, minutes: string) => `${hour12}:${minutes} ${half}`,
+      /** "Thu 16 Oct", "Thu 16 Oct 2026", "Thu 16–Wed 22 Oct 2026". */
+      date: {
+        day: (weekday: string, day: number, month: string) => `${weekday} ${day} ${month}`,
+        dayYear: (weekday: string, day: number, month: string, year: number) =>
+          `${weekday} ${day} ${month} ${year}`,
+        short: (day: number, month: string) => `${day} ${month}`,
+        shortYear: (day: number, month: string, year: number) => `${day} ${month} ${year}`,
+        span: (from: string, to: string) => `${from}–${to}`,
+      },
+      filters: {
+        period: "Period",
+        draw: "Draw",
+        view: "View",
+        allDraws: "All draws",
+        drawOption: (drawNo: number, date: string) => `Draw ${drawNo} · ${date}`,
+        drawOptionStatus: (drawNo: number, date: string, status: string) =>
+          `Draw ${drawNo} · ${date} (${status})`,
+        drawsLoadError: "The draw list could not be loaded; the period still applies to all draws.",
+        periods: {
+          today: "Today",
+          yesterday: "Yesterday",
+          last7: "Last 7 days",
+          last30: "Last 30 days",
+          month: "This month",
+          custom: "Custom…",
+          all: "All time",
+        },
+        customChip: (range: string) => `Custom · ${range}`,
+        views: { hourly: "Hourly", daily: "Daily", weekly: "Weekly" },
+        viewTitle: (view: string) => `${view} view`,
+        viewHints: {
+          daily: "Needs more than one day",
+          weekly: "Needs at least 14 days",
+        },
+        fallback: {
+          weeklyDaily: "Weekly view needs at least 14 days: showing days",
+          weeklyHourly: "Weekly view needs at least 14 days: showing hours",
+          dailyHourly: "Daily view needs more than one day: showing hours",
+        },
+      },
+      customRange: {
+        title: "Custom range",
+        descriptionDashboard:
+          "Dates are calendar days in Myanmar time (MMT, UTC+6:30). The report compares the range with the equal period before it when there is data for it.",
+        descriptionReports:
+          "Dates are calendar days in Myanmar time (MMT, UTC+6:30). Reports count the purchases made inside the range.",
+        from: "From",
+        to: "To",
+        enterBoth: "Enter both dates.",
+        endBeforeStart: "The end date is before the start date.",
+        endAfterToday: "The end date is after today.",
+        tooLong: (max: number) => `The range is longer than ${max} days.`,
+        help: (days: number, range: string) => `${days} days · ${range}`,
+        helpCompared: (days: number, range: string) =>
+          `${days} days · ${range} · compared with the ${days} days before`,
+        cancel: "Cancel",
+        apply: "Apply range",
+      },
+      /** The range line under the filters. */
+      range: {
+        today: (date: string, time: string) => `Today, ${date} · to ${time}`,
+        yesterday: (date: string) => `Yesterday, ${date}`,
+        last7: (range: string) => `Last 7 days · ${range}`,
+        last30: (range: string) => `Last 30 days · ${range}`,
+        month: (range: string, time: string) => `This month · ${range}, to ${time}`,
+        custom: (range: string) => `Custom · ${range}`,
+        allTime: "All time",
+        allTimeSince: (date: string) => `All time · since ${date}`,
+        comparedWith: (days: number, range: string) =>
+          `Compared with the previous ${days} days (${range})`,
+        comparedWithDay: (date: string) => `Compared with ${date}`,
+        /** Today: the backend compares with the WHOLE previous day, so say so. */
+        comparedWithWholeDay: (date: string) =>
+          `Compared with the whole of yesterday (${date}) — today is still in progress`,
+        noEarlierData: "No earlier data",
+        noEarlierDataSince: (date: string) => `No earlier data: sales began ${date}`,
+        /** `inVs` carries its own preposition: "in the previous 7 days", "yesterday", "on Wed 21 Oct". */
+        noEarlierDataDraw: (draw: string, inVs: string) => `No earlier data for ${draw} ${inVs}`,
+        /**
+         * The comparison period in three grammatical shapes (format.ts
+         * comparisonWords): after "vs" ("previous 7 days" / "all of
+         * yesterday" / "Wed 21 Oct"), after "Same as" ("the previous 7 days"
+         * / "yesterday" / "Wed 21 Oct") and after "Was …" ("in the previous
+         * 7 days" / "yesterday" / "on Wed 21 Oct").
+         */
+        vsDays: (days: number) => `previous ${days} days`,
+        vsYesterday: "all of yesterday",
+        sameDays: (days: number) => `the previous ${days} days`,
+        sameYesterday: "yesterday",
+        inDays: (days: number) => `in the previous ${days} days`,
+        inYesterday: "yesterday",
+        onDay: (date: string) => `on ${date}`,
+        scope: (tickets: string, buyers: string) => `${tickets} tickets · ${buyers} buyers in this selection`,
+        scopeEmpty: "No purchases in this selection",
+      },
+      states: {
+        loading: (range: string) => `Loading ${range}…`,
+        loadingReports: (draw: string) => `Loading reports for ${draw}…`,
+        errorTitle: "We could not load the analytics",
+        errorDescription: (range: string) =>
+          `The report for ${range} did not come back. Nothing was changed. Check your connection and try again.`,
+        cardError: "This card could not be loaded.",
+        emptyTitle: "No purchases in this period",
+        emptyDescription: (draw: string, range: string) =>
+          `Nothing was sold for ${draw} in ${range}. Try a longer period or all draws.`,
+        emptyReportsTitle: "No purchases in this selection",
+        emptyReportsDescription: (draw: string, range: string) =>
+          `Nothing was sold for ${draw} in ${range}.`,
+        showLast30: "Show last 30 days",
+        showAllTime: "Show all time",
+        allDraws: "All draws",
+      },
+      overview: {
+        ticketsSold: "Total tickets sold",
+        purchases: "Purchase transactions",
+        buyers: "Unique purchasing users",
+        popularNumber: "Most popular number",
+        peakHour: "Peak activity hour (MMT)",
+        avgTickets: "Average tickets per transaction",
+        delta: (signed: string, vs: string) => `${signed} vs ${vs}`,
+        noEarlierData: "No earlier data",
+        trackingStarts: "Tracking starts after this update",
+        /** `same` / `inVs`: see range.sameDays / range.inDays — the phrase brings its own article and preposition. */
+        peakSame: (same: string) => `Same as ${same}`,
+        peakWas: (hour: string, inVs: string) => `Was ${hour} ${inVs}`,
+        numberAlsoFirst: (inVs: string) => `Also first ${inVs}`,
+        numberWas: (number: string, inVs: string) => `Was ${number} ${inVs}`,
+        /** Today: a part-day against all of yesterday is no percentage, so the earlier figure is given in words. */
+        todayPrevious: (value: string) => `Yesterday, whole day: ${value}`,
+        /** Screen-reader words for the delta icon. */
+        up: "Up",
+        down: "Down",
+        flat: "Unchanged",
+      },
+      activity: {
+        titles: {
+          hourly: "Activity by hour (MMT)",
+          daily: "Activity by day (MMT)",
+          weekly: "Activity by week (MMT)",
+        },
+        subHourly: (range: string, days: number, draw: string) =>
+          `${range} · each hour adds up its ${days} days · ${draw}`,
+        subHourlyOneDay: (range: string, draw: string) => `${range} · ${draw}`,
+        subDaily: (range: string, draw: string) => `${range} · one group per calendar day · ${draw}`,
+        subWeekly: (range: string, draw: string) => `${range} · weeks start on Monday · ${draw}`,
+        axisHourly: "Hour of day, 00–23 · Myanmar time (MMT, UTC+6:30)",
+        axisHourlyToday: (time: string) => `hours after ${time} are still to come`,
+        axisDaily: (range: string) => `Days ${range} · Myanmar time (MMT, UTC+6:30)`,
+        axisWeekly:
+          "Week beginning (Monday) · Myanmar time (MMT, UTC+6:30) · partial weeks say so in the tooltip",
+        series: {
+          ticketsSold: "Tickets sold",
+          purchases: "Purchases",
+          purchasingUsers: "Purchasing users",
+          activeUsers: "Active users",
+        },
+        activeNotTracked: "Active users · Tracking starts after this update",
+        notYet: "Not yet",
+        stillToCome: "still to come",
+        weekOf: (date: string) => `Week of ${date}`,
+        partialWeek: (days: number) => `${days} of 7 days in the period`,
+        insightNone: "No activity in this period yet.",
+        insightHour: (hour: string, active: string, tickets: string) =>
+          `${hour} MMT is the busiest hour, with ${active} unique active users and ${tickets} tickets purchased.`,
+        insightHourUntracked: (hour: string, buyers: string, tickets: string) =>
+          `${hour} MMT is the busiest purchasing hour, with ${buyers} purchasing users and ${tickets} tickets purchased. Active users are counted from the next update.`,
+        insightDay: (day: string, active: string, tickets: string) =>
+          `${day} was the busiest day, with ${active} unique active users and ${tickets} tickets purchased.`,
+        insightDayUntracked: (day: string, buyers: string, tickets: string) =>
+          `${day} was the busiest day, with ${buyers} purchasing users and ${tickets} tickets purchased. Active users are counted from the next update.`,
+        insightWeek: (date: string, active: string, tickets: string) =>
+          `The week of ${date} was the busiest, with ${active} unique active users and ${tickets} tickets purchased.`,
+        insightWeekUntracked: (date: string, buyers: string, tickets: string) =>
+          `The week of ${date} was the busiest, with ${buyers} purchasing users and ${tickets} tickets purchased. Active users are counted from the next update.`,
+        notes: {
+          busiestHour: "Busiest hour",
+          busiestHourByTickets: "Busiest hour (by tickets)",
+          quietestHour: "Quietest hour",
+          busiestDay: "Busiest day",
+          highestPurchasing: "Highest purchasing hour",
+          lowestPurchasing: "Lowest purchasing hour",
+        },
+        showTable: "Show as table",
+        hideTable: "Hide table",
+        tableCaption: (title: string) => `${title}, as a table`,
+        columns: {
+          hour: "Hour (MMT)",
+          day: "Day (MMT)",
+          week: "Week beginning (MMT)",
+          activeNotTracked: "Active users (not yet tracked)",
+        },
+        csvStems: {
+          hourly: "activity-by-hour",
+          daily: "activity-by-day",
+          weekly: "activity-by-week",
+        },
+      },
+      numbers: {
+        title: "Most popular numbers",
+        sub: (range: string, trend: string) => `Ranked by tickets bought · ${range} · ${trend}`,
+        trendVs: (previous: string) => `trend vs ${previous}`,
+        trendNone: "no earlier data for the trend",
+        barsTitle: "Share of all tickets in the period · top 10",
+        barLabel: (rank: number, number: string, share: string) =>
+          `Rank ${rank}, number ${number}: ${share} of all tickets`,
+        tableCaption: (range: string) => `Top numbers by tickets bought, ${range}`,
+        columns: {
+          rank: "Rank",
+          number: "Number",
+          tickets: "Tickets",
+          buyers: "Buyers",
+          share: "Share",
+          shareOfDraw: "Share of draw",
+          trend: "Trend",
+          repeat: "Repeat buys",
+          drawsPlayed: "Draws played",
+          bestRank: "Best rank",
+        },
+        sortBy: (column: string) => `Sort by ${column}`,
+        trend: {
+          new: "New",
+          newSr: "Not bought in the previous period",
+          upSr: "Gaining",
+          downSr: "Losing",
+          flatSr: "Unchanged",
+          noneSr: "No earlier data",
+        },
+        note: (total: string) =>
+          `Share = this number’s tickets as a share of all ${total} tickets in the period. Numbers are kept as written: 000007 stays 000007. Repeat buys = buyers who bought that number more than once in the period.`,
+        empty: "No numbers were played in this period.",
+        loadError: "Could not load the numbers.",
+        csvStem: "popular-numbers",
+      },
+      days: {
+        title: "Busiest days",
+        description: "Tickets sold by weekday · MMT",
+        ticketsSold: "Tickets sold",
+        ofPeriod: "of the period",
+        purchasingUsers: "Purchasing users",
+        inPeriod: (count: number, day: string) =>
+          count === 1 ? `1 ${day} in the period` : `${count} ${day}s in the period`,
+        noteNone: "No sales in this period.",
+        noteOnly: (day: string) =>
+          `Only ${day} has data in this period. Pick a longer period to compare days.`,
+        note: (day: string, tickets: string, count: number, quietest: string | null) =>
+          `${day} is the busiest day: ${tickets} tickets across ${count} ${day}${count === 1 ? "" : "s"} in the period${quietest ? ` · quietest ${quietest}` : ""}.`,
+        loadError: "Could not load the weekdays.",
+        csvStem: "busiest-days",
+      },
+      definitions: {
+        title: "How these are counted",
+        description:
+          "Observed figures come from paid purchases and the lottery activity log. Anything estimated says so.",
+        badges: {
+          observed: "Observed",
+          notTracked: "Not yet tracked",
+          noEarlier: "No earlier data",
+        },
+        items: {
+          activeUsers: {
+            term: "Active users",
+            text: "Signed-in users who were inside the lottery: opened it, looked at a draw, searched dreams, asked for a number or bought. One count per user per hour (per day or week in those views), so refreshes do not add up. Guests are not counted.",
+          },
+          purchasingUsers: {
+            term: "Purchasing users",
+            text: "Users with at least one paid purchase: once per hour in the chart, once in the period on the overview card.",
+          },
+          purchases: {
+            term: "Purchase transactions",
+            text: "Paid checkouts. One checkout can hold several tickets.",
+          },
+          ticketsSold: {
+            term: "Tickets sold",
+            text: "Tickets in paid purchases. Unpaid or cancelled purchases are not counted.",
+          },
+          shareTrend: {
+            term: "Share and trend",
+            text: "Share = a number’s tickets over all tickets in the period. Trend = change against the previous equal period.",
+          },
+          repeatBuys: {
+            term: "Repeat buys",
+            text: "Buyers who bought the same number more than once in the period.",
+          },
+          previousPeriod: {
+            term: "Previous period",
+            text: "The same length of time just before the period, in MMT. “No earlier data” means that time is before sales began.",
+          },
+          previousPeriodSince: (date: string) =>
+            `The same length of time just before the period, in MMT. “No earlier data” means that time is before sales began on ${date}.`,
+        },
+      },
+      reports: {
+        title: "Reports",
+        backToAnalytics: "Lottery analytics",
+        intro:
+          "Every card has its own CSV. Figures are observed from paid purchases unless a card says otherwise.",
+        byDraw: {
+          title: "Popular numbers by draw",
+          subOne: (draw: string, range: string, tickets: string) =>
+            `${draw} · ${range} · ${tickets} tickets · share = of this draw’s tickets in the period`,
+          subAll: (range: string) =>
+            `Top 5 in each draw · ${range} · pick a draw above or below for its full list`,
+          tableCaption: (draw: string) => `Most popular numbers in ${draw}`,
+          miniCaption: (draw: string) => `Top 5 numbers in ${draw}`,
+          miniSub: (tickets: string, numbers: string, sales: string) =>
+            `${tickets} tickets · ${numbers} numbers played · sales ${sales}`,
+          miniEmpty: (sales: string) => `No sales in this period · sales ${sales}`,
+          salesSoFar: "so far",
+          showAll: (draw: string) => `Show all numbers for ${draw}`,
+          noDraws: "No draws yet. Create one on the Draws page.",
+          csvStem: "popular-numbers",
+          csvByDraw: "popular-numbers_by-draw",
+        },
+        across: {
+          title: "Across all draws",
+          sub: (range: string, tickets: string) =>
+            `Every draw with sales in the period · ${range} · not limited by the draw select · share = of all ${tickets} tickets`,
+          tableCaption: (range: string) => `Most popular numbers across all draws, ${range}`,
+          drawsPlayed: (count: number) => `${count}`,
+          bestRank: (rank: number, draw: string) => `#${rank} in ${draw}`,
+          csvStem: "popular-numbers_all-draws",
+        },
+        frequency: {
+          title: "Purchase frequency",
+          sub: (draw: string, range: string) =>
+            `Purchasing users by how many purchases they made · ${draw} · ${range}`,
+          bins: {
+            "1": "1",
+            "2-3": "2–3",
+            "4-9": "4–9",
+            "10+": "10+",
+          },
+          binNames: {
+            "1": "1 purchase",
+            "2-3": "2–3 purchases",
+            "4-9": "4–9 purchases",
+            "10+": "10 or more purchases",
+          },
+          users: "users",
+          ofBuyers: "of purchasing users",
+          note: (oncePct: string, tenPct: string) =>
+            `${oncePct} of purchasing users bought once. ${tenPct} bought ten or more times.`,
+          noteEmpty: "No purchasing users in this selection.",
+          csvStem: "purchase-frequency",
+        },
+        repeat: {
+          title: "Repeat vs first-time buyers",
+          sub: (range: string) =>
+            `Buyers who had bought before the selection, against buyers whose first ever purchase falls inside it · ${range}`,
+          subDraw: (draw: string, range: string) =>
+            `Buyers of ${draw} who had bought before, against buyers whose first purchase was ${draw} · ${range}`,
+          /** All time · All draws (definition "draws-played"): the board's wording. */
+          subDraws: (range: string) =>
+            `Buyers who bought in two or more draws, against buyers who bought in one draw only · ${range}`,
+          returning: "Repeat customers",
+          firstTime: "First-time buyers",
+          returningText: "Had bought before the selection",
+          returningTextDraw: "Had bought before this draw",
+          returningTextDraws: "Bought in two or more draws",
+          firstTimeText: "First purchase was in the selection",
+          firstTimeTextDraw: (draw: string) => `First purchase was ${draw}`,
+          firstTimeTextDraws: "Bought in one draw only",
+          note: (pct: string) =>
+            `A user who bought several times counts once. ${pct} of buyers in the selection had bought before.`,
+          noteDraw: (pct: string, draw: string) => `${pct} of ${draw}’s buyers came back from an earlier purchase.`,
+          noteDraws: (pct: string) =>
+            `A user who bought in several draws counts once. ${pct} of all buyers have played more than one draw.`,
+          noteAllNew: "Every buyer in this selection bought for the first time.",
+          noteAllNewDraws: "Every buyer so far has played one draw only.",
+          noteEmpty: "No buyers in this selection.",
+          csvStem: "repeat-vs-first-time",
+        },
+        heatmap: {
+          title: "Activity by hour and weekday",
+          sub: (measure: string, draw: string, range: string) =>
+            `${measure} by weekday and hour of day · ${draw} · ${range}`,
+          measures: { tickets: "Tickets sold", purchasingUsers: "Purchasing users" },
+          cell: (day: string, hour: string, value: string, measure: string, count: string) =>
+            `${day} · ${hour} MMT · ${value} ${measure} · ${count}`,
+          /** All time: how many Mondays the selection holds is unknown, so no "across n Mondays". */
+          cellAllTime: (day: string, hour: string, value: string, measure: string) =>
+            `${day} · ${hour} MMT · ${value} ${measure}`,
+          cellNoData: (day: string, hour: string) => `${day} · ${hour} MMT · no data in this selection`,
+          noData: "No data",
+          busiestCell: "Busiest cell",
+          insight: (day: string, hour: string, value: string, measure: string, count: string) =>
+            `${day} ${hour} MMT is the busiest cell: ${value} ${measure} across ${count}.`,
+          insightAllTime: (day: string, hour: string, value: string, measure: string) =>
+            `${day} ${hour} MMT is the busiest cell: ${value} ${measure}.`,
+          insightNone: "No activity in this selection.",
+          footer:
+            "Hours 00–23 across the top, weekdays down the side · Myanmar time (MMT, UTC+6:30) · each cell adds up every matching weekday and hour in the selection. Active users join this heatmap after the activity log starts.",
+          csvStem: "activity-heatmap",
+        },
+        beforeClose: {
+          title: "Purchases before close",
+          sub: (draw: string, sales: string, close: string) =>
+            `${draw} · whole sales window ${sales} · closed ${close} MMT`,
+          subOpen: (draw: string, close: string) => `${draw} · sales close ${close} MMT`,
+          subLatest: (draw: string) => `Most recent closed draw: ${draw} · whole sales window`,
+          closedAt: (close: string) => `closed ${close} MMT`,
+          bins: {
+            "72-48h": "72–48h",
+            "48-24h": "48–24h",
+            "24-12h": "24–12h",
+            "12-6h": "12–6h",
+            "6-1h": "6–1h",
+            "last-1h": "Last hour",
+          },
+          binNames: {
+            "72-48h": "72 to 48 hours before close",
+            "48-24h": "48 to 24 hours before close",
+            "24-12h": "24 to 12 hours before close",
+            "12-6h": "12 to 6 hours before close",
+            "6-1h": "6 to 1 hours before close",
+            "last-1h": "The last hour before close",
+          },
+          tickets: "tickets",
+          ofLast72: "of the last 72 hours",
+          perHour: "tickets per hour",
+          axis:
+            "Hours before sales close · Myanmar time (MMT, UTC+6:30) · bars are not the same length of time: the tooltip gives tickets per hour",
+          insight: (pct: string, draw: string, total: string, close: string, bin: string, tickets: string, perHour: string) =>
+            `${pct} of ${draw}’s ${total} tickets were bought in the last 72 hours before sales closed (${close} MMT). The busiest stretch was ${bin}: ${tickets} tickets, ${perHour} an hour.`,
+          insightNone: (draw: string) => `${draw} sold no tickets.`,
+          insightNoLast72: (draw: string, total: string, close: string) =>
+            `None of ${draw}’s ${total} tickets were bought in the last 72 hours before sales closed (${close} MMT).`,
+          earlier: (tickets: string) => `${tickets} tickets were bought more than 72 hours before close.`,
+          notClosedTitle: "Sales have not closed yet",
+          notClosedText: (draw: string, close: string, windowStart: string) =>
+            `${draw} closes ${close} MMT. The 72-hour window starts ${windowStart} MMT; the bars fill in as those hours pass.`,
+          noDrawTitle: "No closed draw yet",
+          noDrawText: "This card fills in once a draw’s sales have closed.",
+          csvStem: "purchases-before-close",
+        },
+        comparison: {
+          title: "Draw comparison",
+          sub: "Whole sales window of each draw, not limited by the period.",
+          columns: {
+            draw: "Draw",
+            sales: "Sales period (MMT)",
+            tickets: "Tickets",
+            buyers: "Buyers",
+            revenue: "Revenue (Ks)",
+            peakHour: "Peak hour (MMT)",
+            winners: "Winners paid",
+            status: "Status",
+          },
+          salesNotOpened: "Not opened yet",
+          salesSoFar: (range: string) => `${range} (so far)`,
+          winnersPaid: (winners: string, ks: string) => `${winners} winners · ${ks}`,
+          notDrawn: (date: string) => `Not drawn yet (${date})`,
+          note:
+            "Revenue counts paid tickets at the draw’s price; nothing is deducted for prizes. Winners paid = prize payouts recorded as paid for that draw. Peak hour = the hour with most tickets over the whole window, MMT.",
+          empty: "No draws yet.",
+          csvStem: "draw-comparison",
+        },
+      },
     },
   },
   levels: {
     title: "Membership Levels",
-    description: "Deposit-based membership tiers — thresholds, badges and order.",
+    description:
+      "Deposit-based membership tiers — thresholds, badges and order.",
     add: "Add level",
     addTitle: "Add level",
     editTitle: "Edit level",
     name: "Name",
     namePlaceholder: "e.g. Gold",
     threshold: "Minimum total deposited (Ks)",
-    thresholdHint: "Users whose lifetime approved deposits reach this amount hold this level.",
+    thresholdHint:
+      "Users whose lifetime approved deposits reach this amount hold this level.",
     icon: "Badge",
     color: "Color",
     colorInvalid: "Enter a color like #F0B90B",
@@ -3060,7 +4704,8 @@ const en = {
     reorderFailedToast: "Could not reorder the levels",
     loadError: "Could not load the membership levels.",
     emptyTitle: "No levels yet",
-    emptyDescription: "Create the first membership level to start ranking users by total deposits.",
+    emptyDescription:
+      "Create the first membership level to start ranking users by total deposits.",
     deleteTitle: "Delete level",
     deleteDescription: (name: string) =>
       `Delete "${name}"? Users at this level will fall to the next qualifying level automatically.`,
@@ -3069,7 +4714,8 @@ const en = {
   },
   audit: {
     title: "Audit Log",
-    subtitle: "Who did what, and when — every important staff action, newest first.",
+    subtitle:
+      "Who did what, and when — every important staff action, newest first.",
     refresh: "Refresh",
     refreshing: "Refreshing…",
     viewDetails: "View details",
@@ -3133,6 +4779,14 @@ const en = {
       sms_gateway: "SMS gateway",
       home_promo: "Home promo",
       home_settings: "Home settings",
+      bank_events: "Bank monitor",
+      lottery_dream: "Lottery dream",
+      lottery_draw: "Lottery draw",
+      lottery_settings: "Lottery settings",
+      lottery_results: "Lottery results",
+      lottery_claim: "Lottery prize claim",
+      advertisement: "Advertisement",
+      advertisement_settings: "Ad settings",
     },
     /** Indexed by the action key. An unknown key (a newer backend) renders raw. */
     actions: {
@@ -3222,20 +4876,23 @@ const en = {
       "deposit.receiving_account_update": "Deposit receiving account updated",
       "withdrawal.approve": "Withdrawal approved",
       "withdrawal.reject": "Withdrawal rejected",
-      "withdrawal.transfer_account_update": "Withdrawal transfer account updated",
+      "withdrawal.transfer_account_update":
+        "Withdrawal transfer account updated",
       "deposit.bank_match": "Deposit matched to bank notification",
       "deposit.bank_screenshot_attach": "Bank screenshot attached to deposit",
       "deposit.risk_update": "Deposit risk flags updated",
       "deposit.verification_review": "Deposit verification reviewed",
       "withdrawal.bank_match": "Withdrawal matched to bank notification",
-      "withdrawal.bank_screenshot_attach": "Bank screenshot attached to withdrawal",
+      "withdrawal.bank_screenshot_attach":
+        "Bank screenshot attached to withdrawal",
       "withdrawal.risk_update": "Withdrawal risk flags updated",
       "withdrawal.verification_review": "Withdrawal verification reviewed",
       "bank_transaction.store": "Bank transaction stored from phone",
       "bank_transaction.link": "Bank transaction linked",
       "bank_transaction.unlink": "Bank transaction unlinked",
       "bank_transaction.state_change": "Bank transaction state changed",
-      "bank_transaction.screenshot_attach": "Bank screenshot attached to transaction",
+      "bank_transaction.screenshot_attach":
+        "Bank screenshot attached to transaction",
       "payment_account.create": "Payment account created",
       "payment_account.update": "Payment account updated",
       "payment_account.delete": "Payment account deleted",
@@ -3251,6 +4908,32 @@ const en = {
       "comment.delete": "Comment deleted",
       "feedback.status_change": "Feedback status changed",
       "sms_gateway.binding_reset": "SMS gateway phone reset",
+      "bank_events.rejected_device": "Bank monitor: another PC refused",
+      "bank_events.binding_reset": "Bank monitor PC reset",
+      "lottery_dream.update": "Lottery dream updated",
+      "lottery_dream.import": "Lottery dreams imported",
+      "lottery_draw.create": "Lottery draw created",
+      "lottery_draw.update": "Lottery draw updated",
+      "lottery_draw.open": "Lottery sales opened",
+      "lottery_draw.pause": "Lottery sales paused",
+      "lottery_draw.close": "Lottery sales closed",
+      "lottery_draw.reopen": "Lottery sales reopened",
+      "lottery_draw.off_sale": "Lottery off-sale numbers changed",
+      "lottery_settings.update": "Lottery settings updated",
+      "lottery_draw.publish": "Lottery draw published (prizes awarded)",
+      "lottery_claim.confirm": "Lottery prize claim confirmed and paid",
+      "lottery_claim.reject": "Lottery prize claim rejected",
+      "lottery_claim.reopen": "Lottery prize claim reopened for review",
+      "lottery_results.fetch": "Lottery results fetched",
+      "lottery_results.enter": "Lottery results entered by hand",
+      "advertisement.create": "Ad created",
+      "advertisement.update": "Ad updated",
+      "advertisement.delete": "Ad deleted",
+      "advertisement.video_attach": "Ad video attached",
+      "advertisement.image_attach": "Ad picture attached",
+      "advertisement.upload_presign": "Ad video upload started",
+      "advertisement.upload_multipart": "Ad video upload started (large file)",
+      "advertisement_settings.update": "Ad settings changed",
     },
     changesSummary: {
       more: (count: number) => `+${count} more`,
@@ -3370,6 +5053,15 @@ const mm = {
     roles: "ရာထူးနှင့်ခွင့်ပြုချက်များ",
     auditLog: "လုပ်ဆောင်မှုမှတ်တမ်း",
     homePromos: "ပင်မစာမျက်နှာ ပရိုမိုးရှင်း",
+    ads: "ကြော်ငြာများ",
+    adsList: "ကြော်ငြာ အားလုံး",
+    adsAnalytics: "ကြော်ငြာ ရလဒ်များ",
+    lottery: "ထီ",
+    lotteryDreams: "အိပ်မက်များ",
+    lotteryDraws: "ထီဖွင့်ပွဲများ",
+    lotterySettings: "ဆက်တင်များ",
+    lotteryAnalytics: "စာရင်းဇယား",
+    lotteryClaims: "ဆုငွေ တောင်းခံမှုများ",
     subscriptions: "စာရင်းသွင်းအစီအစဉ်များ",
     settings: "ဆက်တင်များ",
   },
@@ -3400,8 +5092,16 @@ const mm = {
     tryAgain: "ထပ်ကြိုးစားမည်",
     errorTitle: "တစ်ခုခုမှားယွင်းသွားပါသည်",
     errorDescription: "ဒေတာဖွင့်၍မရပါ။ ထပ်မံကြိုးစားပါ။",
+    serverUnreachableTitle: "ဆာဗာသို့ ချိတ်ဆက်၍မရပါ",
+    serverUnreachableDescription:
+      "သင်၏အကောင့်ဝင်ရောက်မှု ဆက်ရှိနေပါသည်။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်မံကြိုးစားပါ။",
+    serverUnreachable:
+      "ဆာဗာသို့ ချိတ်ဆက်၍မရပါ။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်မံကြိုးစားပါ။",
+    sessionExpired:
+      "သင်၏အကောင့်ဝင်ရောက်မှု သက်တမ်းကုန်သွားပါပြီ။ ကျေးဇူးပြု၍ ပြန်လည်ဝင်ရောက်ပါ။",
     noAccessTitle: "သင့်တွင် ဤစာမျက်နှာကို ဝင်ရောက်ခွင့်မရှိပါ",
-    noAccessDescription: "ဤအပိုင်းအတွက် သင့်လက်ရှိရာထူးထက်ပိုမြင့်သော ခွင့်ပြုချက်လိုအပ်ပါသည်။",
+    noAccessDescription:
+      "ဤအပိုင်းအတွက် သင့်လက်ရှိရာထူးထက်ပိုမြင့်သော ခွင့်ပြုချက်လိုအပ်ပါသည်။",
     signedInAs: "အဖြစ်ဝင်ရောက်ထားသည်",
     statusAll: "အားလုံး",
     statusPending: "စောင့်ဆိုင်းဆဲ",
@@ -3409,10 +5109,12 @@ const mm = {
     statusRejected: "ငြင်းပယ်ပြီး",
     searchPlaceholder: "ရှာဖွေမည်...",
     noResultsFound: "ရလဒ်မတွေ့ပါ။",
-    showingResults: (from: number, to: number, total: number) => `${total} ခုအနက် ${from} မှ ${to} ကိုပြသနေသည်`,
+    showingResults: (from: number, to: number, total: number) =>
+      `${total} ခုအနက် ${from} မှ ${to} ကိုပြသနေသည်`,
     previous: "ယခင်",
     next: "နောက်သို့",
-    pageOf: (current: number, total: number) => `စာမျက်နှာ ${current} / ${total}`,
+    pageOf: (current: number, total: number) =>
+      `စာမျက်နှာ ${current} / ${total}`,
   },
   dateRange: {
     fromLabel: "မှ",
@@ -3424,21 +5126,26 @@ const mm = {
   },
   dashboard: {
     title: "ပင်မစာမျက်နှာ",
-    description: "ပလက်ဖောင်းခြုံငုံသုံးသပ်ချက်နှင့် စွမ်းဆောင်ရည်ခွဲခြမ်းစိတ်ဖြာမှု။",
+    description:
+      "ပလက်ဖောင်းခြုံငုံသုံးသပ်ချက်နှင့် စွမ်းဆောင်ရည်ခွဲခြမ်းစိတ်ဖြာမှု။",
     loadErrorAdmin: "ဒိုင်ခွဲအင်္ဂလိပ်ဒေတာဖွင့်၍မရပါ။",
     totalMovies: "စုစုပေါင်းရုပ်ရှင်များ",
     totalUsers: "စုစုပေါင်းအသုံးပြုသူများ",
     activeUsers: "လက်ရှိအသုံးပြုနေသူများ",
     totalRevenue: "စုစုပေါင်းဝင်ငွေ",
     monthlyRevenue: "လစဉ်ဝင်ငွေ",
-    revenueRestricted: "ဝင်ငွေကိန်းဂဏန်းများကို Super Admin အတွက်သာ ကန့်သတ်ထားသည်",
+    revenueRestricted:
+      "ဝင်ငွေကိန်းဂဏန်းများကို Super Admin အတွက်သာ ကန့်သတ်ထားသည်",
     totalViews: "စုစုပေါင်းကြည့်ရှုမှု",
     revenue: "ဝင်ငွေ",
-    revenueRestrictedDetail: "အသေးစိတ်ဝင်ငွေခွဲခြမ်းစိတ်ဖြာမှုများကို Super Admin အတွက်သာ ကန့်သတ်ထားသည်။",
+    revenueRestrictedDetail:
+      "အသေးစိတ်ဝင်ငွေခွဲခြမ်းစိတ်ဖြာမှုများကို Super Admin အတွက်သာ ကန့်သတ်ထားသည်။",
     recentTransactions: "မကြာသေးမီကငွေလွှဲမှုများ",
     recentUsers: "မကြာသေးမီကအသုံးပြုသူများ",
-    recentTransactionsRestricted: "သင့်ရာထူးဖြင့် ငွေလွှဲမှတ်တမ်းများကို ကြည့်ခွင့်မရှိပါ။",
-    recentUsersRestricted: "သင့်ရာထူးဖြင့် အသုံးပြုသူစာရင်းကို ကြည့်ခွင့်မရှိပါ။",
+    recentTransactionsRestricted:
+      "သင့်ရာထူးဖြင့် ငွေလွှဲမှတ်တမ်းများကို ကြည့်ခွင့်မရှိပါ။",
+    recentUsersRestricted:
+      "သင့်ရာထူးဖြင့် အသုံးပြုသူစာရင်းကို ကြည့်ခွင့်မရှိပါ။",
     blockLoadError: "ဤအပိုင်းကို ဖွင့်၍မရပါ။",
     accountBalance: "အကောင့်လက်ကျန်ငွေ",
     totalDeposited: "စုစုပေါင်းငွေသွင်းထားသည်",
@@ -3447,9 +5154,11 @@ const mm = {
     notSubscribed: "စာရင်းမသွင်းရသေးပါ",
     vsLastMonth: "ယမန်လနှင့်နှိုင်းယှဉ်",
     noDataYet: "ဒေတာမရှိသေးပါ",
-    noDataYetDescription: "အသုံးပြုသူများကြည့်ရှုစတင်သောအခါ ကိန်းဂဏန်းများပေါ်လာပါမည်။",
+    noDataYetDescription:
+      "အသုံးပြုသူများကြည့်ရှုစတင်သောအခါ ကိန်းဂဏန်းများပေါ်လာပါမည်။",
     movieAnalytics: "ရုပ်ရှင်ခွဲခြမ်းစိတ်ဖြာမှု",
-    movieAnalyticsDescription: "စာရင်းတွင် အကောင်းဆုံးလုပ်ဆောင်နေသောအကြောင်းအရာများ",
+    movieAnalyticsDescription:
+      "စာရင်းတွင် အကောင်းဆုံးလုပ်ဆောင်နေသောအကြောင်းအရာများ",
     mostWatched: "အများဆုံးကြည့်ရှုထားသည်",
     mostPurchased: "အများဆုံးဝယ်ယူထားသည်",
     viewsCount: (n: number) => `ကြည့်ရှုမှု ${n} ကြိမ်`,
@@ -3463,7 +5172,8 @@ const mm = {
     newUsers: "အသစ်အသုံးပြုသူများ",
     smsGateway: {
       title: "SMS Gateway",
-      description: "အသုံးပြုသူများထံ ဝင်ရောက်ရန်ကုဒ်များကို SMS ဖြင့် ပို့ပေးသော ကုမ္ပဏီဖုန်း။",
+      description:
+        "အသုံးပြုသူများထံ ဝင်ရောက်ရန်ကုဒ်များကို SMS ဖြင့် ပို့ပေးသော ကုမ္ပဏီဖုန်း။",
       refresh: "ပြန်လည်ခေါ်ယူမည်",
       refreshing: "ပြန်လည်ခေါ်ယူနေသည်…",
       online: "အွန်လိုင်း",
@@ -3481,7 +5191,8 @@ const mm = {
       notReadyReasons: {
         no_service: "ဆင်းကတ်တွင် မိုဘိုင်း လိုင်း မရှိပါ (လိုင်း မမိပါ)",
         airplane_mode: "လေယာဉ်ပျံ မုဒ် ဖွင့်ထားသည်",
-        emergency_only: "ဆင်းကတ်တွင် အရေးပေါ် ခေါ်ဆိုမှုသာ ရသည် — SMS ပို့၍ မရပါ",
+        emergency_only:
+          "ဆင်းကတ်တွင် အရေးပေါ် ခေါ်ဆိုမှုသာ ရသည် — SMS ပို့၍ မရပါ",
         radio_off: "ဖုန်း၏ မိုဘိုင်း ရေဒီယို ပိတ်ထားသည်",
         no_sim: "အသုံးပြုနိုင်သော ဆင်းကတ် မရှိပါ",
         sim_not_ready: "ရွေးထားသော ဆင်းကတ် အသင့် မဖြစ်သေးပါ",
@@ -3517,10 +5228,13 @@ const mm = {
       waitingHint: "တန်းစီထားသည် သို့မဟုတ် ပို့နေသည်",
       usage: (used: number, cap: number) =>
         `ယနေ့ SMS ${cap.toLocaleString("en-US")} စောင်အနက် ${used.toLocaleString("en-US")} စောင် သုံးပြီး`,
-      perPhoneCap: (cap: number) => `နံပါတ်တစ်ခုလျှင် တစ်ရက် SMS အများဆုံး ${cap.toLocaleString("en-US")} စောင်`,
-      capReached: "ယနေ့ SMS အကန့်အသတ် ပြည့်သွားပါပြီ — UTC 00:00 အထိ ကုဒ်အသစ်များကို လက်မခံပါ။",
+      perPhoneCap: (cap: number) =>
+        `နံပါတ်တစ်ခုလျှင် တစ်ရက် SMS အများဆုံး ${cap.toLocaleString("en-US")} စောင်`,
+      capReached:
+        "ယနေ့ SMS အကန့်အသတ် ပြည့်သွားပါပြီ — UTC 00:00 အထိ ကုဒ်အသစ်များကို လက်မခံပါ။",
       loadError: "SMS Gateway အခြေအနေကို ဖွင့်၍ မရပါ။",
-      staleNote: "ပြန်လည်ခေါ်ယူ၍ မရပါ — နောက်ဆုံး ရရှိထားသော အခြေအနေကို ပြသထားသည်။",
+      staleNote:
+        "ပြန်လည်ခေါ်ယူ၍ မရပါ — နောက်ဆုံး ရရှိထားသော အခြေအနေကို ပြသထားသည်။",
       justNow: "ယခုလေးတင်",
       secondsAgo: (seconds: number) => `လွန်ခဲ့သော ${seconds} စက္ကန့်`,
       minutesAgo: (minutes: number) => `လွန်ခဲ့သော ${minutes} မိနစ်`,
@@ -3528,26 +5242,61 @@ const mm = {
       daysAgo: (days: number) => `လွန်ခဲ့သော ${days} ရက်`,
       signalLevel: (level: number) => `လိုင်းအား ${level}/4`,
       pinnedPhone: "ခွင့်ပြုထားသော ဖုန်း",
-      pinnedPhoneHint: "Gateway တိုကင်ကို သုံးခွင့်ရှိသော တစ်လုံးတည်းသော ဖုန်း (၎င်း၏ Device ID)။",
+      pinnedPhoneHint:
+        "Gateway တိုကင်ကို သုံးခွင့်ရှိသော တစ်လုံးတည်းသော ဖုန်း (၎င်း၏ Device ID)။",
       notPinned: "မသတ်မှတ်ရသေးပါ",
       notPinnedNote:
         "Gateway တိုကင်အတွက် ဖုန်း မသတ်မှတ်ရသေးပါ။ တိုကင်ကို ပထမဆုံး အသုံးပြုသော ဖုန်းသည် ခွင့်ပြုထားသော တစ်လုံးတည်းသော ဖုန်း ဖြစ်သွားပါမည် — အခြား ဖုန်းအားလုံးကို ငြင်းပယ်ပါမည်။",
       rejectedNote: (deviceId: string, when: string) =>
         `အခြား စက်တစ်လုံး (${deviceId}) သည် ${when} တွင် Gateway တိုကင်ကို သုံးရန် ကြိုးစားခဲ့ပြီး ငြင်းပယ်ခံရပါသည်။ ကုမ္ပဏီဖုန်းတွင် အက်ပ်ကို ပြန်တပ်ဆင်ထားခြင်း သို့မဟုတ် ဖုန်း ပြောင်းထားခြင်း ရှိပါက "ဖုန်း ပြန်သတ်မှတ်" ကို နှိပ်ပါ။ မဟုတ်ပါက — သို့မဟုတ် ပြန်သတ်မှတ်ပြီးချင်း ဤသတိပေးချက် ပြန်ပေါ်လာပါက — တိုကင် ပေါက်ကြားနေပါသည်။ ဆာဗာနှင့် ဖုန်းတွင် SMS_GATEWAY_TOKEN ကို ပြောင်းပြီးမှ ထပ်မံ ပြန်သတ်မှတ်ပါ။`,
-      rejectedCount: (count: number) => `ငြင်းပယ်ခဲ့သော ကြိုးစားမှု ${count} ကြိမ်`,
+      rejectedCount: (count: number) =>
+        `ငြင်းပယ်ခဲ့သော ကြိုးစားမှု ${count} ကြိမ်`,
       resetPin: "ဖုန်း ပြန်သတ်မှတ်",
       resetPinTitle: "Gateway ဖုန်းကို ပြန်သတ်မှတ်မလား?",
       resetPinDescription:
         'လက်ရှိ ခွင့်ပြုထားသော ဖုန်းကို ဖယ်ရှားပါမည်။ ထို့နောက် Gateway တိုကင်ကို ပထမဆုံး အသုံးပြုသော ဖုန်းသည် ခွင့်ပြုထားသော ဖုန်း ဖြစ်သွားမည် ဖြစ်၍ ကုမ္ပဏီဖုန်းတွင် SMS Gateway အက်ပ်ကို ချက်ချင်း Start လုပ်ပါ။ အက်ပ်ကို ပြန်တပ်ဆင်ပြီးမှ သို့မဟုတ် ဖုန်း ပြောင်းပြီးမှသာ လုပ်ပါ။ ပြန်သတ်မှတ်ပြီးချင်း "အခြား စက်" အနီရောင် သတိပေးချက် ပြန်ပေါ်လာပါက အခြားသူတစ်ဦးက အရင် ဝင်ယူသွားခြင်း ဖြစ်သည် — ဆာဗာနှင့် ဖုန်းတွင် SMS_GATEWAY_TOKEN ကို ပြောင်းပြီးမှ ထပ်မံ ပြန်သတ်မှတ်ပါ။',
-      resetPinDone: "ဖုန်းကို ပြန်သတ်မှတ်ပြီးပါပြီ — ကုမ္ပဏီဖုန်းတွင် SMS Gateway အက်ပ်ကို ယခု Start လုပ်ပါ။",
+      resetPinDone:
+        "ဖုန်းကို ပြန်သတ်မှတ်ပြီးပါပြီ — ကုမ္ပဏီဖုန်းတွင် SMS Gateway အက်ပ်ကို ယခု Start လုပ်ပါ။",
       resetPinFailed: "ဖုန်းကို ပြန်သတ်မှတ်၍ မရပါ။",
+    },
+    bankMonitor: {
+      title: "ဘဏ် စောင့်ကြည့်စက်",
+      description:
+        "ဘဏ်ဖုန်းများကို စောင့်ကြည့်ပြီး ငွေလွှဲမှုများကို MyanFlix သို့ အစီရင်ခံသော ကွန်ပျူတာ။",
+      refresh: "ပြန်လည်ဖွင့်မည်",
+      refreshing: "ပြန်လည်ဖွင့်နေသည်…",
+      pinnedBadge: "သတ်မှတ်ပြီး",
+      rejectedBadge: "အခြား ကွန်ပျူတာ ကြိုးစားခဲ့သည်",
+      loadError: "ဘဏ် စောင့်ကြည့်စက် အခြေအနေကို ဖွင့်၍ မရပါ။",
+      staleNote:
+        "ပြန်လည်ဖွင့်၍ မရပါ — နောက်ဆုံး ရရှိထားသော အခြေအနေကို ပြထားသည်။",
+      pinnedMonitor: "ခွင့်ပြုထားသော ကွန်ပျူတာ",
+      pinnedMonitorHint:
+        "ဘဏ်ဖြစ်ရပ် တိုကင်ကို သုံးခွင့်ရှိသော တစ်လုံးတည်းသော စောင့်ကြည့်စက် (၎င်း၏ စက် စီရီရယ်နံပါတ် — အက်ပ်၏ MyanFlix ဆက်တင်တွင် ပြထားသည်)။",
+      notPinned: "မသတ်မှတ်ရသေးပါ",
+      notPinnedNote:
+        "ဘဏ်ဖြစ်ရပ် တိုကင်အတွက် ကွန်ပျူတာ မသတ်မှတ်ရသေးပါ။ တိုကင်ဖြင့် ပထမဆုံး ပို့သော စောင့်ကြည့်စက်သည် ခွင့်ပြုထားသော တစ်လုံးတည်းသော ကွန်ပျူတာ ဖြစ်သွားပါမည် — အခြား ကွန်ပျူတာအားလုံးကို ငြင်းပယ်ပါမည်။",
+      rejectedNote: (serial: string, when: string) =>
+        `အခြား ကွန်ပျူတာတစ်လုံး (${serial}) သည် ${when} တွင် ဘဏ်ဖြစ်ရပ် တိုကင်ကို သုံးရန် ကြိုးစားခဲ့ပြီး ငြင်းပယ်ခံရပါသည်။ စောင့်ကြည့်စက် အက်ပ်ကို ပြန်တပ်ဆင်ထားခြင်း သို့မဟုတ် ကွန်ပျူတာ ပြောင်းထားခြင်း ရှိပါက "စောင့်ကြည့်စက် ပြန်သတ်မှတ်" ကို နှိပ်ပါ။ မဟုတ်ပါက — သို့မဟုတ် ပြန်သတ်မှတ်ပြီးချင်း ဤသတိပေးချက် ပြန်ပေါ်လာပါက — တိုကင် ပေါက်ကြားနေပါသည်။ ဆာဗာနှင့် စောင့်ကြည့်စက်၏ config.json တွင် BANK_EVENTS_TOKEN ကို ပြောင်းပြီးမှ ထပ်မံ ပြန်သတ်မှတ်ပါ။`,
+      rejectedCount: (count: number) =>
+        `ငြင်းပယ်ခဲ့သော ကြိုးစားမှု ${count} ကြိမ်`,
+      resetPin: "စောင့်ကြည့်စက် ပြန်သတ်မှတ်",
+      resetPinTitle: "ဘဏ် စောင့်ကြည့်စက် ကွန်ပျူတာကို ပြန်သတ်မှတ်မလား?",
+      resetPinDescription:
+        'လက်ရှိ ခွင့်ပြုထားသော ကွန်ပျူတာကို ဖယ်ရှားပါမည်။ ထို့နောက် တိုကင်ဖြင့် ပထမဆုံး ပို့သော စောင့်ကြည့်စက်သည် ခွင့်ပြုထားသော ကွန်ပျူတာ ဖြစ်သွားမည် ဖြစ်၍ ပိုင်ရှင်၏ ကွန်ပျူတာရှိ စောင့်ကြည့်စက်တွင် "Post now" ကို ချက်ချင်း နှိပ်ပါ။ အက်ပ်ကို ပြန်တပ်ဆင်ပြီးမှ သို့မဟုတ် ကွန်ပျူတာ ပြောင်းပြီးမှသာ လုပ်ပါ။ ပြန်သတ်မှတ်ပြီးချင်း "အခြား ကွန်ပျူတာ" အနီရောင် သတိပေးချက် ပြန်ပေါ်လာပါက အခြားသူတစ်ဦးက အရင် ဝင်ယူသွားခြင်း ဖြစ်သည် — ဆာဗာနှင့် စောင့်ကြည့်စက်တွင် BANK_EVENTS_TOKEN ကို ပြောင်းပြီးမှ ထပ်မံ ပြန်သတ်မှတ်ပါ။',
+      resetPinDone:
+        "စောင့်ကြည့်စက်ကို ပြန်သတ်မှတ်ပြီးပါပြီ — ပိုင်ရှင်၏ ကွန်ပျူတာရှိ စောင့်ကြည့်စက်တွင် Post now ကို နှိပ်ပါ။",
+      resetPinFailed: "စောင့်ကြည့်စက်ကို ပြန်သတ်မှတ်၍ မရပါ။",
+      screenshotRuleNote:
+        'ဘဏ်အသိပေးချက်မှ ကိုက်ညီသွားသော ငွေသွင်းမှုသည် ဖုန်း၏ မျက်နှာပြင်ပုံ ရောက်လာသည်အထိ (များသောအားဖြင့် စက္ကန့်ပိုင်းအတွင်း) "ပြန်လည်စစ်ဆေးရန်" (အကြောင်းရင်း — ပုံ မရောက်သေး) ဟု ပြပါမည်။ ဖုန်း၏ စာသားတစ်ခုတည်းဖြင့် အစိမ်းရောင် တံဆိပ် မရနိုင်ပါ။',
     },
   },
   movies: {
     uploadMovie: "ရုပ်ရှင်တင်မည်",
     publish: "ထုတ်ပြန်မည်",
     publishedToast: "ရုပ်ရှင် ထုတ်ပြန်ပြီးပါပြီ",
-    publishedDescription: (title: string) => `"${title}" သည် MyanFlix တွင် ယခုတင်ပြနေပါပြီ။`,
+    publishedDescription: (title: string) =>
+      `"${title}" သည် MyanFlix တွင် ယခုတင်ပြနေပါပြီ။`,
     publishFailedToast: "ဤရုပ်ရှင်ကို ထုတ်ပြန်၍မရပါ",
     pleaseTryAgain: "ကျေးဇူးပြု၍ ထပ်မံကြိုးစားပါ။",
     status: {
@@ -3568,7 +5317,8 @@ const mm = {
       description: "MyanFlix ရုပ်ရှင်စာရင်းကို ကြည့်ရှုပြီး စီမံခန့်ခွဲပါ။",
       loadError: "ရုပ်ရှင်စာရင်းကို ဖွင့်၍မရပါ။",
       emptyTitle: "ရုပ်ရှင်များ မရှိသေးပါ",
-      emptyDescription: "စာရင်းကို စတင်တည်ဆောက်ရန် သင့်ပထမဆုံးခေါင်းစဉ်ကို တင်ပါ။",
+      emptyDescription:
+        "စာရင်းကို စတင်တည်ဆောက်ရန် သင့်ပထမဆုံးခေါင်းစဉ်ကို တင်ပါ။",
       accessTypeFilterPlaceholder: "ဝင်ရောက်ခွင့်အမျိုးအစား",
       allAccessTypes: "ဝင်ရောက်ခွင့်အမျိုးအစား အားလုံး",
       searchPlaceholder: "ခေါင်းစဉ်ဖြင့် ရုပ်ရှင်ရှာမည်...",
@@ -3576,12 +5326,14 @@ const mm = {
       deleteDescription: (title: string) =>
         `"${title}" ကို စာရင်းမှ အပြီးအပိုင်ဖယ်ရှားပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`,
       deletedToast: "ရုပ်ရှင် ဖျက်ပြီးပါပြီ",
-      deletedDescription: (title: string) => `"${title}" ကို စာရင်းမှ ဖယ်ရှားပြီးပါပြီ။`,
+      deletedDescription: (title: string) =>
+        `"${title}" ကို စာရင်းမှ ဖယ်ရှားပြီးပါပြီ။`,
       reprocessStartedToast: "ပြန်လည်လုပ်ဆောင်မှု စတင်ပါပြီ",
       reprocessStartedDescription: (title: string) =>
         `"${title}" ကို ထပ်မံ ကုဒ်ပြောင်းနေပါသည် — ပြန်တင်ရန်မလိုအပ်ပါ။`,
       reprocessFailedToast: "ဤရုပ်ရှင်ကို ပြန်လည်လုပ်ဆောင်၍မရပါ",
-      reprocessFailedFallback: "ဗီဒီယိုလုပ်ဆောင်မှု မအောင်မြင်ခဲ့သော ရုပ်ရှင်ကိုသာ ပြန်လည်လုပ်ဆောင်နိုင်ပါသည်။",
+      reprocessFailedFallback:
+        "ဗီဒီယိုလုပ်ဆောင်မှု မအောင်မြင်ခဲ့သော ရုပ်ရှင်ကိုသာ ပြန်လည်လုပ်ဆောင်နိုင်ပါသည်။",
       backfillButton: "ပျောက်နေသော ကြာချိန်များ ဖြည့်မည်",
       backfillDoneToast: "ကြာချိန်များ ဖြည့်ပြီးပါပြီ",
       backfillDoneDescription: (updated: number, scanned: number) =>
@@ -3589,7 +5341,8 @@ const mm = {
       backfillPartialDescription: (failed: number) =>
         `ခေါင်းစဉ် ${failed} ခုကို ဖတ်၍မရပါ — ၎င်းတို့၏ HLS playlist များကို စစ်ဆေးပါ။`,
       backfillNothingToast: "ဖြည့်ရန် မရှိပါ",
-      backfillNothingDescription: "ခေါင်းစဉ်တိုင်းတွင် ကြာချိန် ရှိပြီးဖြစ်သည်။",
+      backfillNothingDescription:
+        "ခေါင်းစဉ်တိုင်းတွင် ကြာချိန် ရှိပြီးဖြစ်သည်။",
       backfillFailedToast: "ကြာချိန်များ ဖြည့်၍မရပါ",
     },
     columns: {
@@ -3604,11 +5357,13 @@ const mm = {
     },
     categories: {
       title: "အမျိုးအစားများ",
-      description: "ရုပ်ရှင်များကို ရှာဖွေကြည့်ရှုနိုင်သော အမျိုးအစားများအဖြစ် စုစည်းပါ။",
+      description:
+        "ရုပ်ရှင်များကို ရှာဖွေကြည့်ရှုနိုင်သော အမျိုးအစားများအဖြစ် စုစည်းပါ။",
       loadError: "အမျိုးအစားများကို ဖွင့်၍မရပါ။",
       addCategory: "အမျိုးအစားထည့်မည်",
       emptyTitle: "အမျိုးအစားများ မရှိသေးပါ",
-      emptyDescription: "စာရင်းကို စုစည်းရန် အကူအညီအတွက် အမျိုးအစားတစ်ခု ဖန်တီးပါ။",
+      emptyDescription:
+        "စာရင်းကို စုစည်းရန် အကူအညီအတွက် အမျိုးအစားတစ်ခု ဖန်တီးပါ။",
       movieCount: (n: number) => `ရုပ်ရှင် ${n} ခု`,
       editDialogTitle: "အမျိုးအစား ပြင်ဆင်မည်",
       addDialogTitle: "အမျိုးအစား ထည့်မည်",
@@ -3626,7 +5381,8 @@ const mm = {
     },
     readyToPublish: {
       title: "ထုတ်ပြန်ရန်အသင့်",
-      description: "ထုတ်ပြန်မီ လက်ရှိတင်ပြီးသား အကြောင်းအရာများကို ပြန်လည်စစ်ဆေးပါ။",
+      description:
+        "ထုတ်ပြန်မီ လက်ရှိတင်ပြီးသား အကြောင်းအရာများကို ပြန်လည်စစ်ဆေးပါ။",
       loadError: "ပြန်လည်စစ်ဆေးရမည့် စာရင်းကို ဖွင့်၍မရပါ။",
       pageDescription:
         "အတည်ပြုပြီး ပြီးစီးသွားသော တင်ခြင်းများ — သင့်စစ်ဆေးမှုကို စောင့်ဆိုင်းနေပါသည်။ သင်ထုတ်ပြန်သည်အထိ အသုံးပြုသူများထံမှ ဖျောက်ထားပါမည်။",
@@ -3659,7 +5415,8 @@ const mm = {
       languageLabel: "ဘာသာစကား",
       releaseYearLabel: "ထွက်ရှိသည့်နှစ်",
       durationLabel: "ကြာချိန် (မိနစ်)",
-      durationDetectedHint: "ဗီဒီယိုဖိုင်မှ အလိုအလျောက် သိရှိထားသည် — မှားနေပါက ပြင်ဆင်ပါ။",
+      durationDetectedHint:
+        "ဗီဒီယိုဖိုင်မှ အလိုအလျောက် သိရှိထားသည် — မှားနေပါက ပြင်ဆင်ပါ။",
       accessTypeLabel: "ဝင်ရောက်ခွင့်အမျိုးအစား",
       subscriptionRequires: "ကြည့်ရှုရန် စာရင်းသွင်းမှု အသက်ဝင်နေရမည်",
       freeAvailable: "အသုံးပြုသူအားလုံး ကြည့်ရှုနိုင်သည်",
@@ -3683,41 +5440,50 @@ const mm = {
       publishMovie: "ရုပ်ရှင် ထုတ်ပြန်မည်",
       busyEllipsis: (label: string) => `${label}...`,
       missingFieldsToast: "လိုအပ်သောအချက်များ ချန်ထားခဲ့သည်",
-      missingFieldsDescription: "ခေါင်းစဉ်၊ ဖော်ပြချက်၊ ဂျန်ရာ၊ ပိုစတာနှင့် ဗီဒီယိုဖိုင် လိုအပ်ပါသည်။",
+      missingFieldsDescription:
+        "ခေါင်းစဉ်၊ ဖော်ပြချက်၊ ဂျန်ရာ၊ ပိုစတာနှင့် ဗီဒီယိုဖိုင် လိုအပ်ပါသည်။",
       draftMissingFields: "မူကြမ်းသိမ်းရန် ခေါင်းစဉ်နှင့် ဂျန်ရာ လိုအပ်ပါသည်။",
       draftSavedToast: "မူကြမ်း သိမ်းပြီးပါပြီ",
-      draftSavedDescription: (title: string) => `"${title}" ကို မူကြမ်းအဖြစ် ရုပ်ရှင်များထဲသို့ သိမ်းပြီးပါပြီ။`,
+      draftSavedDescription: (title: string) =>
+        `"${title}" ကို မူကြမ်းအဖြစ် ရုပ်ရှင်များထဲသို့ သိမ်းပြီးပါပြီ။`,
       failedToSaveDraft: "မူကြမ်းသိမ်း၍မရပါ",
       publishFailedFallback: "ထုတ်ပြန်မှု မအောင်မြင်ပါ",
       publishedTitle: (title: string) => `"${title}" ထုတ်ပြန်ပြီးပါပြီ`,
-      publishedDescription: "သင့်ရုပ်ရှင်သည် လုပ်ဆောင်မှုပြီးစီးပြီး စာရင်းတွင် ယခုတင်ပြနေပါပြီ။",
+      publishedDescription:
+        "သင့်ရုပ်ရှင်သည် လုပ်ဆောင်မှုပြီးစီးပြီး စာရင်းတွင် ယခုတင်ပြနေပါပြီ။",
       uploadAnother: "နောက်တစ်ခု ထပ်တင်မည်",
       goToCatalog: "စာရင်းသို့ သွားမည်",
     },
     externalUpload: {
-      description: "ရုပ်ရှင်ဖိုင်တွဲများကို ဆွဲချပါ — တစ်ကြိမ်လျှင် တစ်ခုစီ အစဉ်လိုက် တင်ပြီး ကျန်သည်များ စောင့်ဆိုင်းနေပါမည်။",
+      description:
+        "ရုပ်ရှင်ဖိုင်တွဲများကို ဆွဲချပါ — တစ်ကြိမ်လျှင် တစ်ခုစီ အစဉ်လိုက် တင်ပြီး ကျန်သည်များ စောင့်ဆိုင်းနေပါမည်။",
       pageDescription:
         "ရုပ်ရှင်ဖိုင်တွဲများကို ဆွဲချပါ — တစ်ကြိမ်လျှင် တစ်ခုစီ အစဉ်လိုက် တင်ပြီး ကျန်သည်များ စောင့်ဆိုင်းနေပါမည်။ ဤစနစ်သည် ffmpeg ကို ဤလုပ်ငန်းစဉ်အတွက် လုံးဝမသုံးပါ၊ ရုပ်ရှင်ကိုလည်း အလိုအလျောက် ထုတ်ပြန်ပေးမည်မဟုတ်ပါ။",
       waitingForConnection: "အင်တာနက်ချိတ်ဆက်မှု စောင့်ဆိုင်းနေသည်...",
       waitingForConnectionDescription:
         "တင်ခြင်းများကို ခေတ္တရပ်ထားပြီး ရပ်ခဲ့သည့်နေရာမှ အလိုအလျောက် ပြန်ဆက်လုပ်ဆောင်ပါမည် — ဘာမှမပျောက်ပါ။",
       dropFoldersHere: "ရုပ်ရှင်ဖိုင်တွဲများကို ဤနေရာတွင် ဆွဲချပါ",
-      folderStructureHint: "ဖိုင်တွဲတစ်ခုစီတွင်: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+      folderStructureHint:
+        "ဖိုင်တွဲတစ်ခုစီတွင်: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
       addFolder: "ဖိုင်တွဲထည့်မည်",
       moviesQueued: (n: number) => `ရုပ်ရှင် ${n} ခု စာရင်းသွင်းထားသည်`,
       restoringSession: " · သင့်နောက်ဆုံးစက်ရှင်ကို ပြန်လည်ရယူနေသည်...",
       emptyFolderToast: "ဤဖိုင်တွဲသည် အလွတ်ဖြစ်နေပုံရသည်။",
-      moviesAddedToast: (n: number) => `ရုပ်ရှင် ${n} ခု စာရင်းသို့ ထည့်ပြီးပါပြီ`,
-      noFoldersToast: "ရုပ်ရှင်ဖိုင်တွဲတစ်ခု သို့မဟုတ် တစ်ခုထက်ပိုပြီး ဆွဲချပါ — ဖိုင်တစ်ခုချင်းစီကို ဤနေရာတွင် မထောက်ပံ့ပါ။",
+      moviesAddedToast: (n: number) =>
+        `ရုပ်ရှင် ${n} ခု စာရင်းသို့ ထည့်ပြီးပါပြီ`,
+      noFoldersToast:
+        "ရုပ်ရှင်ဖိုင်တွဲတစ်ခု သို့မဟုတ် တစ်ခုထက်ပိုပြီး ဆွဲချပါ — ဖိုင်တစ်ခုချင်းစီကို ဤနေရာတွင် မထောက်ပံ့ပါ။",
       readFoldersFailedToast: "ဆွဲချထားသော ဖိုင်တွဲများကို ဖတ်၍မရပါ",
       readFoldersFailedDescription: (addFolderLabel: string) =>
         `ထပ်မံကြိုးစားပါ၊ သို့မဟုတ် "${addFolderLabel}" ကို အသုံးပြုပါ။`,
       loadMovieFailedToast: "ဤရုပ်ရှင်၏ အသေးစိတ်ကို ဖွင့်၍မရပါ",
-      emptyQueueText: "ရုပ်ရှင်များ မစာရင်းသွင်းရသေးပါ — အထက်မှ ဖိုင်တွဲတစ်ခု ဆွဲချ သို့မဟုတ် ထည့်ပါ။",
+      emptyQueueText:
+        "ရုပ်ရှင်များ မစာရင်းသွင်းရသေးပါ — အထက်မှ ဖိုင်တွဲတစ်ခု ဆွဲချ သို့မဟုတ် ထည့်ပါ။",
     },
     editDialog: {
       title: "ရုပ်ရှင် ပြင်ဆင်မည်",
-      descriptionFor: (title: string) => `"${title}" အတွက် အသေးစိတ်ကို ပြင်ဆင်ပါ။`,
+      descriptionFor: (title: string) =>
+        `"${title}" အတွက် အသေးစိတ်ကို ပြင်ဆင်ပါ။`,
       titleLabel: "ခေါင်းစဉ်",
       seasonLabel: "ရာသီ",
       episodeLabel: "အပိုင်း",
@@ -3726,10 +5492,12 @@ const mm = {
       genrePlaceholder: "ဂျန်ရာ ရွေးပါ",
       releaseYearLabel: "ထွက်ရှိသည့်နှစ်",
       durationLabel: "ကြာချိန် (မိနစ်)",
-      durationUnknownHint: "ကြာချိန်ကို မတိုင်းတာရသေးပါ — မိနစ်ဖြင့် ထည့်သွင်းပါ။",
+      durationUnknownHint:
+        "ကြာချိန်ကို မတိုင်းတာရသေးပါ — မိနစ်ဖြင့် ထည့်သွင်းပါ။",
       ratingLabel: "အဆင့်သတ်မှတ်ချက် (0–10)",
       ratingHint: "အဆင့်မသတ်မှတ်လိုပါက ဗလာထားပါ။",
-      ratingInvalidToast: "အဆင့်သတ်မှတ်ချက်သည် 0 နှင့် 10 ကြားရှိ ကိန်းဂဏန်း ဖြစ်ရပါမည်။",
+      ratingInvalidToast:
+        "အဆင့်သတ်မှတ်ချက်သည် 0 နှင့် 10 ကြားရှိ ကိန်းဂဏန်း ဖြစ်ရပါမည်။",
       categoriesLabel: "အမျိုးအစားများ",
       accessTypeLabel: "ဝင်ရောက်ခွင့်အမျိုးအစား",
       statusLabel: "အခြေအနေ",
@@ -3751,6 +5519,22 @@ const mm = {
       rating: "အဆင့်သတ်မှတ်ချက်",
       lastUpdated: (date: string) => `နောက်ဆုံးပြင်ဆင်ခဲ့သည် ${date}`,
     },
+    mediaType: {
+      movieLabel: "ရုပ်ရှင်အမျိုးအစား",
+      seriesLabel: "စီးရီးအမျိုးအစား",
+      detailsLabel: "အမျိုးအစား",
+      notSet: "မသတ်မှတ်ရသေးပါ",
+      names: {
+        English: "အင်္ဂလိပ်",
+        Korean: "ကိုရီးယား",
+        Chinese: "တရုတ်",
+        Thai: "ထိုင်း",
+        Japanese: "ဂျပန်",
+        Indian: "အိန္ဒိယ",
+        Myanmar: "မြန်မာ",
+        Other: "အခြား",
+      },
+    },
     subtitles: {
       title: "စာတန်းထိုးများ",
       empty: "စာတန်းထိုး မတင်ရသေးပါ။",
@@ -3759,7 +5543,8 @@ const mm = {
       setAsDefault: "မူလအဖြစ် သတ်မှတ်မည်",
       default: "မူလ",
       uploadSubtitle: "စာတန်းထိုး တင်မည်",
-      missingFieldsToast: "စာတန်းထိုးဖိုင်၊ ဘာသာစကားကုဒ်နှင့် အမည်တံဆိပ် အားလုံး လိုအပ်ပါသည်။",
+      missingFieldsToast:
+        "စာတန်းထိုးဖိုင်၊ ဘာသာစကားကုဒ်နှင့် အမည်တံဆိပ် အားလုံး လိုအပ်ပါသည်။",
       uploadedToast: "စာတန်းထိုး တင်ပြီးပါပြီ",
       uploadFailedToast: "စာတန်းထိုး တင်၍မရပါ",
       setDefaultFailedToast: "မူလစာတန်းထိုး သတ်မှတ်၍မရပါ",
@@ -3772,7 +5557,8 @@ const mm = {
       addSubtitle: "စာတန်းထိုး ထည့်မည်",
       fileLabel: "စာတန်းထိုးဖိုင်",
       fileHint: "SRT, VTT သို့မဟုတ် ASS",
-      uploadedDescription: (label: string, language: string) => `${label} (${language}) ကို အပေါ်တွင် စာရင်းပြထားပါပြီ။`,
+      uploadedDescription: (label: string, language: string) =>
+        `${label} (${language}) ကို အပေါ်တွင် စာရင်းပြထားပါပြီ။`,
       deleteTitle: "ဤစာတန်းထိုးကို ဖယ်ရှားမည်လား။",
       deleteDescription: (label: string, language: string) =>
         `"${label}" (${language}) သည် ပလေယာ၏ စာတန်းထိုးမီနူးမှ ပျောက်သွားပါမည်။ ပြန်လည်ရယူ၍ မရပါ။`,
@@ -3795,7 +5581,8 @@ const mm = {
       suggested: {
         none: "မီဒီယာအတွက် လုပ်ဆောင်ရန် မလိုပါ — အနီရောင်စာကြောင်းများသည် ဗီဒီယိုမဟုတ်ဘဲ ဆက်တင် သို့မဟုတ် စာတန်းထိုး ပြဿနာကို ညွှန်ပြနေသည်။",
         reprocess: "အကြံပြုချက် — မူရင်းဖိုင်မှ ပြန်လည်လုပ်ဆောင်ပါ။",
-        replace: "အကြံပြုချက် — ကုဒ်ပြောင်းထားသော အစုအဖွဲ့အသစ်ဖြင့် ဗီဒီယိုကို အစားထိုးပါ။",
+        replace:
+          "အကြံပြုချက် — ကုဒ်ပြောင်းထားသော အစုအဖွဲ့အသစ်ဖြင့် ဗီဒီယိုကို အစားထိုးပါ။",
       },
       checks: {
         video_row: "ဗီဒီယို မှတ်တမ်း",
@@ -3820,15 +5607,18 @@ const mm = {
         hint: "ဖိုင်တွဲတစ်ခု — original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
         addFolder: "ဖိုင်တွဲ ရွေးမည်",
         oneFolderOnly: "အစုအဖွဲ့ ဖိုင်တွဲ တစ်ခုတည်းသာ ဆွဲချပါ။",
-        invalidBundle: (reason: string) => `ဤဖိုင်တွဲသည် မှန်ကန်သော အစုအဖွဲ့ မဟုတ်ပါ — ${reason}`,
+        invalidBundle: (reason: string) =>
+          `ဤဖိုင်တွဲသည် မှန်ကန်သော အစုအဖွဲ့ မဟုတ်ပါ — ${reason}`,
         invalid: {
           original: "အမြစ်တွင် original.mp4 မရှိပါ",
           master: "master.m3u8 မရှိပါ",
           rendition: "index.m3u8 ပါသော 240p–1080p အရည်အသွေး ဖိုင်တွဲ မရှိပါ",
         },
-        notReplaceable: "ထုတ်ပြန်ပြီး၊ ထုတ်ပြန်ရန်အသင့် သို့မဟုတ် မအောင်မြင်သော ခေါင်းစဉ်၏ ဗီဒီယိုကိုသာ အစားထိုးနိုင်ပါသည်။",
+        notReplaceable:
+          "ထုတ်ပြန်ပြီး၊ ထုတ်ပြန်ရန်အသင့် သို့မဟုတ် မအောင်မြင်သော ခေါင်းစဉ်၏ ဗီဒီယိုကိုသာ အစားထိုးနိုင်ပါသည်။",
         removeFolder: "ဖယ်ရှားမည်",
-        confirmTitle: (title: string) => `"${title}" ၏ ဗီဒီယိုကို အစားထိုးမည်လား?`,
+        confirmTitle: (title: string) =>
+          `"${title}" ၏ ဗီဒီယိုကို အစားထိုးမည်လား?`,
         confirmDescription:
           "အစုအဖွဲ့အသစ် တင်ပြီးသည့်အခါ လက်ရှိ မူရင်းဖိုင်၊ HLS အရည်အသွေးများနှင့် စာတန်းထိုးများကို ဖျက်ပြီး အစားထိုးပါမည်။ ကြည့်ရှုမှတ်တမ်း ဆက်ရှိနေပါမည်။ အပြောင်းအလဲ မပြီးမချင်း ခေါင်းစဉ်၏ အခြေအနေ မပြောင်းဘဲ ဗီဒီယိုအဟောင်းကို ဆက်ဖွင့်ပေးနေပါမည်။",
         beginning: "ပြင်ဆင်နေသည်...",
@@ -3837,12 +5627,15 @@ const mm = {
         doneToast: "ဗီဒီယို အစားထိုးပြီးပါပြီ",
         doneDescription: (renditions: number, subtitles: number) =>
           `အရည်အသွေး ${renditions} ခုနှင့် စာတန်းထိုး ${subtitles} ခု ယခု တင်ပြနေပါပြီ။`,
-        cacheNotice: "ကြည့်ရှုသူများသည် ၇ ရက်အထိ ဗီဒီယိုအဟောင်း၏ ကက်ရှ်အပိုင်းများကို ရရှိနေနိုင်ပါသေးသည်။",
+        cacheNotice:
+          "ကြည့်ရှုသူများသည် ၇ ရက်အထိ ဗီဒီယိုအဟောင်း၏ ကက်ရှ်အပိုင်းများကို ရရှိနေနိုင်ပါသေးသည်။",
         failedToast: "ဗီဒီယိုကို အစားထိုး၍မရပါ",
         retry: "ထပ်ကြိုးစားမည်",
         cancel: "တင်ခြင်း ရပ်မည်",
-        cancelledToast: "အစားထိုးမှု ရပ်လိုက်ပါပြီ — ဗီဒီယိုအဟောင်း မထိခိုက်ပါ။",
-        filesSummary: (done: number, total: number) => `ဖိုင် ${total} ခုမှ ${done} ခု`,
+        cancelledToast:
+          "အစားထိုးမှု ရပ်လိုက်ပါပြီ — ဗီဒီယိုအဟောင်း မထိခိုက်ပါ။",
+        filesSummary: (done: number, total: number) =>
+          `ဖိုင် ${total} ခုမှ ${done} ခု`,
       },
     },
     fileUpload: {
@@ -3871,16 +5664,19 @@ const mm = {
     unpublishConfirmDescription: (title: string) =>
       `"${title}" ကို အသုံးပြုသူများထံမှ ဖျောက်ထားပါမည်။ မည်သည့်အရာမျှ ဖျက်မည်မဟုတ်ပါ — ၎င်း၏ရာသီများနှင့် အပိုင်းများကို ဤနေရာမှ ဆက်လက်စီမံနိုင်ပါသည်။`,
     publishedToast: "စီးရီး ထုတ်ပြန်ပြီးပါပြီ",
-    publishedDescription: (title: string) => `"${title}" သည် MyanFlix တွင် ယခုတင်ပြနေပါပြီ။`,
+    publishedDescription: (title: string) =>
+      `"${title}" သည် MyanFlix တွင် ယခုတင်ပြနေပါပြီ။`,
     unpublishedToast: "စီးရီး ထုတ်ပြန်မှု ရုပ်သိမ်းပြီးပါပြီ",
-    unpublishedDescription: (title: string) => `"${title}" ကို အသုံးပြုသူများထံမှ ယခု ဖျောက်ထားပါပြီ။`,
+    unpublishedDescription: (title: string) =>
+      `"${title}" ကို အသုံးပြုသူများထံမှ ယခု ဖျောက်ထားပါပြီ။`,
     statusUpdateFailedToast: "စီးရီးအခြေအနေကို ပြောင်း၍မရပါ",
     page: {
       title: "စီးရီးအားလုံး",
       description: "ရှိုးများနှင့် ၎င်းတို့၏အပိုင်းများကို စီမံခန့်ခွဲပါ။",
       loadError: "စီးရီးစာရင်းကို ဖွင့်၍မရပါ။",
       emptyTitle: "စီးရီးများ မရှိသေးပါ",
-      emptyDescription: "သင့်ပထမဆုံးရှိုးကို ဖန်တီးပြီး Bulk Upload Episodes ဖြင့် အပိုင်းများ ထည့်ပါ။",
+      emptyDescription:
+        "သင့်ပထမဆုံးရှိုးကို ဖန်တီးပြီး Bulk Upload Episodes ဖြင့် အပိုင်းများ ထည့်ပါ။",
       searchPlaceholder: "ခေါင်းစဉ်ဖြင့် စီးရီးရှာမည်...",
       deleteTitle: "ဤစီးရီးကို ဖျက်မည်လား?",
       deleteDescription:
@@ -3901,8 +5697,10 @@ const mm = {
     form: {
       editTitle: "စီးရီး ပြင်ဆင်မည်",
       createTitle: "စီးရီး ဖန်တီးမည်",
-      editDescriptionFor: (title: string) => `"${title}" အတွက် အသေးစိတ်ကို ပြင်ဆင်ပါ။`,
-      createDescription: "ရှိုးအဆင့် အသေးစိတ်များ — အပိုင်းများကို Bulk Upload Episodes ဖြင့် ထည့်ပါမည်။",
+      editDescriptionFor: (title: string) =>
+        `"${title}" အတွက် အသေးစိတ်ကို ပြင်ဆင်ပါ။`,
+      createDescription:
+        "ရှိုးအဆင့် အသေးစိတ်များ — အပိုင်းများကို Bulk Upload Episodes ဖြင့် ထည့်ပါမည်။",
       titleLabel: "ခေါင်းစဉ်",
       descriptionLabel: "ဖော်ပြချက်",
       genreLabel: "ဂျန်ရာ",
@@ -3910,34 +5708,41 @@ const mm = {
       releaseYearLabel: "ထွက်ရှိသည့်နှစ်",
       ratingLabel: "အဆင့်သတ်မှတ်ချက် (0–10)",
       ratingHint: "အဆင့်မသတ်မှတ်လိုပါက ဗလာထားပါ။",
-      ratingInvalidToast: "အဆင့်သတ်မှတ်ချက်သည် 0 နှင့် 10 ကြားရှိ ကိန်းဂဏန်း ဖြစ်ရပါမည်။",
+      ratingInvalidToast:
+        "အဆင့်သတ်မှတ်ချက်သည် 0 နှင့် 10 ကြားရှိ ကိန်းဂဏန်း ဖြစ်ရပါမည်။",
       accessTypeLabel: "ဝင်ရောက်ခွင့်အမျိုးအစား",
-      accessTypeHelp: "ရာသီနှင့်အပိုင်းတိုင်း၊ နောက်ပိုင်းထည့်မည့်အရာများပါ အကျုံးဝင်ပါသည်။",
+      accessTypeHelp:
+        "ရာသီနှင့်အပိုင်းတိုင်း၊ နောက်ပိုင်းထည့်မည့်အရာများပါ အကျုံးဝင်ပါသည်။",
       createSeriesButton: "စီးရီး ဖန်တီးမည်",
     },
     manage: {
       errorTitle: "စီးရီး",
       errorDescription: "ဤရှိုးကို စီမံပါ။",
       loadError: "ဤစီးရီးကို ဖွင့်၍မရပါ။",
-      description: "ဤရှိုးနှင့်ပတ်သက်သည့် အရာအားလုံး — အသေးစိတ်၊ ရာသီများနှင့် အပိုင်းတင်ခြင်းများ — တစ်နေရာတည်းတွင်။",
+      description:
+        "ဤရှိုးနှင့်ပတ်သက်သည့် အရာအားလုံး — အသေးစိတ်၊ ရာသီများနှင့် အပိုင်းတင်ခြင်းများ — တစ်နေရာတည်းတွင်။",
       infoCardTitle: "စီးရီးအချက်အလက်",
       categoriesLabel: "အမျိုးအစားများ",
       thumbnailLabel: "ပုံသေး",
       bannerLabel: "ဘန်နာ",
       saveInfo: "စီးရီးအချက်အလက် သိမ်းမည်",
       savedToast: "စီးရီး သိမ်းပြီးပါပြီ",
-      addEpisodesTitle: (seasonNumber: number) => `ရာသီ ${seasonNumber} သို့ အပိုင်းများ ထည့်မည်`,
+      addEpisodesTitle: (seasonNumber: number) =>
+        `ရာသီ ${seasonNumber} သို့ အပိုင်းများ ထည့်မည်`,
       seasonTitle: (seasonNumber: number) => `ရာသီ ${seasonNumber}`,
-      noEpisodesYet: "အပိုင်းများ မရှိသေးပါ — ကြိုတင်ကုဒ်ပြောင်းထားသော အပိုင်းဖိုင်တွဲများ ထည့်ရန် + ကို နှိပ်ပါ။",
+      noEpisodesYet:
+        "အပိုင်းများ မရှိသေးပါ — ကြိုတင်ကုဒ်ပြောင်းထားသော အပိုင်းဖိုင်တွဲများ ထည့်ရန် + ကို နှိပ်ပါ။",
       addSeason: (n: number) => `ရာသီ ${n} ထည့်မည်`,
-      tooManyEpisodesToast: (max: number) => `တစ်ကြိမ်လျှင် အများဆုံး အပိုင်း ${max} ခုသာ စာရင်းသွင်းနိုင်ပါသည်။`,
+      tooManyEpisodesToast: (max: number) =>
+        `တစ်ကြိမ်လျှင် အများဆုံး အပိုင်း ${max} ခုသာ စာရင်းသွင်းနိုင်ပါသည်။`,
       partialAddToast: (added: number, total: number, max: number) =>
         `ဖိုင်တွဲ ${total} ခုအနက် ${added} ခုသာ ထည့်ပြီးပါပြီ — အပိုင်း ${max} ခု ကန့်သတ်ချက်သို့ ရောက်ရှိသွားပါပြီ။`,
       queueFailedToast: "ထိုဖိုင်တွဲများကို စာရင်းသွင်း၍မရပါ",
       episodesAddedToast: (added: number, seasonNumber: number) =>
         `ရာသီ ${seasonNumber} သို့ အပိုင်း ${added} ခု ထည့်ပြီးပါပြီ`,
       reorderFailedToast: "အစီအစဉ်အသစ်ကို သိမ်း၍မရပါ",
-      episodeDeletedDescription: (title: string) => `"${title}" ကို ဖယ်ရှားပြီးပါပြီ။`,
+      episodeDeletedDescription: (title: string) =>
+        `"${title}" ကို ဖယ်ရှားပြီးပါပြီ။`,
       deleteFailedToast: "ဤအပိုင်းကို ဖျက်၍မရပါ",
       deleteEpisodeDescription: (title: string) =>
         `"${title}" နှင့် ၎င်း၏တင်ထားသောဖိုင်များကို အပြီးအပိုင်ဖယ်ရှားပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`,
@@ -3958,7 +5763,8 @@ const mm = {
       uploadDate: "တင်ခဲ့သည့်ရက်",
     },
     readyToPublish: {
-      description: "ထုတ်ပြန်မီ လက်ရှိတင်ပြီးသား အပိုင်းများကို ပြန်လည်စစ်ဆေးပါ။",
+      description:
+        "ထုတ်ပြန်မီ လက်ရှိတင်ပြီးသား အပိုင်းများကို ပြန်လည်စစ်ဆေးပါ။",
       pageDescription:
         "တင်ခြင်းပြီးစီးပြီး သင့်စစ်ဆေးမှုကို စောင့်ဆိုင်းနေသော အပိုင်းများ — သင်ထုတ်ပြန်သည်အထိ အသုံးပြုသူများထံမှ ဖျောက်ထားပါမည်။",
       emptyDescription:
@@ -3996,14 +5802,16 @@ const mm = {
     finalizingUpload: "နောက်ဆုံးအဆင့် လုပ်ဆောင်နေသည်...",
     validatingBundle: "အစုအဖွဲ့ စစ်ဆေးနေသည်...",
     pausedAt: (pct: number) => `${pct}% တွင် ခေတ္တရပ်ထားသည်`,
-    needsReattachText: "ဤစာရင်းကို ပြန်လည်ဖွင့်ပြီးနောက် ပြန်လည်ရယူထားသည် — ဆက်လုပ်ရန် ဤဖိုင်တွဲကို ပြန်ရွေးပါ။",
+    needsReattachText:
+      "ဤစာရင်းကို ပြန်လည်ဖွင့်ပြီးနောက် ပြန်လည်ရယူထားသည် — ဆက်လုပ်ရန် ဤဖိုင်တွဲကို ပြန်ရွေးပါ။",
     attachFolder: "ဖိုင်တွဲ ချိတ်ဆက်မည်",
     pause: "ခေတ္တရပ်မည်",
     resume: "ဆက်လုပ်မည်",
     details: "အသေးစိတ်",
     remove: "ဖယ်ရှားမည်",
     uploadFailedFallback: "တင်ခြင်း မအောင်မြင်ပါ။",
-    reattachedToast: "ဖိုင်တွဲ ပြန်လည်ချိတ်ဆက်ပြီးပါပြီ — မကြာမီ ဆက်လက်လုပ်ဆောင်ပါမည်။",
+    reattachedToast:
+      "ဖိုင်တွဲ ပြန်လည်ချိတ်ဆက်ပြီးပါပြီ — မကြာမီ ဆက်လက်လုပ်ဆောင်ပါမည်။",
   },
   books: {
     createBook: "စာအုပ် ဖန်တီးမည်",
@@ -4047,7 +5855,8 @@ const mm = {
       description: "ဖော်ပြချက်",
       descriptionPlaceholder: "ဤစာအုပ်သည် အဘယ်အကြောင်း ဖြစ်သနည်း?",
       categories: "အမျိုးအစားများ",
-      noCategories: "အမျိုးအစား မရှိသေးပါ — ရုပ်ရှင် > အမျိုးအစားများ တွင် ဖန်တီးပါ။",
+      noCategories:
+        "အမျိုးအစား မရှိသေးပါ — ရုပ်ရှင် > အမျိုးအစားများ တွင် ဖန်တီးပါ။",
       cover: "မျက်နှာဖုံး ပုံ",
       coverHint: "စာအုပ် ပေါ်လာသည့် နေရာတိုင်းတွင် ပြသမည့် ထောင်လိုက်ပုံ။",
       pdfHint: "စာအုပ် အပြည့်အစုံ PDF တစ်ဖိုင်တည်း။",
@@ -4059,7 +5868,8 @@ const mm = {
       description: "MyanFlix စာကြည့်တိုက်ကို ကြည့်ရှုစီမံပါ။",
       loadError: "စာကြည့်တိုက်ကို ဖွင့်၍မရပါ။",
       emptyTitle: "စာအုပ် မရှိသေးပါ",
-      emptyDescription: "ပထမဆုံး စာအုပ်ကို ဖန်တီးပြီး စာကြည့်တိုက် စတင်တည်ဆောက်ပါ။",
+      emptyDescription:
+        "ပထမဆုံး စာအုပ်ကို ဖန်တီးပြီး စာကြည့်တိုက် စတင်တည်ဆောက်ပါ။",
       typeFilterPlaceholder: "စာအုပ် အမျိုးအစား",
       allTypes: "အမျိုးအစား အားလုံး",
       statusFilterPlaceholder: "အခြေအနေ",
@@ -4068,7 +5878,8 @@ const mm = {
       deleteDescription: (title: string) =>
         `"${title}" နှင့် ၎င်းအတွင်းရှိ အခန်းများ၊ ပြောင်းလဲပြီး စာမျက်နှာများနှင့် မူရင်းဖိုင် အားလုံး အပြီးအပိုင် ပျက်သွားပါမည်။`,
       deletedToast: "စာအုပ် ဖျက်ပြီးပါပြီ",
-      deletedDescription: (title: string) => `"${title}" ကို စာကြည့်တိုက်မှ ဖယ်ရှားပြီးပါပြီ။`,
+      deletedDescription: (title: string) =>
+        `"${title}" ကို စာကြည့်တိုက်မှ ဖယ်ရှားပြီးပါပြီ။`,
       deleteFailedToast: "ဤစာအုပ်ကို ဖျက်၍မရပါ",
     },
     columns: {
@@ -4088,7 +5899,8 @@ const mm = {
       savedToast: "စာအုပ် ပြင်ဆင်ပြီးပါပြီ",
       saveFailedToast: "ဤစာအုပ်ကို သိမ်း၍မရပါ",
       chaptersTitle: "အခန်းများ",
-      chaptersDescription: "အစီအစဉ် ပြန်စီရန် ဆွဲပါ။ ဖတ်ရှုသူများ ဤအစီအစဉ်အတိုင်း ဖတ်ရပါမည်။",
+      chaptersDescription:
+        "အစီအစဉ် ပြန်စီရန် ဆွဲပါ။ ဖတ်ရှုသူများ ဤအစီအစဉ်အတိုင်း ဖတ်ရပါမည်။",
       addChapter: "အခန်း ထည့်မည်",
       newChapterTitle: "ခေါင်းစဉ်မဲ့ အခန်း",
       chapterCreatedToast: "အခန်း ထည့်ပြီးပါပြီ",
@@ -4103,7 +5915,8 @@ const mm = {
     },
     hierarchy: {
       parts: "အပိုင်းများ",
-      partsHint: "အခန်းများကို အပိုင်းများအဖြစ် စုစည်းနိုင်သည် — မဖြစ်မနေ မလိုပါ။",
+      partsHint:
+        "အခန်းများကို အပိုင်းများအဖြစ် စုစည်းနိုင်သည် — မဖြစ်မနေ မလိုပါ။",
       addPart: "အပိုင်း ထည့်မည်",
       newPartTitle: "အမည်မရှိ အပိုင်း",
       partTitlePlaceholder: "အပိုင်း ခေါင်းစဉ်",
@@ -4118,13 +5931,16 @@ const mm = {
       noPart: "အပိုင်း မရှိ",
       moveToPart: "အပိုင်းသို့ ရွှေ့မည်",
       addChapterToPart: "ဤအပိုင်းထဲသို့ အခန်း ထည့်မည်",
-      unpartedHint: "အပိုင်း မသတ်မှတ်ရသေးသော အခန်းများကို ပထမအပိုင်း မတိုင်မီ ပြသပါမည်။",
+      unpartedHint:
+        "အပိုင်း မသတ်မှတ်ရသေးသော အခန်းများကို ပထမအပိုင်း မတိုင်မီ ပြသပါမည်။",
       moveUp: "အပေါ်သို့ ရွှေ့မည်",
       moveDown: "အောက်သို့ ရွှေ့မည်",
       sections: "အခန်းခွဲများ",
-      sectionsHint: "ဤအခန်းကို အခန်းခွဲများအဖြစ် ခွဲနိုင်သည် — မဖြစ်မနေ မလိုပါ။",
+      sectionsHint:
+        "ဤအခန်းကို အခန်းခွဲများအဖြစ် ခွဲနိုင်သည် — မဖြစ်မနေ မလိုပါ။",
       addSection: "အခန်းခွဲ ထည့်မည်",
-      noPagesLeft: "စာမျက်နှာအားလုံး ပါဝင်ပြီးဖြစ်သည် — နေရာလွတ်ရရန် စတင်စာမျက်နှာတစ်ခုကို ပြောင်းပါ။",
+      noPagesLeft:
+        "စာမျက်နှာအားလုံး ပါဝင်ပြီးဖြစ်သည် — နေရာလွတ်ရရန် စတင်စာမျက်နှာတစ်ခုကို ပြောင်းပါ။",
       newSectionTitle: "အမည်မရှိ အခန်းခွဲ",
       sectionTitle: "အခန်းခွဲ ခေါင်းစဉ်",
       sectionLabel: (n: string) => `အခန်းခွဲ ${n}`,
@@ -4183,7 +5999,8 @@ const mm = {
     },
     categories: {
       title: "စာအုပ် ကဏ္ဍများ",
-      description: "စာအုပ်တိုက်အတွက် စင်များ — ရုပ်ရှင် ကဏ္ဍများနှင့် သီးခြားဖြစ်သည်။",
+      description:
+        "စာအုပ်တိုက်အတွက် စင်များ — ရုပ်ရှင် ကဏ္ဍများနှင့် သီးခြားဖြစ်သည်။",
       add: "ကဏ္ဍ ထည့်ရန်",
       addTitle: "စာအုပ် ကဏ္ဍ အသစ်",
       editTitle: "စာအုပ် ကဏ္ဍ ပြင်ရန်",
@@ -4193,7 +6010,8 @@ const mm = {
       descriptionPlaceholder: "ဤစင်တွင် ဘာတွေ ရှိသင့်သနည်း။",
       bookCount: (count: number) => `စာအုပ် ${count} အုပ်`,
       emptyTitle: "ကဏ္ဍ မရှိသေးပါ",
-      emptyDescription: "စာအုပ်များကို အမျိုးအစားအလိုက် စုစည်းရန် စင်တစ်ခု ဖန်တီးပါ။",
+      emptyDescription:
+        "စာအုပ်များကို အမျိုးအစားအလိုက် စုစည်းရန် စင်တစ်ခု ဖန်တီးပါ။",
       loadError: "စာအုပ် ကဏ္ဍများကို ဖွင့်၍မရပါ။",
       createdToast: "ကဏ္ဍ ဖန်တီးပြီးပါပြီ",
       updatedToast: "ကဏ္ဍ ပြင်ဆင်ပြီးပါပြီ",
@@ -4215,7 +6033,8 @@ const mm = {
       failed: "ပြောင်းလဲမှု မအောင်မြင်ပါ",
       retry: "ပြောင်းလဲမှု ပြန်လုပ်မည်",
       noFile: "ဖိုင် မတင်ရသေးပါ။",
-      pagesConverted: (done: number, total: number) => `စာမျက်နှာ ${total} ခုအနက် ${done} ခု`,
+      pagesConverted: (done: number, total: number) =>
+        `စာမျက်နှာ ${total} ခုအနက် ${done} ခု`,
       uploadFailedToast: "အခန်း PDF တင်ခြင်း မအောင်မြင်ပါ",
       startedToast: "ပြောင်းလဲမှု စတင်ပါပြီ",
       startFailedToast: "ပြောင်းလဲမှု စတင်၍မရပါ",
@@ -4225,7 +6044,8 @@ const mm = {
     },
     editions: {
       title: "ဘာသာစကားများ",
-      description: "ဘာသာစကားတစ်ခုစီတွင် ကိုယ်ပိုင် အကြောင်းအရာရှိပြီး သီးခြား ထုတ်ပြန်ပါသည်။",
+      description:
+        "ဘာသာစကားတစ်ခုစီတွင် ကိုယ်ပိုင် အကြောင်းအရာရှိပြီး သီးခြား ထုတ်ပြန်ပါသည်။",
       add: "ဘာသာစကား ထည့်ရန်",
       addTitle: "ဘာသာစကား ထည့်မည်",
       addDescription:
@@ -4245,13 +6065,16 @@ const mm = {
     },
     readyToPublish: {
       title: "ထုတ်ပြန်ရန် အသင့် စာအုပ်များ",
-      description: "ပြီးစီးပြီး နောက်ဆုံး စစ်ဆေးရန် စောင့်ဆိုင်းနေသော စာအုပ်များ။",
+      description:
+        "ပြီးစီးပြီး နောက်ဆုံး စစ်ဆေးရန် စောင့်ဆိုင်းနေသော စာအုပ်များ။",
       emptyTitle: "စောင့်ဆိုင်းနေသည့် စာအုပ် မရှိပါ",
-      emptyDescription: "စာအုပ်များ ပြီးစီးပြီး ထုတ်ပြန်ရန် အသင့်ဖြစ်လျှင် ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyDescription:
+        "စာအုပ်များ ပြီးစီးပြီး ထုတ်ပြန်ရန် အသင့်ဖြစ်လျှင် ဤနေရာတွင် ပေါ်လာပါမည်။",
       loadError: "ထုတ်ပြန်ရန် စာရင်းကို ဖွင့်၍မရပါ။",
     },
     publishedToast: "စာအုပ် ထုတ်ပြန်ပြီးပါပြီ",
-    publishedDescription: (title: string) => `"${title}" သည် MyanFlix တွင် ထုတ်ပြန်ပြီး ဖြစ်ပါပြီ။`,
+    publishedDescription: (title: string) =>
+      `"${title}" သည် MyanFlix တွင် ထုတ်ပြန်ပြီး ဖြစ်ပါပြီ။`,
     unpublishedToast: "စာအုပ် ထုတ်ပြန်မှု ရုပ်သိမ်းပြီးပါပြီ",
     publishFailedToast: "ဤစာအုပ်ကို ထုတ်ပြန်၍မရပါ",
     createdToast: "စာအုပ် ဖန်တီးပြီးပါပြီ",
@@ -4260,11 +6083,13 @@ const mm = {
   actors: {
     page: {
       title: "သရုပ်ဆောင်များ",
-      description: "သင့်ကက်တလောက်ရှိ လူပုဂ္ဂိုလ်များနှင့် တစ်ဦးစီ ပါဝင်သည့် ရုပ်ရှင်အရေအတွက်။",
+      description:
+        "သင့်ကက်တလောက်ရှိ လူပုဂ္ဂိုလ်များနှင့် တစ်ဦးစီ ပါဝင်သည့် ရုပ်ရှင်အရေအတွက်။",
       add: "သရုပ်ဆောင် ထည့်ရန်",
       searchPlaceholder: "အမည်ဖြင့် ရှာရန်…",
       emptyTitle: "သရုပ်ဆောင် မရှိသေးပါ",
-      emptyDescription: "သင့်ရုပ်ရှင်များရှိ လူပုဂ္ဂိုလ်များကို ထည့်ပါ — ၎င်းတို့၏ လက်ရာများကို စုစည်း ရှာဖွေနိုင်ပါမည်။",
+      emptyDescription:
+        "သင့်ရုပ်ရှင်များရှိ လူပုဂ္ဂိုလ်များကို ထည့်ပါ — ၎င်းတို့၏ လက်ရာများကို စုစည်း ရှာဖွေနိုင်ပါမည်။",
       loadError: "သရုပ်ဆောင်များကို ဖွင့်၍မရပါ။",
       deleteTitle: "ဤသရုပ်ဆောင်ကို ဖယ်ရှားမည်လား။",
       deleteDescription: (name: string) =>
@@ -4292,8 +6117,10 @@ const mm = {
     picker: {
       label: "သရုပ်ဆောင်များ",
       hint: "ဤရုပ်ရှင်တွင် ပါဝင်သော သရုပ်ဆောင်များကို ရွေးပါ။",
-      seriesHint: "ဤဇာတ်လမ်းတွဲတွင် ပါဝင်သော သရုပ်ဆောင်များကို ရွေးပါ။ အပိုင်းတစ်ခုချင်းစီတွင်လည်း သီးသန့် သရုပ်ဆောင်များ ထည့်နိုင်ပါသည်။",
-      empty: "သရုပ်ဆောင် မရှိသေးပါ — ရုပ်ရှင်များ › သရုပ်ဆောင်များ တွင် ထည့်ပါ။",
+      seriesHint:
+        "ဤဇာတ်လမ်းတွဲတွင် ပါဝင်သော သရုပ်ဆောင်များကို ရွေးပါ။ အပိုင်းတစ်ခုချင်းစီတွင်လည်း သီးသန့် သရုပ်ဆောင်များ ထည့်နိုင်ပါသည်။",
+      empty:
+        "သရုပ်ဆောင် မရှိသေးပါ — ရုပ်ရှင်များ › သရုပ်ဆောင်များ တွင် ထည့်ပါ။",
       searchPlaceholder: "သရုပ်ဆောင် ရှာရန်…",
       selected: (count: number) => `သရုပ်ဆောင် ${count} ဦး ရွေးထားသည်`,
       noMatches: "ထိုအမည်နှင့် ကိုက်ညီသော သရုပ်ဆောင် မရှိပါ။",
@@ -4304,18 +6131,21 @@ const mm = {
   bookAuthors: {
     page: {
       title: "စာရေးဆရာများ",
-      description: "စာအုပ်တိုက်ရှိ စာရေးဆရာများနှင့် တစ်ဦးစီ ရေးသားထားသော စာအုပ်အရေအတွက်။",
+      description:
+        "စာအုပ်တိုက်ရှိ စာရေးဆရာများနှင့် တစ်ဦးစီ ရေးသားထားသော စာအုပ်အရေအတွက်။",
       add: "စာရေးဆရာ ထည့်ရန်",
       searchPlaceholder: "အမည်ဖြင့် ရှာရန်…",
       emptyTitle: "စာရေးဆရာ မရှိသေးပါ",
-      emptyDescription: "စာအုပ်များကို ရေးသားသူများကို ထည့်ပါ — ၎င်းတို့၏ စာအုပ်များကို စုစည်း ရှာဖွေနိုင်ပါမည်။",
+      emptyDescription:
+        "စာအုပ်များကို ရေးသားသူများကို ထည့်ပါ — ၎င်းတို့၏ စာအုပ်များကို စုစည်း ရှာဖွေနိုင်ပါမည်။",
       loadError: "စာရေးဆရာများကို ဖွင့်၍မရပါ။",
       deleteTitle: "ဤစာရေးဆရာကို ဖယ်ရှားမည်လား။",
       deleteDescription: (name: string) =>
         `${name} ကို စာအုပ်တိုက်မှ ဖယ်ရှားပါမည်။ စာအုပ်တစ်အုပ်အုပ်တွင် ပါဝင်နေသေးသော စာရေးဆရာကို ဖယ်ရှား၍မရပါ — ထိုစာအုပ်များကို အရင် ပြောင်းလဲသတ်မှတ်ပါ။`,
       deletedToast: "စာရေးဆရာ ဖယ်ရှားပြီးပါပြီ",
       deleteFailedToast: "ဤစာရေးဆရာကို ဖယ်ရှား၍မရပါ",
-      deleteBlockedToast: (count: number) => `စာအုပ် ${count} အုပ်တွင် ပါဝင်နေသေးပါသည်`,
+      deleteBlockedToast: (count: number) =>
+        `စာအုပ် ${count} အုပ်တွင် ပါဝင်နေသေးပါသည်`,
     },
     columns: {
       author: "စာရေးဆရာ",
@@ -4328,7 +6158,8 @@ const mm = {
       name: "အမည်",
       namePlaceholder: "အမည် အပြည့်အစုံ သို့မဟုတ် ကလောင်အမည်",
       photo: "ဓာတ်ပုံ",
-      photoHint: "စာရေးဆရာ၏ ဓာတ်ပုံ။ ရွေးချယ်နိုင်သည် — နောက်မှလည်း ထည့်နိုင်ပါသည်။",
+      photoHint:
+        "စာရေးဆရာ၏ ဓာတ်ပုံ။ ရွေးချယ်နိုင်သည် — နောက်မှလည်း ထည့်နိုင်ပါသည်။",
       bio: "ကိုယ်ရေးအကျဉ်း",
       bioPlaceholder: "စာရေးဆရာအကြောင်း အကျဉ်းချုပ် (ရွေးချယ်နိုင်သည်)",
       createdToast: "စာရေးဆရာ ထည့်ပြီးပါပြီ",
@@ -4341,7 +6172,8 @@ const mm = {
       hint: "ဤစာအုပ်ကို ရေးသားသူကို ရွေးပါ၊ သို့မဟုတ် အမည်အသစ် ရိုက်၍ ထည့်ပါ။",
       empty: "စာရေးဆရာ မရှိသေးပါ — အောက်တွင် အမည်ရိုက်၍ ထည့်နိုင်ပါသည်။",
       hintNoCreate: "ဤစာအုပ်ကို ရေးသားသော စာရေးဆရာကို ရွေးပါ။",
-      emptyNoCreate: "စာရေးဆရာ မရှိသေးပါ — စာအုပ်များ › စာရေးဆရာများ တွင် ထည့်ရန် တည်းဖြတ်သူကို ပြောပါ။",
+      emptyNoCreate:
+        "စာရေးဆရာ မရှိသေးပါ — စာအုပ်များ › စာရေးဆရာများ တွင် ထည့်ရန် တည်းဖြတ်သူကို ပြောပါ။",
       searchPlaceholder: "စာရေးဆရာ ရှာရန်…",
       noMatches: "ထိုအမည်နှင့် ကိုက်ညီသော စာရေးဆရာ မရှိပါ။",
       create: (name: string) => `"${name}" ကို စာရေးဆရာအသစ်အဖြစ် ထည့်မည်`,
@@ -4354,7 +6186,8 @@ const mm = {
   users: {
     page: {
       title: "အသုံးပြုသူများ",
-      description: "အသုံးပြုသူအကောင့်များ၊ ရာထူးနှင့် ဝင်ရောက်ခွင့်ကို စီမံခန့်ခွဲပါ။",
+      description:
+        "အသုံးပြုသူအကောင့်များ၊ ရာထူးနှင့် ဝင်ရောက်ခွင့်ကို စီမံခန့်ခွဲပါ။",
       descriptionShort: "အသုံးပြုသူအကောင့်များကို စီမံခန့်ခွဲပါ။",
       loadError: "အသုံးပြုသူစာရင်းကို ဖွင့်၍မရပါ။",
       emptyTitle: "အသုံးပြုသူများ မရှိသေးပါ",
@@ -4385,26 +6218,32 @@ const mm = {
     reactivateTitle: "ဤအသုံးပြုသူကို ပြန်လည်အသက်သွင်းမည်လား?",
     suspendDescription: (name: string) =>
       `${name} သည် ပြန်လည်အသက်သွင်းသည်အထိ အကောင့်ဝင်ရောက်ခွင့် ဆုံးရှုံးပါမည်။`,
-    reactivateDescription: (name: string) => `${name} သည် အကောင့်ဝင်ရောက်ခွင့် ပြန်လည်ရရှိပါမည်။`,
+    reactivateDescription: (name: string) =>
+      `${name} သည် အကောင့်ဝင်ရောက်ခွင့် ပြန်လည်ရရှိပါမည်။`,
     suspend: "ခေတ္တရပ်ဆိုင်းမည်",
     reactivate: "ပြန်လည်အသက်သွင်းမည်",
     suspendedToast: "အသုံးပြုသူ ခေတ္တရပ်ဆိုင်းပြီးပါပြီ",
     reactivatedToast: "အသုံးပြုသူ ပြန်လည်အသက်သွင်းပြီးပါပြီ",
-    suspendedDescription: (name: string) => `${name} ၏အကောင့်ကို ယခု ခေတ္တရပ်ဆိုင်းထားပါသည်။`,
-    reactivatedDescription: (name: string) => `${name} ၏အကောင့်ကို ယခု အသက်သွင်းထားပါသည်။`,
+    suspendedDescription: (name: string) =>
+      `${name} ၏အကောင့်ကို ယခု ခေတ္တရပ်ဆိုင်းထားပါသည်။`,
+    reactivatedDescription: (name: string) =>
+      `${name} ၏အကောင့်ကို ယခု အသက်သွင်းထားပါသည်။`,
     closedAccount: "ဤအကောင့်ကို ပိုင်ရှင်က ပိတ်သိမ်းထားသဖြင့် ပြောင်းလဲ၍ မရပါ။",
     editRoleDialog: {
       title: "ရာထူး ပြင်ဆင်မည်",
-      descriptionFor: (name: string) => `${name} အတွက် ခွင့်ပြုချက်အဆင့်ကို ပြောင်းလဲပါ။`,
+      descriptionFor: (name: string) =>
+        `${name} အတွက် ခွင့်ပြုချက်အဆင့်ကို ပြောင်းလဲပါ။`,
       currentRole: "လက်ရှိရာထူး -",
       newRoleLabel: "ရာထူးအသစ်",
       saveRole: "ရာထူး သိမ်းမည်",
       updatedToast: "ရာထူး ပြင်ဆင်ပြီးပါပြီ",
-      updatedDescription: (name: string, role: string) => `${name} သည် ယခု ${role} ဖြစ်ပါသည်။`,
+      updatedDescription: (name: string, role: string) =>
+        `${name} သည် ယခု ${role} ဖြစ်ပါသည်။`,
     },
     recentUsersTable: {
       emptyTitle: "အသုံးပြုသူသစ် မရှိသေးပါ",
-      emptyDescription: "စာရင်းသစ်သွင်းထားသော စာရင်းသွင်းသူများ ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyDescription:
+        "စာရင်းသစ်သွင်းထားသော စာရင်းသွင်းသူများ ဤနေရာတွင် ပေါ်လာပါမည်။",
       name: "အမည်",
       phone: "ဖုန်းနံပါတ်",
       joined: "စတင်ဝင်ရောက်ခဲ့သည့်ရက်",
@@ -4413,8 +6252,10 @@ const mm = {
       title: "အသင်းဝင်အဆင့်",
       noLevel: "အဆင့် မရရှိသေးပါ",
       nextLevel: "နောက်အဆင့်",
-      qualifyingTotal: (amount: string) => `စုစုပေါင်း စာရင်းသွင်းငွေ ${amount}`,
-      remainingTo: (amount: string, name: string) => `${name} ရရှိရန် ${amount} လိုပါသေးသည်`,
+      qualifyingTotal: (amount: string) =>
+        `စုစုပေါင်း စာရင်းသွင်းငွေ ${amount}`,
+      remainingTo: (amount: string, name: string) =>
+        `${name} ရရှိရန် ${amount} လိုပါသေးသည်`,
       topLevel: "အမြင့်ဆုံးအဆင့် ရရှိထားပါသည်",
       allDisabled: "လက်ရှိတွင် ဖွင့်ထားသော အသင်းဝင်အဆင့် မရှိပါ။",
     },
@@ -4424,8 +6265,10 @@ const mm = {
       pendingWithdrawals: "စောင့်ဆိုင်းဆဲ ငွေထုတ်များ",
       rejected: "ငြင်းပယ်ထားသော တောင်းဆိုမှုများ",
       netFlow: "အသားတင် ငွေစီးဆင်းမှု",
-      rejectedValue: (deposits: number, withdrawals: number) => `သွင်း ${deposits} · ထုတ် ${withdrawals}`,
-      countAndAmount: (count: number, amount: string) => `${count} ခု · ${amount}`,
+      rejectedValue: (deposits: number, withdrawals: number) =>
+        `သွင်း ${deposits} · ထုတ် ${withdrawals}`,
+      countAndAmount: (count: number, amount: string) =>
+        `${count} ခု · ${amount}`,
       partialNote: (shown: number, total: number) =>
         `အနှစ်ချုပ်နှင့် ဇယားများသည် မှတ်တမ်း ${total} ခုအနက် နောက်ဆုံး ${shown} ခုကိုသာ ခြုံငုံပါသည်။`,
     },
@@ -4451,12 +6294,16 @@ const mm = {
         refund: "ငွေပြန်အမ်း",
         adjustmentCredit: "ပြင်ဆင်ချက် (ဝင်ငွေ)",
         adjustmentDebit: "ပြင်ဆင်ချက် (ထွက်ငွေ)",
+        lotteryPurchase: "ထီလက်မှတ်များ",
+        lotteryPrize: "ထီဆုငွေ",
       },
-      searchPlaceholder: "ကိုးကားနံပါတ်၊ အကောင့် သို့မဟုတ် ရုပ်ရှင်ဖြင့် ရှာမည်...",
+      searchPlaceholder:
+        "ကိုးကားနံပါတ်၊ အကောင့် သို့မဟုတ် ရုပ်ရှင်ဖြင့် ရှာမည်...",
       detailUnavailable:
         "သင့်ရာထူးအတွက် ငွေသွင်း/ငွေထုတ် အသေးစိတ်များကို ကြည့်ခွင့်မရှိပါ — ပိုက်ဆံအိတ်ငွေလွှဲမှုများသာ ပြသထားသည်။",
       emptyTitle: "ငွေပေးချေမှု မရှိသေးပါ",
-      emptyDescription: "ငွေသွင်း၊ ငွေထုတ်နှင့် ဝယ်ယူမှုများ ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyDescription:
+        "ငွေသွင်း၊ ငွေထုတ်နှင့် ဝယ်ယူမှုများ ဤနေရာတွင် ပေါ်လာပါမည်။",
       referenceLine: (reference: string) => `ကိုးကားနံပါတ် ${reference}`,
       receivedInto: (account: string) => `${account} သို့ လက်ခံရရှိသည်`,
       sentFrom: (account: string) => `${account} မှ ပေးပို့သည်`,
@@ -4464,6 +6311,8 @@ const mm = {
       subscriptionDetail: "စာရင်းသွင်းအစီအစဉ် ငွေပေးချေမှု",
       adjustmentCreditDetail: "အက်ဒမင်မှ ပိုက်ဆံအိတ်လက်ကျန်သို့ ငွေထည့်ခြင်း",
       adjustmentDebitDetail: "အက်ဒမင်မှ ပိုက်ဆံအိတ်လက်ကျန်မှ ငွေနုတ်ခြင်း",
+      lotteryPurchaseDetail: "ထီလက်မှတ် ဝယ်ယူမှု",
+      lotteryPrizeDetail: "ပိုက်ဆံအိတ်သို့ ပေးသွင်းသော ထီဆုငွေ",
       withdrawalRefundDetail: "ငြင်းပယ်ခံရသော ငွေထုတ်မှ ပြန်အမ်းငွေ",
     },
     profile: {
@@ -4473,7 +6322,8 @@ const mm = {
       backToUsers: "အသုံးပြုသူများသို့ ပြန်သွားမည်",
       loadError: "ဤအသုံးပြုသူကို ဖွင့်၍မရပါ။",
       joinedOn: (date: string) => `${date} တွင် စတင်ဝင်ရောက်ခဲ့သည်`,
-      subscriptionActive: (date: string) => `အသုံးပြုနေသည် · ${date} တွင် သက်တမ်းကုန်မည်`,
+      subscriptionActive: (date: string) =>
+        `အသုံးပြုနေသည် · ${date} တွင် သက်တမ်းကုန်မည်`,
       paymentHistoryTitle: "ငွေပေးချေမှုမှတ်တမ်း",
       statusSuspended: "ခေတ္တရပ်ဆိုင်းထားသည်",
       statusBanned: "ပိတ်ပင်ထားသည်",
@@ -4486,7 +6336,8 @@ const mm = {
       sharedNumbers: "မျှဝေထားသောနံပါတ်",
       noPhone: "ဤအကောင့်တွင် ဖုန်းနံပါတ်မရှိသဖြင့် ချိတ်ဆက်စရာ မရှိပါ။",
       emptyTitle: "ချိတ်ဆက်ထားသော အကောင့်မရှိပါ။",
-      emptyDescription: "ဤအသုံးပြုသူ၏ နံပါတ်များကို အခြားမည်သည့်အကောင့်ကမျှ မျှဝေအသုံးပြုထားခြင်း မရှိပါ။",
+      emptyDescription:
+        "ဤအသုံးပြုသူ၏ နံပါတ်များကို အခြားမည်သည့်အကောင့်ကမျှ မျှဝေအသုံးပြုထားခြင်း မရှိပါ။",
       moreCount: (count: number) => `နောက်ထပ် ချိတ်ဆက်အကောင့် ${count} ခု`,
     },
   },
@@ -4495,7 +6346,8 @@ const mm = {
       title: "အသုံးပြုသူ ဆက်နွှယ်မှုများ",
       description:
         "အကောင့်များသည် မျှဝေသုံးစွဲသည့် ဖုန်းနံပါတ်များ — ကိုယ်ရေးအချက်အလက်ဖုန်းနံပါတ်နှင့် ငွေထုတ်ရာတွင်သုံးသည့်နံပါတ်များဖြင့် မည်သို့ချိတ်ဆက်နေသည်ကို ခြေရာခံပါ။",
-      descriptionShort: "မျှဝေသုံးသည့် ဖုန်းနံပါတ်ဖြင့် ချိတ်ဆက်နေသော အကောင့်များကို ခြေရာခံပါ။",
+      descriptionShort:
+        "မျှဝေသုံးသည့် ဖုန်းနံပါတ်ဖြင့် ချိတ်ဆက်နေသော အကောင့်များကို ခြေရာခံပါ။",
       phoneBasedChip: "ဖုန်းနံပါတ်အခြေပြု",
     },
     search: {
@@ -4598,7 +6450,8 @@ const mm = {
       usersUsingThisNumber: "ဤနံပါတ်ကို သုံးသောအသုံးပြုသူများ",
       noUsersForNumber: "ဤနံပါတ်ဖြင့် မှတ်တမ်းတင်ထားသော အကောင့်မရှိပါ။",
       depositsByTheseUsers: "ဤအကောင့်များမှ",
-      viewAllDepositsCount: (count: number) => `ငွေသွင်း ${count} ကြိမ်လုံး ကြည့်မည်`,
+      viewAllDepositsCount: (count: number) =>
+        `ငွေသွင်း ${count} ကြိမ်လုံး ကြည့်မည်`,
       viewUserProfile: "အသုံးပြုသူပရိုဖိုင်ကြည့်မည်",
       profilePhone: "ပရိုဖိုင်ဖုန်းနံပါတ်",
       joined: "စတင်ဝင်ရောက်သည့်ရက်",
@@ -4616,7 +6469,8 @@ const mm = {
       profileTag: "ပရိုဖိုင်",
       withdrawalTag: "ငွေထုတ်",
       emptyTitle: "မည်သည့်အချက်အလက်မျှ မရွေးရသေးပါ",
-      emptyDescription: "အသေးစိတ်ကြည့်ရန် အသုံးပြုသူ သို့မဟုတ် ဖုန်းနံပါတ်တစ်ခုကို ရွေးပါ။",
+      emptyDescription:
+        "အသေးစိတ်ကြည့်ရန် အသုံးပြုသူ သို့မဟုတ် ဖုန်းနံပါတ်တစ်ခုကို ရွေးပါ။",
       notRecorded: "မှတ်တမ်းမရှိပါ",
     },
     activity: {
@@ -4630,14 +6484,16 @@ const mm = {
       typeDeposit: "ငွေသွင်း",
       typeWithdrawal: "ငွေထုတ်",
       emptyTitle: "လတ်တလောလှုပ်ရှားမှု မရှိပါ",
-      emptyDescription: "ဤအကောင့်များ၏ ငွေသွင်းငွေထုတ်များကို ဤနေရာတွင် ပြပါမည်။",
+      emptyDescription:
+        "ဤအကောင့်များ၏ ငွေသွင်းငွေထုတ်များကို ဤနေရာတွင် ပြပါမည်။",
     },
     states: {
       idleTitle: "စတင်ရန် ဖုန်းနံပါတ်တစ်ခု ရှာပါ",
       idleDescription:
         "နံပါတ်တစ်ခုထည့်ပါ — ယင်းကိုသုံးခဲ့သော အကောင့်တိုင်း၊ ထိုအကောင့်များသုံးခဲ့သော အခြားနံပါတ်တိုင်းသို့ အဆင့်လိုက် ဆက်လက်ရှာဖွေပေးပါမည်။",
       loadingTitle: "ဆက်နွှယ်မှုကွန်ရက် တည်ဆောက်နေသည်…",
-      loadingDescription: "နံပါတ်မှစ၍ အဆင့်တစ်ဆင့်ချင်း ပြင်ပသို့ ရှာဖွေနေပါသည်။",
+      loadingDescription:
+        "နံပါတ်မှစ၍ အဆင့်တစ်ဆင့်ချင်း ပြင်ပသို့ ရှာဖွေနေပါသည်။",
       emptyCanvas: "ဆွဲပြစရာ မရှိသေးပါ။",
       partiallyFoldedTitle: "ဤကွန်ရက်၏ တစ်စိတ်တစ်ပိုင်းကို ခေါက်ထားသည်။",
       partiallyFoldedDescription: (hidden: number) =>
@@ -4656,7 +6512,8 @@ const mm = {
       deductTitle: "ငွေနုတ်မည်",
       addTab: "ငွေထည့်မည်",
       deductTab: "ငွေနုတ်မည်",
-      descriptionFor: (name: string) => `${name} ၏ ပိုက်ဆံအိတ်လက်ကျန်ငွေကို ကိုယ်တိုင်ညှိပါ။`,
+      descriptionFor: (name: string) =>
+        `${name} ၏ ပိုက်ဆံအိတ်လက်ကျန်ငွေကို ကိုယ်တိုင်ညှိပါ။`,
       amountLabel: "ပမာဏ (Ks)",
       amountPlaceholder: "0",
       balancePreview: "ညှိပြီးနောက် လက်ကျန်ငွေ",
@@ -4664,17 +6521,20 @@ const mm = {
         "ဤပမာဏကြောင့် အသုံးပြုသူ၏လက်ကျန်ငွေ သုညအောက် ရောက်သွားပါမည် — လက်ရှိလက်ကျန်ငွေထက် မကျော်လွန်နိုင်ပါ။",
       reasonLabel: "အကြောင်းပြချက်",
       reasonPlaceholder: "အတွင်းမှတ်ချက် — ဤညှိယူမှု အဘယ်ကြောင့် လိုအပ်သနည်း?",
-      reasonNote: "ဝန်ထမ်းမှတ်တမ်းအတွက်သာ သိမ်းဆည်းထားသည် — အသုံးပြုသူထံ အကြောင်းပြချက်မပါဘဲ အကြောင်းကြားပါမည်။",
+      reasonNote:
+        "ဝန်ထမ်းမှတ်တမ်းအတွက်သာ သိမ်းဆည်းထားသည် — အသုံးပြုသူထံ အကြောင်းပြချက်မပါဘဲ အကြောင်းကြားပါမည်။",
       save: "ညှိယူမှု အတည်ပြုမည်",
       creditedToast: "လက်ကျန်ငွေ ထည့်ပြီးပါပြီ",
       debitedToast: "လက်ကျန်ငွေ နုတ်ပြီးပါပြီ",
-      savedDescription: (name: string) => `${name} ၏ ပိုက်ဆံအိတ်လက်ကျန်ငွေကို ပြင်ဆင်ပြီးပါပြီ။`,
+      savedDescription: (name: string) =>
+        `${name} ၏ ပိုက်ဆံအိတ်လက်ကျန်ငွေကို ပြင်ဆင်ပြီးပါပြီ။`,
     },
     section: {
       title: "လက်ကျန်ငွေ ညှိယူမှုများ",
       loadError: "လက်ကျန်ငွေညှိယူမှုများကို ဖွင့်၍မရပါ။",
       emptyTitle: "ညှိယူမှုများ မရှိသေးပါ",
-      emptyDescription: "ကိုယ်တိုင်ပြုလုပ်သော လက်ကျန်ငွေညှိယူမှုများ ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyDescription:
+        "ကိုယ်တိုင်ပြုလုပ်သော လက်ကျန်ငွေညှိယူမှုများ ဤနေရာတွင် ပေါ်လာပါမည်။",
       columns: {
         dateTime: "ရက်စွဲနှင့်အချိန်",
         direction: "အမျိုးအစား",
@@ -4685,7 +6545,8 @@ const mm = {
       },
       directionCredit: "ငွေထည့်",
       directionDebit: "ငွေနုတ်",
-      pageOf: (page: number, totalPages: number) => `စာမျက်နှာ ${page} / ${totalPages}`,
+      pageOf: (page: number, totalPages: number) =>
+        `စာမျက်နှာ ${page} / ${totalPages}`,
       previousPage: "ယခင်စာမျက်နှာ",
       nextPage: "နောက်စာမျက်နှာ",
     },
@@ -4693,12 +6554,15 @@ const mm = {
   staff: {
     page: {
       title: "ဝန်ထမ်းများ",
-      descriptionShort: "အက်ဒမင်ဒက်ရှ်ဘုတ် ဝန်ထမ်းအကောင့်များကို စီမံခန့်ခွဲပါ။",
-      description: "Super Admin၊ Admin နှင့် Content Uploader အကောင့်များကို ဖန်တီးပြီး စီမံခန့်ခွဲပါ။",
+      descriptionShort:
+        "အက်ဒမင်ဒက်ရှ်ဘုတ် ဝန်ထမ်းအကောင့်များကို စီမံခန့်ခွဲပါ။",
+      description:
+        "Super Admin၊ Admin နှင့် Content Uploader အကောင့်များကို ဖန်တီးပြီး စီမံခန့်ခွဲပါ။",
       loadError: "ဝန်ထမ်းစာရင်းကို ဖွင့်၍မရပါ။",
       createStaff: "ဝန်ထမ်း ဖန်တီးမည်",
       emptyTitle: "ဝန်ထမ်းအကောင့် မရှိသေးပါ",
-      emptyDescription: "ဤဒက်ရှ်ဘုတ်ကို တစ်စုံတစ်ယောက်အား ဝင်ရောက်ခွင့်ပေးရန် ဝန်ထမ်းအကောင့်တစ်ခု ဖန်တီးပါ။",
+      emptyDescription:
+        "ဤဒက်ရှ်ဘုတ်ကို တစ်စုံတစ်ယောက်အား ဝင်ရောက်ခွင့်ပေးရန် ဝန်ထမ်းအကောင့်တစ်ခု ဖန်တီးပါ။",
       searchPlaceholder: "အသုံးပြုသူအမည်ဖြင့် ဝန်ထမ်းရှာမည်...",
     },
     columns: {
@@ -4719,24 +6583,29 @@ const mm = {
     deactivate: "ရပ်ဆိုင်းမည်",
     activateTitle: "ဤအကောင့်ကို အသက်သွင်းမည်လား?",
     deactivateTitle: "ဤအကောင့်ကို ရပ်ဆိုင်းမည်လား?",
-    activateDescription: (username: string) => `${username} သည် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့် ပြန်လည်ရရှိပါမည်။`,
+    activateDescription: (username: string) =>
+      `${username} သည် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့် ပြန်လည်ရရှိပါမည်။`,
     deactivateDescription: (username: string) =>
       `${username} သည် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့် ချက်ချင်း ဆုံးရှုံးပါမည်။`,
     activatedToast: "အကောင့် အသက်သွင်းပြီးပါပြီ",
     deactivatedToast: "အကောင့် ရပ်ဆိုင်းပြီးပါပြီ",
-    activatedDescription: (username: string) => `${username} သည် ယခု အသုံးပြုနေပါသည်။`,
-    deactivatedDescription: (username: string) => `${username} သည် ယခု အသုံးမပြုတော့ပါ။`,
+    activatedDescription: (username: string) =>
+      `${username} သည် ယခု အသုံးပြုနေပါသည်။`,
+    deactivatedDescription: (username: string) =>
+      `${username} သည် ယခု အသုံးမပြုတော့ပါ။`,
     deleteTitle: "ဤဝန်ထမ်းအကောင့်ကို ဖျက်မည်လား?",
     deleteDescription: (username: string) =>
       `${username} သည် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့်ကို အပြီးအပိုင် ဆုံးရှုံးပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`,
     deletedToast: "ဝန်ထမ်းအကောင့် ဖျက်ပြီးပါပြီ",
-    deletedDescription: (username: string) => `${username} ကို ဖယ်ရှားပြီးပါပြီ။`,
+    deletedDescription: (username: string) =>
+      `${username} ကို ဖယ်ရှားပြီးပါပြီ။`,
     deleteBlockedTitle: "ဤအကောင့်ကို ဖျက်၍မရပါ",
     deleteBlockedDescription:
       "ဤအကောင့်တွင် ပိုက်ဆံအိတ်ငွေ သို့မဟုတ် ငွေပေးချေမှုမှတ်တမ်းများ ရှိပြီး ထိုမှတ်တမ်းများကို ဘယ်တော့မှ မဖျက်ပါ။ ဖျက်မည့်အစား အကောင့်ကို ရပ်ဆိုင်းပါ။",
     createDialog: {
       title: "ဝန်ထမ်းအကောင့် ဖန်တီးမည်",
-      description: "အသုံးပြုသူအမည်နှင့် စကားဝှက်ဖြင့် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့် ပေးပါ။",
+      description:
+        "အသုံးပြုသူအမည်နှင့် စကားဝှက်ဖြင့် ဒက်ရှ်ဘုတ်ဝင်ရောက်ခွင့် ပေးပါ။",
       usernameLabel: "အသုံးပြုသူအမည်",
       usernamePlaceholder: "jane.doe",
       passwordLabel: "စကားဝှက်",
@@ -4744,14 +6613,17 @@ const mm = {
       roleLabel: "ရာထူး",
       createAccount: "အကောင့် ဖန်တီးမည်",
       createdToast: "ဝန်ထမ်းအကောင့် ဖန်တီးပြီးပါပြီ",
-      createdDescription: (username: string) => `${username} သည် ယခု ဝင်ရောက်နိုင်ပါပြီ။`,
+      createdDescription: (username: string) =>
+        `${username} သည် ယခု ဝင်ရောက်နိုင်ပါပြီ။`,
     },
     editDialog: {
       title: "ဝန်ထမ်းအကောင့် ပြင်ဆင်မည်",
-      descriptionFor: (username: string) => `${username} အတွက် အသုံးပြုသူအမည် သို့မဟုတ် ရာထူးကို ပြောင်းလဲပါ။`,
+      descriptionFor: (username: string) =>
+        `${username} အတွက် အသုံးပြုသူအမည် သို့မဟုတ် ရာထူးကို ပြောင်းလဲပါ။`,
       usernameLabel: "အသုံးပြုသူအမည်",
       roleLabel: "ရာထူး",
-      rolesLoadFailed: "စိတ်ကြိုက်ရာထူးများကို ဖွင့်၍မရပါ — စနစ်တွင်းပါ ရာထူးများသာ ပြသနေပါသည်။",
+      rolesLoadFailed:
+        "စိတ်ကြိုက်ရာထူးများကို ဖွင့်၍မရပါ — စနစ်တွင်းပါ ရာထူးများသာ ပြသနေပါသည်။",
       selfRoleNote:
         "သင်ကိုယ်တိုင်၏ ရာထူးကို ပြောင်းလဲ၍မရပါ။ အခြား Super Admin တစ်ဦးအား ဆောင်ရွက်ပေးရန် တောင်းဆိုပါ။",
       saveChanges: "ပြောင်းလဲမှုများ သိမ်းမည်",
@@ -4759,12 +6631,14 @@ const mm = {
     },
     resetPasswordDialog: {
       title: "စကားဝှက် ပြန်လည်သတ်မှတ်မည်",
-      descriptionFor: (username: string) => `${username} အတွက် စကားဝှက်အသစ်တစ်ခု သတ်မှတ်ပါ။`,
+      descriptionFor: (username: string) =>
+        `${username} အတွက် စကားဝှက်အသစ်တစ်ခု သတ်မှတ်ပါ။`,
       newPasswordLabel: "စကားဝှက်အသစ်",
       passwordPlaceholder: "••••••••",
       resetPassword: "စကားဝှက် ပြန်လည်သတ်မှတ်မည်",
       resetToast: "စကားဝှက် ပြန်လည်သတ်မှတ်ပြီးပါပြီ",
-      resetDescription: (username: string) => `${username} ၏ စကားဝှက်ကို ပြောင်းလဲပြီးပါပြီ။`,
+      resetDescription: (username: string) =>
+        `${username} ၏ စကားဝှက်ကို ပြောင်းလဲပြီးပါပြီ။`,
     },
   },
   finance: {
@@ -4775,7 +6649,8 @@ const mm = {
     loadError: "ငွေကြေးဒေတာကို ဖွင့်၍မရပါ။",
     accountsOverview: {
       title: "ငွေပေးချေမှုအကောင့်များ",
-      description: "အကောင့်တစ်ခုချင်းစီ၏ စုစုပေါင်းဝင်ငွေ၊ စုစုပေါင်းထွက်ငွေနှင့် လက်ကျန်ငွေ။",
+      description:
+        "အကောင့်တစ်ခုချင်းစီ၏ စုစုပေါင်းဝင်ငွေ၊ စုစုပေါင်းထွက်ငွေနှင့် လက်ကျန်ငွေ။",
       viewAll: "အကောင့်အားလုံး ကြည့်ရန်",
       total: "အကောင့်အားလုံး",
       loadError: "ငွေပေးချေမှုအကောင့် လက်ကျန်ငွေများကို ဖွင့်၍မရပါ။",
@@ -4794,7 +6669,8 @@ const mm = {
       totalSpent: "စုစုပေါင်းသုံးစွဲမှု",
     },
     recentTable: {
-      emptyDescription: "ဝယ်ယူမှုနှင့် စာရင်းသွင်းမှုများ ဖြစ်ပေါ်သည့်အခါ ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyDescription:
+        "ဝယ်ယူမှုနှင့် စာရင်းသွင်းမှုများ ဖြစ်ပေါ်သည့်အခါ ဤနေရာတွင် ပေါ်လာပါမည်။",
     },
     columns: {
       transactionId: "ငွေလွှဲမှုအမှတ်",
@@ -4810,10 +6686,13 @@ const mm = {
       typeWithdrawal: "ငွေထုတ်",
       typeAdjustmentCredit: "ပြင်ဆင်ချက် (ဝင်ငွေ)",
       typeAdjustmentDebit: "ပြင်ဆင်ချက် (ထွက်ငွေ)",
+      typeLotteryPurchase: "ထီလက်မှတ်များ",
+      typeLotteryPrize: "ထီဆုငွေ",
     },
     limits: {
       title: "ငွေသွင်း/ငွေထုတ် ကန့်သတ်ချက်များ",
-      description: "အသုံးပြုသူများ ငွေသွင်း သို့မဟုတ် ငွေထုတ်နိုင်သည့် အနည်းဆုံးနှင့် အများဆုံးပမာဏများကို ထိန်းချုပ်ပါ။",
+      description:
+        "အသုံးပြုသူများ ငွေသွင်း သို့မဟုတ် ငွေထုတ်နိုင်သည့် အနည်းဆုံးနှင့် အများဆုံးပမာဏများကို ထိန်းချုပ်ပါ။",
       loadError: "လက်ရှိကန့်သတ်ချက်များကို ဖွင့်၍မရပါ။",
       depositLimitsTitle: "ငွေသွင်းကန့်သတ်ချက်များ",
       withdrawalLimitsTitle: "ငွေထုတ်ကန့်သတ်ချက်များ",
@@ -4823,8 +6702,10 @@ const mm = {
       maxWithdrawalLabel: "အများဆုံး ငွေထုတ်ပမာဏ (Ks)",
       depositInvalid: "အနည်းဆုံးငွေသွင်းပမာဏသည် အများဆုံးထက် ပိုမြင့်၍မရပါ။",
       withdrawalInvalid: "အနည်းဆုံးငွေထုတ်ပမာဏသည် အများဆုံးထက် ပိုမြင့်၍မရပါ။",
-      lastUpdatedBy: (username: string, date: string) => `${username} မှ ${date} တွင် နောက်ဆုံးပြင်ဆင်ခဲ့သည်`,
-      notCustomized: "မူကွဲပြင်ဆင်ရသေးခြင်းမရှိပါ — မူလကန့်သတ်ချက်များကို ပြသနေသည်။",
+      lastUpdatedBy: (username: string, date: string) =>
+        `${username} မှ ${date} တွင် နောက်ဆုံးပြင်ဆင်ခဲ့သည်`,
+      notCustomized:
+        "မူကွဲပြင်ဆင်ရသေးခြင်းမရှိပါ — မူလကန့်သတ်ချက်များကို ပြသနေသည်။",
       saveChanges: "ပြောင်းလဲမှုများ သိမ်းမည်",
       updatedToast: "ကန့်သတ်ချက်များ ပြင်ဆင်ပြီးပါပြီ",
     },
@@ -4832,39 +6713,51 @@ const mm = {
   deposits: {
     page: {
       title: "ငွေသွင်းများ",
-      description: "လက်ကျန်ငွေဖြည့်တင်းမှု တောင်းဆိုချက်များကို ပြန်လည်စစ်ဆေးပြီး အတည်ပြုပါ။",
+      description:
+        "လက်ကျန်ငွေဖြည့်တင်းမှု တောင်းဆိုချက်များကို ပြန်လည်စစ်ဆေးပြီး အတည်ပြုပါ။",
     },
     loadError: "ငွေသွင်းများကို ဖွင့်၍မရပါ။",
     emptyTitle: "ငွေသွင်းများ မရှိသေးပါ",
     emptyDescription: "တင်သွင်းထားသော ငွေသွင်းများ ဤနေရာတွင် ပေါ်လာပါမည်။",
-    searchPlaceholder: "ဖောက်သည်အမည်၊ အသုံးပြုသူအမည် သို့မဟုတ် ဖုန်းဖြင့် ရှာမည်...",
+    searchPlaceholder:
+      "ဖောက်သည်အမည်၊ အသုံးပြုသူအမည် သို့မဟုတ် ဖုန်းဖြင့် ရှာမည်...",
     pendingAmount: "စောင့်ဆိုင်းဆဲပမာဏ",
     approvedAmount: "အတည်ပြုပြီးပမာဏ",
     totalDeposits: "စုစုပေါင်းငွေသွင်းများ",
     approvedToast: "ငွေသွင်း အတည်ပြုပြီးပါပြီ",
-    approvedDescription: (name: string) => `${name} ၏လက်ကျန်ငွေကို အပ်ဒိတ်လုပ်ပြီးပါပြီ။`,
+    approvedDescription: (name: string) =>
+      `${name} ၏လက်ကျန်ငွေကို အပ်ဒိတ်လုပ်ပြီးပါပြီ။`,
     approveFailedToast: "ငွေသွင်းကို အတည်ပြု၍မရပါ",
     notifications: {
       newRequestTitle: "ငွေသွင်းတောင်းဆိုချက်အသစ်",
-      newRequestDescription: (username: string, amount: string, method: string) =>
-        `${username} က ${method} မှတစ်ဆင့် ${amount} တင်သွင်းခဲ့သည်။`,
+      newRequestDescription: (
+        username: string,
+        amount: string,
+        method: string,
+      ) => `${username} က ${method} မှတစ်ဆင့် ${amount} တင်သွင်းခဲ့သည်။`,
     },
     rejectDialog: {
       title: "ငွေသွင်း ငြင်းပယ်မည်",
-      descriptionFor: (userName: string, amount: string, method: string, reference: string) =>
-        `${userName} — ${method} မှတစ်ဆင့် ${amount} (ref ${reference})`,
+      descriptionFor: (
+        userName: string,
+        amount: string,
+        method: string,
+        reference: string,
+      ) => `${userName} — ${method} မှတစ်ဆင့် ${amount} (ref ${reference})`,
       reasonLabel: "အကြောင်းပြချက်",
       reasonPlaceholder: "ဥပမာ - ကိုးကားချက်သည် မှတ်တမ်းနှင့် ကိုက်ညီမှုမရှိပါ",
       reasonRequired: "ငြင်းပယ်ရသည့် အကြောင်းပြချက် လိုအပ်ပါသည်။",
       rejectFailedFallback: "ငွေသွင်းကို ငြင်းပယ်၍မရပါ",
       reject: "ငွေသွင်း ငြင်းပယ်မည်",
       rejectedToast: "ငွေသွင်း ငြင်းပယ်ပြီးပါပြီ",
-      rejectedDescription: (name: string) => `${name} ၏ငွေသွင်းကို ငြင်းပယ်ပြီးပါပြီ။`,
+      rejectedDescription: (name: string) =>
+        `${name} ၏ငွေသွင်းကို ငြင်းပယ်ပြီးပါပြီ။`,
     },
     userAccountCell: {
       notAdded: "မထည့်ရသေးပါ",
       heading: "အသုံးပြုသူ၏ ငွေသွင်းအကောင့်",
-      subtext: "အသုံးပြုသူက မည်သည့်အကောင့်မှ ပို့ခဲ့သည်ဟုဆိုသည် — ကျွန်ုပ်တို့၏အကောင့်များနှင့် စစ်ဆေးအတည်ပြုထားခြင်း မရှိပါ။",
+      subtext:
+        "အသုံးပြုသူက မည်သည့်အကောင့်မှ ပို့ခဲ့သည်ဟုဆိုသည် — ကျွန်ုပ်တို့၏အကောင့်များနှင့် စစ်ဆေးအတည်ပြုထားခြင်း မရှိပါ။",
       accountNameLabel: "အသုံးပြုသူ၏ အကောင့်အမည်",
       accountNamePlaceholder: "ပို့လိုက်သောအကောင့်ပေါ်ရှိအမည်",
       accountNumberLabel: "ဖုန်းနံပါတ် / အကောင့်နံပါတ်",
@@ -4883,7 +6776,8 @@ const mm = {
       declared: "ကြေညာထား",
       declaredTitle: "အသုံးပြုသူ ကြေညာထားသည်",
       heading: "လက်ခံအကောင့်",
-      subtext: "ဤငွေ အမှန်တကယ် ဝင်ရောက်ခဲ့သော ကျွန်ုပ်တို့၏အကောင့် — ဖျောက်ထားသောအကောင့်များလည်း ပါဝင်သည်။",
+      subtext:
+        "ဤငွေ အမှန်တကယ် ဝင်ရောက်ခဲ့သော ကျွန်ုပ်တို့၏အကောင့် — ဖျောက်ထားသောအကောင့်များလည်း ပါဝင်သည်။",
       accountLabel: "လက်ခံအကောင့်",
       accountPlaceholder: "ကျွန်ုပ်တို့၏ အကောင့်တစ်ခု ရွေးပါ…",
       hidden: "ဖျောက်ထားသည်",
@@ -4901,8 +6795,10 @@ const mm = {
       userSearchPlaceholder: "အမည် သို့မဟုတ် ဖုန်းနံပါတ်ဖြင့် ရှာပါ…",
       userSearching: "ရှာဖွေနေသည်…",
       userNoResults: "အသုံးပြုသူ မတွေ့ပါ",
-      userSearchForbidden: "သင့်ရာထူးဖြင့် ငွေသွင်းရန် ဖောက်သည်ကို ရှာခွင့်မရှိပါ။ ခွင့်ပြုချက်များကို စစ်ဆေးရန် Super Admin ကို မေးပါ။",
-      userSearchFailed: "ဖောက်သည်များကို ရှာ၍မရပါ။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။",
+      userSearchForbidden:
+        "သင့်ရာထူးဖြင့် ငွေသွင်းရန် ဖောက်သည်ကို ရှာခွင့်မရှိပါ။ ခွင့်ပြုချက်များကို စစ်ဆေးရန် Super Admin ကို မေးပါ။",
+      userSearchFailed:
+        "ဖောက်သည်များကို ရှာ၍မရပါ။ အင်တာနက်ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။",
       clearUserAriaLabel: "အသုံးပြုသူ ပြောင်းမည်",
       amountLabel: "ပမာဏ (Ks)",
       amountPlaceholder: "0",
@@ -4910,14 +6806,16 @@ const mm = {
       destinationAccountPlaceholder: "ကျွန်ုပ်တို့၏ အကောင့်တစ်ခု ရွေးပါ…",
       referenceLabel: "ကိုးကားချက် / ငွေလွှဲအမှတ်",
       referencePlaceholder: "ဂဏန်း ၆ လုံး ငွေလွှဲကိုးကားချက်",
-      referenceHint: "ဂဏန်း ၆ လုံး အတိအကျ — အသုံးပြုသူများ ငွေသွင်းတင်သွင်းစဉ် ထည့်သည့်ပုံစံအတိုင်း။",
+      referenceHint:
+        "ဂဏန်း ၆ လုံး အတိအကျ — အသုံးပြုသူများ ငွေသွင်းတင်သွင်းစဉ် ထည့်သည့်ပုံစံအတိုင်း။",
       dateTimeLabel: "ငွေလွှဲရက်စွဲနှင့်အချိန်",
       now: "ယခု",
       pickDateTime: "ရက်စွဲနှင့်အချိန် ရွေးပါ",
       onlyTimeStored: " · အချိန်ကိုသာ ယခုအချိန်တွင် သိမ်းဆည်းထားသည်",
       save: "ငွေသွင်း မှတ်တမ်းတင်မည်",
       savedToast: "ငွေသွင်း မှတ်တမ်းတင်ပြီးပါပြီ",
-      savedDescription: (name: string) => `${name} ၏လက်ကျန်ငွေထဲ ထည့်ပေးပြီးပါပြီ။`,
+      savedDescription: (name: string) =>
+        `${name} ၏လက်ကျန်ငွေထဲ ထည့်ပေးပြီးပါပြီ။`,
     },
     columns: {
       customer: "ဖောက်သည်",
@@ -4934,12 +6832,15 @@ const mm = {
   withdrawals: {
     page: {
       title: "ငွေထုတ်များ",
-      description: "ပိုက်ဆံအိတ်ငွေထုတ် တောင်းဆိုချက်များကို ပြန်လည်စစ်ဆေးပြီး အတည်ပြုပါ။",
+      description:
+        "ပိုက်ဆံအိတ်ငွေထုတ် တောင်းဆိုချက်များကို ပြန်လည်စစ်ဆေးပြီး အတည်ပြုပါ။",
     },
     loadError: "ငွေထုတ်များကို ဖွင့်၍မရပါ။",
     emptyTitle: "ငွေထုတ်များ မရှိသေးပါ",
-    emptyDescription: "တင်သွင်းထားသော ငွေထုတ်တောင်းဆိုချက်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
-    searchPlaceholder: "ဖောက်သည်အမည်၊ အသုံးပြုသူအမည် သို့မဟုတ် ဖုန်းဖြင့် ရှာမည်...",
+    emptyDescription:
+      "တင်သွင်းထားသော ငွေထုတ်တောင်းဆိုချက်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
+    searchPlaceholder:
+      "ဖောက်သည်အမည်၊ အသုံးပြုသူအမည် သို့မဟုတ် ဖုန်းဖြင့် ရှာမည်...",
     pendingAmount: "စောင့်ဆိုင်းဆဲပမာဏ",
     approvedAmount: "အတည်ပြုပြီးပမာဏ",
     totalWithdrawals: "စုစုပေါင်းငွေထုတ်များ",
@@ -4949,8 +6850,12 @@ const mm = {
     approveFailedToast: "ငွေထုတ်ကို အတည်ပြု၍မရပါ",
     rejectDialog: {
       title: "ငွေထုတ် ငြင်းပယ်မည်",
-      descriptionFor: (userName: string, amount: string, accountName: string, accountType: string) =>
-        `${userName} — ${accountName} (${accountType}) သို့ ${amount}`,
+      descriptionFor: (
+        userName: string,
+        amount: string,
+        accountName: string,
+        accountType: string,
+      ) => `${userName} — ${accountName} (${accountType}) သို့ ${amount}`,
       reasonLabel: "အကြောင်းပြချက်",
       reasonPlaceholder: "ဥပမာ - အကောင့်အသေးစိတ်ကို အတည်ပြု၍မရပါ",
       reasonRequired: "ငြင်းပယ်ရသည့် အကြောင်းပြချက် လိုအပ်ပါသည်။",
@@ -4959,7 +6864,8 @@ const mm = {
       rejectedToast: "ငွေထုတ် ငြင်းပယ်ပြီးပါပြီ",
       rejectedDescription: (name: string) =>
         `${name} ၏ ငွေထုတ်ကို ငြင်းပယ်ပြီး ထိန်းထားသောငွေကို ပိုက်ဆံအိတ်သို့ ပြန်ထည့်ပေးပြီးပါပြီ။`,
-      refundNote: "အသုံးပြုသူ တောင်းဆိုစဉ်က ဤပမာဏကို ပိုက်ဆံအိတ်မှ ထိန်းထားပြီးဖြစ်သည်။ ငြင်းပယ်လျှင် ပိုက်ဆံအိတ်သို့ ပြန်ထည့်ပေးပါမည်။",
+      refundNote:
+        "အသုံးပြုသူ တောင်းဆိုစဉ်က ဤပမာဏကို ပိုက်ဆံအိတ်မှ ထိန်းထားပြီးဖြစ်သည်။ ငြင်းပယ်လျှင် ပိုက်ဆံအိတ်သို့ ပြန်ထည့်ပေးပါမည်။",
     },
     transferAccountCell: {
       notAdded: "မထည့်ရသေးပါ",
@@ -5061,18 +6967,24 @@ const mm = {
       notChecked: "မစစ်ဆေးရသေးပါ",
       waitingForBank: "ဘဏ်အသိပေးချက်ကို စောင့်နေသည်",
       timeGap: "အချိန်ကွာခြားချက်",
-      submittedAfterBank: (gap: string) => `ဘဏ်ငွေလွှဲပြီး ${gap} အကြာတွင် တင်သွင်းသည်`,
-      submittedBeforeBank: (gap: string) => `ဘဏ်ငွေလွှဲမတိုင်မီ ${gap} အလိုတွင် တင်သွင်းသည်`,
-      approvedBeforePayout: (gap: string) => `ငွေထုတ်ပေးမီ ${gap} အလိုတွင် အတည်ပြုသည်`,
-      approvedAfterPayout: (gap: string) => `ငွေထုတ်ပေးပြီး ${gap} အကြာတွင် အတည်ပြုသည်`,
+      submittedAfterBank: (gap: string) =>
+        `ဘဏ်ငွေလွှဲပြီး ${gap} အကြာတွင် တင်သွင်းသည်`,
+      submittedBeforeBank: (gap: string) =>
+        `ဘဏ်ငွေလွှဲမတိုင်မီ ${gap} အလိုတွင် တင်သွင်းသည်`,
+      approvedBeforePayout: (gap: string) =>
+        `ငွေထုတ်ပေးမီ ${gap} အလိုတွင် အတည်ပြုသည်`,
+      approvedAfterPayout: (gap: string) =>
+        `ငွေထုတ်ပေးပြီး ${gap} အကြာတွင် အတည်ပြုသည်`,
       reasonsSection: "အကြောင်းရင်းများ",
       noReasons: "ပြဿနာ မတွေ့ပါ",
       suggestedAction: "အကြံပြုချက်",
       screenshotSection: "ဘဏ် မျက်နှာပြင်ပုံ",
       screenshotLoading: "ပုံ ဖွင့်နေသည်…",
       noScreenshot: "ပုံ မရှိပါ",
-      screenshotBlockedHint: "ဤဖုန်းတွင် ဘဏ်အက်ပ်က မျက်နှာပြင်ပုံရိုက်ခြင်းကို ပိတ်ထားသည်။",
-      screenshotRestricted: "ဘဏ်မျက်နှာပြင်ပုံကို ကြည့်ရန် ဘဏ်သက်သေခံ ခွင့်ပြုချက် လိုအပ်သည်။",
+      screenshotBlockedHint:
+        "ဤဖုန်းတွင် ဘဏ်အက်ပ်က မျက်နှာပြင်ပုံရိုက်ခြင်းကို ပိတ်ထားသည်။",
+      screenshotRestricted:
+        "ဘဏ်မျက်နှာပြင်ပုံကို ကြည့်ရန် ဘဏ်သက်သေခံ ခွင့်ပြုချက် လိုအပ်သည်။",
       screenshotLoadError: "ပုံကို ဖွင့်၍မရပါ။",
       openFullSize: "အရွယ်အစားအပြည့် ဖွင့်မည်",
       transactionId: "ဘဏ်ငွေလွှဲမှတ်တမ်း",
@@ -5080,57 +6992,73 @@ const mm = {
       depositorNameNotSet: "ပြသမည့်အမည် မရှိပါ (နှိုင်းယှဉ်မထားပါ)",
       senderName: "ပေးပို့သူ အမည် (ဘဏ်)",
       senderNameUnknown: "မရရှိပါ",
+      postingDevice:
+        "ဖုန်း စီရီရယ်နံပါတ် (စောင့်ကြည့်စက်က အစီရင်ခံသည့်အတိုင်း)",
     },
     reasons: {
       AMOUNT_MISMATCH: "ပမာဏ ဘဏ်နှင့် မကိုက်ညီပါ",
       CODE_MISMATCH: "ငွေလွှဲကုဒ် ဘဏ်နှင့် မကိုက်ညီပါ",
       DUPLICATE_REFERENCE: "ကိုးကားနံပါတ်ကို အခြားငွေသွင်းတွင် သုံးထားသည်",
-      SHARED_REFERENCE_ACROSS_USERS: "အခြားအသုံးပြုသူထံမှ ကိုးကားနံပါတ်နှင့် ပမာဏ တူညီသည်",
+      SHARED_REFERENCE_ACROSS_USERS:
+        "အခြားအသုံးပြုသူထံမှ ကိုးကားနံပါတ်နှင့် ပမာဏ တူညီသည်",
       TIME_GAP_TOO_LARGE: "ငွေလွှဲပြီး အချိန်ကြာမှ တင်သွင်းသည်",
       SUBMITTED_BEFORE_TRANSFER: "ဘဏ်ငွေလွှဲမတိုင်မီ တင်သွင်းသည်",
       VELOCITY: "အချိန်တိုအတွင်း ငွေသွင်းများ အများအပြား",
-      AMBIGUOUS_MATCH: "ဘဏ်ငွေလွှဲသည် တောင်းဆိုချက် တစ်ခုထက်ပိုနှင့် ကိုက်ညီသည်",
+      AMBIGUOUS_MATCH:
+        "ဘဏ်ငွေလွှဲသည် တောင်းဆိုချက် တစ်ခုထက်ပိုနှင့် ကိုက်ညီသည်",
       NO_BANK_TRANSACTION: "၂၄ နာရီအတွင်း ဘဏ်ငွေလွှဲ မတွေ့ပါ",
       DUPLICATE_PAYOUT_CODE: "ငွေထုတ်ကုဒ်ကို အခြားငွေထုတ်တွင် သုံးပြီးဖြစ်သည်",
-      COUNTERPARTY_MISMATCH: "ဘဏ်မှ ပေးပို့သူအမည်သည် ငွေသွင်းသူအမည်နှင့် မတူညီပါ",
+      COUNTERPARTY_MISMATCH:
+        "ဘဏ်မှ ပေးပို့သူအမည်သည် ငွေသွင်းသူအမည်နှင့် မတူညီပါ",
+      NO_SCREENSHOT: "ဘဏ် မျက်နှာပြင်ပုံ မရောက်သေးပါ",
     },
     suggested: {
       matched: "အတည်ပြုရန် သင့်လျော်သည်။",
       suspicious: "ဘဏ်စာရင်းနှင့် မတိုက်ဆိုင်မီ အတည်မပြုပါနှင့်။",
-      pendingReview: "အမှတ်အသားပြထားသော အချက်များကို စစ်ဆေးပြီး အတည်ပြု သို့မဟုတ် ငြင်းပယ်ပါ။",
+      pendingReview:
+        "အမှတ်အသားပြထားသော အချက်များကို စစ်ဆေးပြီး အတည်ပြု သို့မဟုတ် ငြင်းပယ်ပါ။",
       awaiting: "အတည်မပြုမီ ဘဏ်အသိပေးချက်ကို စောင့်ပါ။",
       noBank: "အသုံးပြုသူထံမှ ပြေစာတောင်းပါ သို့မဟုတ် ငြင်းပယ်ပါ။",
       withdrawalMatched: "ဤငွေထုတ်ကို ဘဏ်က အတည်ပြုပြီးပါပြီ။",
-      withdrawalSuspicious: "ဤငွေထုတ်ကို ဘဏ်စာရင်းနှင့် တိုက်ဆိုင်စစ်ဆေးပြီး မှတ်တမ်းတင်ထားသောကုဒ် မှားနေပါက ပြင်ပါ။",
-      withdrawalPendingReview: "အမှတ်အသားပြထားသော ငွေထုတ်များကို စစ်ဆေးပြီး မှန်ကန်သောကုဒ်ကို မှတ်တမ်းတင်ပါ။",
+      withdrawalSuspicious:
+        "ဤငွေထုတ်ကို ဘဏ်စာရင်းနှင့် တိုက်ဆိုင်စစ်ဆေးပြီး မှတ်တမ်းတင်ထားသောကုဒ် မှားနေပါက ပြင်ပါ။",
+      withdrawalPendingReview:
+        "အမှတ်အသားပြထားသော ငွေထုတ်များကို စစ်ဆေးပြီး မှန်ကန်သောကုဒ်ကို မှတ်တမ်းတင်ပါ။",
       withdrawalAwaiting: "ဘဏ်၏ ငွေထုတ်အသိပေးချက်ကို စောင့်နေသည်။",
-      withdrawalNoBank: "၂၄ နာရီအတွင်း ငွေထုတ်အသိပေးချက် မရှိပါ — ဘဏ်အက်ပ်တွင် စစ်ဆေးပါ။",
+      withdrawalNoBank:
+        "၂၄ နာရီအတွင်း ငွေထုတ်အသိပေးချက် မရှိပါ — ဘဏ်အက်ပ်တွင် စစ်ဆေးပါ။",
     },
     actions: {
       markReviewed: "စစ်ဆေးပြီးဟု မှတ်သားမည်",
       confirmSuspicious: "သံသယရှိသည်ဟု အတည်ပြုမည်",
       unlink: "ဘဏ်အချက်အလက် ဖြုတ်မည်",
-      unlinkConfirm: "ဤအချက်ကို ပြန်တိုက်ဆိုင်နိုင်ရန် ဘဏ်တန်ဖိုးများကို ဖယ်ရှားမလား?",
+      unlinkConfirm:
+        "ဤအချက်ကို ပြန်တိုက်ဆိုင်နိုင်ရန် ဘဏ်တန်ဖိုးများကို ဖယ်ရှားမလား?",
       noteLabel: "မှတ်ချက် (ရွေးချယ်နိုင်)",
       notePlaceholder: "ဤဆုံးဖြတ်ချက် ချရသည့် အကြောင်းရင်း",
       reviewedToast: "စိစစ်မှု အပ်ဒိတ်လုပ်ပြီးပါပြီ",
       reviewFailedToast: "စိစစ်မှု အပ်ဒိတ်လုပ်၍မရပါ",
       approveSuspiciousTitle: "သံသယရှိသော ငွေသွင်းကို အတည်ပြုမလား?",
-      approveSuspiciousDescription: "ဘဏ်အချက်အလက်များသည် အသုံးပြုသူ တင်သွင်းချက်နှင့် မကိုက်ညီပါ။ မည်သို့ပင်ဖြစ်စေ အတည်ပြုမလား?",
+      approveSuspiciousDescription:
+        "ဘဏ်အချက်အလက်များသည် အသုံးပြုသူ တင်သွင်းချက်နှင့် မကိုက်ညီပါ။ မည်သို့ပင်ဖြစ်စေ အတည်ပြုမလား?",
       approveSuspiciousWithdrawalTitle: "သံသယရှိသော ငွေထုတ်ကို အတည်ပြုမလား?",
-      approveSuspiciousWithdrawalDescription: "ဤတောင်းဆိုချက်ကို လိမ်လည်မှုစစ်ဆေးချက်များက အမှတ်အသားပြထားသည်။ မည်သို့ပင်ဖြစ်စေ အတည်ပြုမလား?",
+      approveSuspiciousWithdrawalDescription:
+        "ဤတောင်းဆိုချက်ကို လိမ်လည်မှုစစ်ဆေးချက်များက အမှတ်အသားပြထားသည်။ မည်သို့ပင်ဖြစ်စေ အတည်ပြုမလား?",
       approveAnyway: "မည်သို့ပင်ဖြစ်စေ အတည်ပြုမည်",
       amountMismatchNotice: (typed: string, bank: string) =>
         `အသုံးပြုသူက ${typed} ဟု ရိုက်ထည့်သော်လည်း ဘဏ်က ${bank} ကို တွေ့ရှိသည်။ ဘဏ်က တွေ့ရှိသော ပမာဏကိုသာ ထည့်ပေးနိုင်ပါသည်။`,
-      creditBankAmountLabel: (bank: string) => `ရိုက်ထည့်သော ပမာဏအစား ဘဏ်ပမာဏ (${bank}) ကို ထည့်ပေးမည်`,
+      creditBankAmountLabel: (bank: string) =>
+        `ရိုက်ထည့်သော ပမာဏအစား ဘဏ်ပမာဏ (${bank}) ကို ထည့်ပေးမည်`,
       overrideReasonLabel: "အကြောင်းရင်း (မဖြစ်မနေ)",
-      overrideReasonPlaceholder: "ဘဏ်ပမာဏက မှန်ကန်ရသည့် အကြောင်းရင်း၊ ဥပမာ ပြေစာတွင် ထိုပမာဏ ပြထားသည်",
+      overrideReasonPlaceholder:
+        "ဘဏ်ပမာဏက မှန်ကန်ရသည့် အကြောင်းရင်း၊ ဥပမာ ပြေစာတွင် ထိုပမာဏ ပြထားသည်",
       approveBankAmount: "ဘဏ်ပမာဏဖြင့် အတည်ပြုမည်",
     },
   },
   bankTransactions: {
     title: "ဘဏ်ငွေလွှဲမှတ်တမ်းများ",
-    description: "ဖုန်းတစ်လုံးချင်းစီက ဖမ်းယူထားသော ဘဏ်အသိပေးချက်တိုင်း — ငွေသွင်း သို့မဟုတ် ငွေထုတ်နှင့် တိုက်ဆိုင်ပြီး သို့မဟုတ် စောင့်ဆဲ။",
+    description:
+      "ဖုန်းတစ်လုံးချင်းစီက ဖမ်းယူထားသော ဘဏ်အသိပေးချက်တိုင်း — ငွေသွင်း သို့မဟုတ် ငွေထုတ်နှင့် တိုက်ဆိုင်ပြီး သို့မဟုတ် စောင့်ဆဲ။",
     loadError: "ဘဏ်ငွေလွှဲမှတ်တမ်းများကို ဖွင့်၍မရပါ။",
     searchPlaceholder: "ကုဒ် သို့မဟုတ် ပေးပို့သူဖြင့် ရှာမည်…",
     filters: {
@@ -5180,7 +7108,8 @@ const mm = {
       postedAt: "အသိပေးချိန်",
       matchedAt: "တိုက်ဆိုင်ချိန်",
       noLink: "ငွေသွင်း သို့မဟုတ် ငွေထုတ်နှင့် မချိတ်ဆက်ရသေးပါ။",
-      linkLost: "တိုက်ဆိုင်ပြီးဟု မှတ်သားထားသော်လည်း ချိတ်ဆက်ထားသော မှတ်တမ်း မရှိတော့ပါ။",
+      linkLost:
+        "တိုက်ဆိုင်ပြီးဟု မှတ်သားထားသော်လည်း ချိတ်ဆက်ထားသော မှတ်တမ်း မရှိတော့ပါ။",
       notFound: "ဤဘဏ်ငွေလွှဲမှတ်တမ်း မရှိပါ။",
     },
     actions: {
@@ -5189,14 +7118,19 @@ const mm = {
       viewScreenshot: "မျက်နှာပြင်ပုံ ကြည့်မည်",
       viewDetails: "အသေးစိတ် ကြည့်မည်",
     },
-    screenshotRestricted: "ဘဏ်မျက်နှာပြင်ပုံကို ကြည့်ရန် ဘဏ်သက်သေခံ ခွင့်ပြုချက် လိုအပ်သည်။",
+    screenshotRestricted:
+      "ဘဏ်မျက်နှာပြင်ပုံကို ကြည့်ရန် ဘဏ်သက်သေခံ ခွင့်ပြုချက် လိုအပ်သည်။",
     noScreenshot: "ပုံ မရှိပါ",
-    totalCapped: "မှတ်တမ်း ၁၀,၀၀၀ ကျော် — အတိအကျ အရေအတွက်ကို မြင်ရန် စစ်ထုတ်မှုကို ကျဉ်းပါ။",
+    totalCapped:
+      "မှတ်တမ်း ၁၀,၀၀၀ ကျော် — အတိအကျ အရေအတွက်ကို မြင်ရန် စစ်ထုတ်မှုကို ကျဉ်းပါ။",
     lastSeen: (when: string) => `နောက်ဆုံးတွေ့ ${when}`,
     neverSeen: "မတွေ့ရသေးပါ",
-    unclaimedHint: "ပိုင်ရှင်မဲ့ = သိမ်းပြီး၊ မတိုက်ဆိုင်ရသေး၊ ၄၈ နာရီ ကျော်ပြီ။ နောက်ကျရောက်လာသော ငွေသွင်းက ယခုတိုင် ယူနိုင်သည်။",
-    ambiguousHint: "မရှင်းလင်းသော မှတ်တမ်းသည် ကိုက်ညီနိုင်သည့် မှတ်တမ်းများကို ဖြေရှင်းပြီး ဖုန်းမှ ပြန်ပို့သည်အထိ ဤနေရာတွင် ရှိနေမည်။",
-    empty: "ဤစစ်ထုတ်မှုအတွက် ဘဏ်ငွေလွှဲမှတ်တမ်း မရှိပါ။ ဖုန်းက အသိပေးချက်ဖမ်းယူပြီး သိမ်းသည်နှင့် မှတ်တမ်းတိုင်း ဤနေရာတွင် ပေါ်လာမည်။",
+    unclaimedHint:
+      "ပိုင်ရှင်မဲ့ = သိမ်းပြီး၊ မတိုက်ဆိုင်ရသေး၊ ၄၈ နာရီ ကျော်ပြီ။ နောက်ကျရောက်လာသော ငွေသွင်းက ယခုတိုင် ယူနိုင်သည်။",
+    ambiguousHint:
+      "မရှင်းလင်းသော မှတ်တမ်းသည် ကိုက်ညီနိုင်သည့် မှတ်တမ်းများကို ဖြေရှင်းပြီး ဖုန်းမှ ပြန်ပို့သည်အထိ ဤနေရာတွင် ရှိနေမည်။",
+    empty:
+      "ဤစစ်ထုတ်မှုအတွက် ဘဏ်ငွေလွှဲမှတ်တမ်း မရှိပါ။ ဖုန်းက အသိပေးချက်ဖမ်းယူပြီး သိမ်းသည်နှင့် မှတ်တမ်းတိုင်း ဤနေရာတွင် ပေါ်လာမည်။",
     linkedLoadError: "ချိတ်ဆက်ထားသော မှတ်တမ်းကို ဖွင့်၍မရပါ။",
   },
   paymentAccounts: {
@@ -5207,17 +7141,21 @@ const mm = {
       manageMethods: "နည်းလမ်းများ စီမံမည်",
       addAccount: "အကောင့်ထည့်မည်",
       emptyTitle: "ငွေပေးချေမှုအကောင့်များ မရှိသေးပါ",
-      emptyDescription: "အသုံးပြုသူများ ငွေသွင်းရန်နေရာရှိစေရန် ငွေပေးချေမှုအကောင့်တစ်ခု ထည့်ပါ။",
+      emptyDescription:
+        "အသုံးပြုသူများ ငွေသွင်းရန်နေရာရှိစေရန် ငွေပေးချေမှုအကောင့်တစ်ခု ထည့်ပါ။",
       searchPlaceholder: "အကောင့်အမည်ဖြင့် ရှာမည်...",
     },
     toggleStatus: {
       activatedToast: "အကောင့် အသက်သွင်းပြီးပါပြီ",
       deactivatedToast: "အကောင့် ရပ်ဆိုင်းပြီးပါပြီ",
-      activatedDescription: (name: string) => `${name} ကို အသုံးပြုသူများ ယခုမြင်နိုင်ပါပြီ။`,
-      deactivatedDescription: (name: string) => `${name} ကို အသုံးပြုသူများ ယခုမမြင်နိုင်တော့ပါ။`,
+      activatedDescription: (name: string) =>
+        `${name} ကို အသုံးပြုသူများ ယခုမြင်နိုင်ပါပြီ။`,
+      deactivatedDescription: (name: string) =>
+        `${name} ကို အသုံးပြုသူများ ယခုမမြင်နိုင်တော့ပါ။`,
       activateTitle: "ဤအကောင့်ကို အသက်သွင်းမည်လား?",
       deactivateTitle: "ဤအကောင့်ကို ရပ်ဆိုင်းမည်လား?",
-      activateDescription: (name: string) => `${name} ကို ငွေသွင်းနေသော အသုံးပြုသူများအား ပြသပါမည်။`,
+      activateDescription: (name: string) =>
+        `${name} ကို ငွေသွင်းနေသော အသုံးပြုသူများအား ပြသပါမည်။`,
       deactivateDescription: (name: string) =>
         `${name} ကို ငွေသွင်းနေသော အသုံးပြုသူများအား နောက်တွင် ပြသမည်မဟုတ်တော့ပါ။`,
       activate: "အသက်သွင်းမည်",
@@ -5227,7 +7165,8 @@ const mm = {
       deletedToast: "ငွေပေးချေမှုအကောင့် ဖျက်ပြီးပါပြီ",
       deletedDescription: (name: string) => `${name} ကို ဖယ်ရှားပြီးပါပြီ။`,
       title: "ဤငွေပေးချေမှုအကောင့်ကို ဖျက်မည်လား?",
-      description: (name: string) => `${name} ကို အပြီးအပိုင်ဖယ်ရှားပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`,
+      description: (name: string) =>
+        `${name} ကို အပြီးအပိုင်ဖယ်ရှားပါမည်။ ဤလုပ်ဆောင်ချက်ကို ပြန်ပြင်၍မရပါ။`,
     },
     columns: {
       subname: "ခွဲအမည်",
@@ -5244,7 +7183,8 @@ const mm = {
       removeLogoAriaLabel: "လိုဂို ဖယ်ရှားမည်",
       requiresBankName: "ဘဏ်အမည် လိုအပ်သည်",
       noBankName: "ဘဏ်အမည် မလိုအပ်ပါ",
-      accountCount: (n: number) => (n === 1 ? "အကောင့် ၁ ခု" : `အကောင့် ${n} ခု`),
+      accountCount: (n: number) =>
+        n === 1 ? "အကောင့် ၁ ခု" : `အကောင့် ${n} ခု`,
       deleteTitle: "ဤငွေပေးချေမှုနည်းလမ်းကို ဖျက်မည်လား?",
       deleteInUseDescription: (label: string, count: number) =>
         `"${label}" ကို အကောင့် ${count} ခု အသုံးပြုနေပါသည်။ အရင်ဖျက်ပါ သို့မဟုတ် အခြားသို့ ပြောင်းပါ။`,
@@ -5259,13 +7199,15 @@ const mm = {
       addPaymentMethod: "ငွေပေးချေမှုနည်းလမ်း ထည့်မည်",
       labelPlaceholder: "ဥပမာ - Wave Pay",
       createdToast: "ငွေပေးချေမှုနည်းလမ်း ထည့်ပြီးပါပြီ",
-      createdDescription: (label: string) => `"${label}" ကို အသုံးပြုရန် အသင့်ဖြစ်ပါပြီ။`,
+      createdDescription: (label: string) =>
+        `"${label}" ကို အသုံးပြုရန် အသင့်ဖြစ်ပါပြီ။`,
     },
     formDialog: {
       editTitle: "ငွေပေးချေမှုအကောင့် ပြင်ဆင်မည်",
       addTitle: "ငွေပေးချေမှုအကောင့် ထည့်မည်",
       editDescription: "အသုံးပြုသူများ ငွေသွင်းမည့် လက်ခံရာနေရာကို ပြင်ဆင်ပါ။",
-      addDescription: "အသုံးပြုသူများ ငွေသွင်းနိုင်သော လက်ခံရာနေရာအသစ်တစ်ခု ထည့်ပါ။",
+      addDescription:
+        "အသုံးပြုသူများ ငွေသွင်းနိုင်သော လက်ခံရာနေရာအသစ်တစ်ခု ထည့်ပါ။",
       paymentMethodLabel: "ငွေပေးချေမှုနည်းလမ်း",
       subnameLabel: "ခွဲအမည်",
       subnamePlaceholder: "ဥပမာ - အဓိကအကောင့်၊ အရံအကောင့်",
@@ -5284,13 +7226,15 @@ const mm = {
       addSave: "အကောင့်ထည့်မည်",
       updatedToast: "ငွေပေးချေမှုအကောင့် ပြင်ဆင်ပြီးပါပြီ",
       createdToast: "ငွေပေးချေမှုအကောင့် ဖန်တီးပြီးပါပြီ",
-      savedDescription: (name: string) => `${name} သည် ငွေသွင်းမှုများ လက်ခံရန် အသင့်ဖြစ်ပါပြီ။`,
+      savedDescription: (name: string) =>
+        `${name} သည် ငွေသွင်းမှုများ လက်ခံရန် အသင့်ဖြစ်ပါပြီ။`,
     },
   },
   roles: {
     page: {
       title: "ရာထူးနှင့်ခွင့်ပြုချက်များ",
-      description: "ရာထူးများ ဖန်တီးပြီး တစ်ခုချင်းစီ ဘာလုပ်နိုင်သည်ကို အတိအကျ ရွေးချယ်ပါ။",
+      description:
+        "ရာထူးများ ဖန်တီးပြီး တစ်ခုချင်းစီ ဘာလုပ်နိုင်သည်ကို အတိအကျ ရွေးချယ်ပါ။",
     },
     loadError: "ရာထူးဒေတာကို ဖွင့်၍မရပါ။",
     list: {
@@ -5320,39 +7264,47 @@ const mm = {
       noMatches: "ထိုစစ်ထုတ်မှုနှင့် ကိုက်ညီသော ခွင့်ပြုချက် မရှိပါ။",
       enableAll: "အားလုံး ဖွင့်မည်",
       disableAll: "အားလုံး ပိတ်မည်",
-      moduleSelectAll: (module: string) => `${module} ခွင့်ပြုချက်အားလုံးကို ပြောင်းမည်`,
-      selectedOfTotal: (selected: number, total: number) => `${total} ခုအနက် ${selected} ခု`,
+      moduleSelectAll: (module: string) =>
+        `${module} ခွင့်ပြုချက်အားလုံးကို ပြောင်းမည်`,
+      selectedOfTotal: (selected: number, total: number) =>
+        `${total} ခုအနက် ${selected} ခု`,
     },
     saveBar: {
-      unsavedChanges: (count: number) => `မသိမ်းရသေးသော ပြောင်းလဲမှု ${count} ခု`,
+      unsavedChanges: (count: number) =>
+        `မသိမ်းရသေးသော ပြောင်းလဲမှု ${count} ခု`,
       discard: "ပယ်ဖျက်မည်",
       save: "ခွင့်ပြုချက်များ သိမ်းမည်",
       savedToast: "ခွင့်ပြုချက်များ ပြင်ဆင်ပြီးပါပြီ",
-      savedDescription: (name: string) => `${name} တွင် သင်ရွေးချယ်ထားသော ခွင့်ပြုချက်များ ရရှိပါပြီ။`,
+      savedDescription: (name: string) =>
+        `${name} တွင် သင်ရွေးချယ်ထားသော ခွင့်ပြုချက်များ ရရှိပါပြီ။`,
       saveFailed: "ထိုခွင့်ပြုချက်များကို သိမ်း၍မရပါ။",
     },
     create: {
       title: "ရာထူးအသစ်",
-      description: "ရာထူးအမည် ပေးပါ — ခွင့်ပြုချက်များကို ချက်ချင်း ဆက်ရွေးနိုင်ပါသည်။",
+      description:
+        "ရာထူးအမည် ပေးပါ — ခွင့်ပြုချက်များကို ချက်ချင်း ဆက်ရွေးနိုင်ပါသည်။",
       nameLabel: "ရာထူးအမည်",
       namePlaceholder: "ရုပ်ရှင်စီမံသူ",
       descriptionLabel: "ဖော်ပြချက် (ရွေးချယ်ခွင့်)",
       descriptionPlaceholder: "ဤရာထူးသည် မည်သည့်အတွက်ဖြစ်သည်။",
       submit: "ရာထူး ဖန်တီးမည်",
       createdToast: "ရာထူး ဖန်တီးပြီးပါပြီ",
-      createdDescription: (name: string) => `${name} တွင် ခွင့်ပြုချက် မရှိသေးပါ — ယခု ရွေးချယ်ပါ။`,
+      createdDescription: (name: string) =>
+        `${name} တွင် ခွင့်ပြုချက် မရှိသေးပါ — ယခု ရွေးချယ်ပါ။`,
       failed: "ထိုရာထူးကို ဖန်တီး၍မရပါ။",
     },
     rename: {
       title: "ရာထူး အမည်ပြောင်းမည်",
-      description: "ရာထူးကီးမှာ မပြောင်းလဲသဖြင့် ရှိပြီးသား တာဝန်ပေးအပ်မှုများ မထိခိုက်ပါ။",
+      description:
+        "ရာထူးကီးမှာ မပြောင်းလဲသဖြင့် ရှိပြီးသား တာဝန်ပေးအပ်မှုများ မထိခိုက်ပါ။",
       submit: "ပြောင်းလဲမှုများ သိမ်းမည်",
       savedToast: "ရာထူး ပြင်ဆင်ပြီးပါပြီ",
       failed: "ထိုရာထူးကို ပြင်ဆင်၍မရပါ။",
     },
     remove: {
       title: "ဤရာထူးကို ဖျက်မလား။",
-      description: (name: string) => `${name} ကို အပြီးအပိုင် ဖယ်ရှားပါမည်။ ပြန်ပြင်၍ မရပါ။`,
+      description: (name: string) =>
+        `${name} ကို အပြီးအပိုင် ဖယ်ရှားပါမည်။ ပြန်ပြင်၍ မရပါ။`,
       deletedToast: "ရာထူး ဖျက်ပြီးပါပြီ",
       failed: "ထိုရာထူးကို ဖျက်၍မရပါ။",
       blockedSystem: "စနစ်တွင်းပါ ရာထူးများကို ဖျက်၍မရပါ။",
@@ -5363,11 +7315,13 @@ const mm = {
   subscriptions: {
     page: {
       title: "စာရင်းသွင်းအစီအစဉ်များ",
-      description: "စာရင်းသွင်းအစီအစဉ်များနှင့် တစ်ခုချင်းစီ၏ သက်တမ်းကို စီမံခန့်ခွဲပါ။",
+      description:
+        "စာရင်းသွင်းအစီအစဉ်များနှင့် တစ်ခုချင်းစီ၏ သက်တမ်းကို စီမံခန့်ခွဲပါ။",
       loadError: "စာရင်းသွင်းအစီအစဉ်များကို ဖွင့်၍မရပါ။",
       addPlan: "အစီအစဉ်ထည့်မည်",
       emptyTitle: "စာရင်းသွင်းအစီအစဉ်များ မရှိသေးပါ",
-      emptyDescription: "အသုံးပြုသူများ premium အကြောင်းအရာကို စာရင်းသွင်းနိုင်ရန် အစီအစဉ်တစ်ခု ဖန်တီးပါ။",
+      emptyDescription:
+        "အသုံးပြုသူများ premium အကြောင်းအရာကို စာရင်းသွင်းနိုင်ရန် အစီအစဉ်တစ်ခု ဖန်တီးပါ။",
     },
     columns: {
       name: "အမည်",
@@ -5383,7 +7337,8 @@ const mm = {
       namePlaceholder: "ဥပမာ - Premium",
       priceLabel: "စျေးနှုန်း (Ks)",
       durationLabel: "သက်တမ်း (ရက်)",
-      durationHint: "တစ်ကြိမ်ဝယ်ယူလျှင် ရရှိမည့် ရက်အရေအတွက်။ သက်တမ်းတိုးလျှင် လက်ရှိကုန်ဆုံးရက်မှ ဆက်လက်ပေါင်းထည့်ပါမည်။",
+      durationHint:
+        "တစ်ကြိမ်ဝယ်ယူလျှင် ရရှိမည့် ရက်အရေအတွက်။ သက်တမ်းတိုးလျှင် လက်ရှိကုန်ဆုံးရက်မှ ဆက်လက်ပေါင်းထည့်ပါမည်။",
       durationPresets: "အမြန်ရွေးရန်",
       durationInvalid: "၁ ရက်မှ ၃၆၅၀ ရက်အတွင်း ကိန်းပြည့်တစ်ခု ထည့်ပါ။",
       create: "ဖန်တီးမည်",
@@ -5402,7 +7357,8 @@ const mm = {
   settings: {
     page: {
       title: "ဆက်တင်များ",
-      description: "သင့်အကောင့်နှင့် ပလက်ဖောင်းဆိုင်ရာ ဦးစားပေးချက်များကို စီမံခန့်ခွဲပါ။",
+      description:
+        "သင့်အကောင့်နှင့် ပလက်ဖောင်းဆိုင်ရာ ဦးစားပေးချက်များကို စီမံခန့်ခွဲပါ။",
     },
     tabs: {
       profile: "ကိုယ်ရေးအချက်အလက်",
@@ -5413,7 +7369,8 @@ const mm = {
     profile: {
       cardTitle: "ကိုယ်ရေးအချက်အလက်",
       cardDescription: "သင့်အကောင့်အသေးစိတ်ကို အပ်ဒိတ်လုပ်ပါ။",
-      roleNote: "ရာထူးပြောင်းလဲမှုများကို ရာထူးနှင့်ခွင့်ပြုချက်များမှ စီမံပါသည်။",
+      roleNote:
+        "ရာထူးပြောင်းလဲမှုများကို ရာထူးနှင့်ခွင့်ပြုချက်များမှ စီမံပါသည်။",
       fullNameLabel: "အမည်အပြည့်အစုံ",
       phoneLabel: "ဖုန်းနံပါတ်",
       saveChanges: "ပြောင်းလဲမှုများ သိမ်းမည်",
@@ -5422,20 +7379,25 @@ const mm = {
     },
     notifications: {
       cardTitle: "အကြောင်းကြားချက် ဦးစားပေးချက်များ",
-      cardDescription: "မည်သည့်အကြောင်းအရာများ အကြောင်းကြားစေလိုသည်ကို ရွေးချယ်ပါ။",
+      cardDescription:
+        "မည်သည့်အကြောင်းအရာများ အကြောင်းကြားစေလိုသည်ကို ရွေးချယ်ပါ။",
       paymentAlertsLabel: "ငွေပေးချေမှု အကြောင်းကြားချက်များ",
       paymentAlertsDescription: "ငွေလွှဲမှုအသစ်များအတွက် အကြောင်းကြားပါ",
       newUserAlertsLabel: "အသုံးပြုသူအသစ် စာရင်းသွင်းမှုများ",
-      newUserAlertsDescription: "အသုံးပြုသူအသစ် စာရင်းသွင်းသည့်အခါ အကြောင်းကြားပါ",
+      newUserAlertsDescription:
+        "အသုံးပြုသူအသစ် စာရင်းသွင်းသည့်အခါ အကြောင်းကြားပါ",
       contentAlertsLabel: "အကြောင်းအရာ အပ်ဒိတ်များ",
-      contentAlertsDescriptionUser: "သင်နှစ်သက်သော ဂျန်ရာများမှ ထုတ်လုပ်မှုအသစ်များ",
-      contentAlertsDescriptionStaff: "တင်ခြင်း၊ လုပ်ဆောင်ခြင်းနှင့် ထုတ်ပြန်ခြင်း အခြေအနေပြောင်းလဲမှုများ",
+      contentAlertsDescriptionUser:
+        "သင်နှစ်သက်သော ဂျန်ရာများမှ ထုတ်လုပ်မှုအသစ်များ",
+      contentAlertsDescriptionStaff:
+        "တင်ခြင်း၊ လုပ်ဆောင်ခြင်းနှင့် ထုတ်ပြန်ခြင်း အခြေအနေပြောင်းလဲမှုများ",
       savePreferences: "ဦးစားပေးချက်များ သိမ်းမည်",
       savedToast: "အကြောင်းကြားချက် ဦးစားပေးချက်များ သိမ်းပြီးပါပြီ",
     },
     appearance: {
       cardTitle: "အသွင်အပြင်",
-      cardDescription: "MyanFlix Admin ကို premium dark အတွေ့အကြုံအတွက် ဒီဇိုင်းထုတ်ထားပါသည်။",
+      cardDescription:
+        "MyanFlix Admin ကို premium dark အတွေ့အကြုံအတွက် ဒီဇိုင်းထုတ်ထားပါသည်။",
       darkThemeLabel: "အမှောင်ရောင်စနစ်",
       darkThemeDescription: "ဤအက်ဒမင်ဒက်ရှ်ဘုတ်အတွက် သော့ခတ်ထားသည်",
     },
@@ -5454,7 +7416,8 @@ const mm = {
       currentIncorrect: "သင့်လက်ရှိစကားဝှက် မှားနေပါသည်",
       updatePassword: "စကားဝှက် အပ်ဒိတ်လုပ်မည်",
       updatedToast: "စကားဝှက် ပြောင်းလဲပြီးပါပြီ",
-      updatedDescription: "နောက်တစ်ကြိမ် ဝင်ရောက်သည့်အခါ စကားဝှက်အသစ်ကို အသုံးပြုပါ။",
+      updatedDescription:
+        "နောက်တစ်ကြိမ် ဝင်ရောက်သည့်အခါ စကားဝှက်အသစ်ကို အသုံးပြုပါ။",
       updateFailed: "စကားဝှက် ပြောင်းလဲ၍ မရပါ။ ထပ်မံကြိုးစားပါ။",
     },
     peakUsers: {
@@ -5468,9 +7431,11 @@ const mm = {
       additionalLabel: "ထပ်ဆောင်း အမြင့်ဆုံး",
       additionalHint:
         "ခြေရာခံထားသော အမြင့်ဆုံးပေါ်တွင် ပေါင်းထည့်ပါမည်။ ကိန်းဂဏန်းအစစ်သာ ပြလိုပါက 0 ထားပါ။",
-      invalidValue: "ထပ်ဆောင်းအမြင့်ဆုံးသည် 0 သို့မဟုတ် ထို့ထက်ကြီးသော ကိန်းပြည့်ဖြစ်ရပါမည်။",
+      invalidValue:
+        "ထပ်ဆောင်းအမြင့်ဆုံးသည် 0 သို့မဟုတ် ထို့ထက်ကြီးသော ကိန်းပြည့်ဖြစ်ရပါမည်။",
       displayedLabel: "ပြသမည့် အမြင့်ဆုံး အသုံးပြုသူများ",
-      displayedHint: "အများပြည်သူဆိုက်တွင် လာရောက်ကြည့်ရှုသူများ မြင်ရမည့် စုစုပေါင်းကိန်းဂဏန်း။",
+      displayedHint:
+        "အများပြည်သူဆိုက်တွင် လာရောက်ကြည့်ရှုသူများ မြင်ရမည့် စုစုပေါင်းကိန်းဂဏန်း။",
       saveChanges: "ပြောင်းလဲမှုများ သိမ်းမည်",
       updatedToast: "အမြင့်ဆုံးအသုံးပြုသူ ကိန်းဂဏန်း ပြင်ဆင်ပြီးပါပြီ",
     },
@@ -5478,11 +7443,13 @@ const mm = {
   paymentAccountLedger: {
     list: {
       title: "ငွေပေးချေမှုအကောင့်များ",
-      description: "ငွေပေးချေမှုအကောင့်တစ်ခုစီ၏ လက်ကျန်ငွေနှင့် ငွေရွှေ့ပြောင်းမှုများကို ခြေရာခံပါ။",
+      description:
+        "ငွေပေးချေမှုအကောင့်တစ်ခုစီ၏ လက်ကျန်ငွေနှင့် ငွေရွှေ့ပြောင်းမှုများကို ခြေရာခံပါ။",
       loadError: "ငွေပေးချေမှုအကောင့် လက်ကျန်ငွေများကို ရယူ၍မရပါ။",
       searchPlaceholder: "အကောင့်အမည်ဖြင့် ရှာဖွေပါ...",
       emptyTitle: "ငွေပေးချေမှုအကောင့် မရှိသေးပါ",
-      emptyDescription: "လက်ကျန်ငွေကို ခြေရာခံရန် ငွေပေးချေမှုနည်းလမ်းများအောက်တွင် အကောင့်တစ်ခု ထည့်ပါ။",
+      emptyDescription:
+        "လက်ကျန်ငွေကို ခြေရာခံရန် ငွေပေးချေမှုနည်းလမ်းများအောက်တွင် အကောင့်တစ်ခု ထည့်ပါ။",
       viewHistory: "မှတ်တမ်းကြည့်ရန်",
       allTransactionsLink: "ငွေလွှဲမှုအားလုံးကို ကြည့်ရန်",
     },
@@ -5504,9 +7471,11 @@ const mm = {
       addMoney: "ငွေထည့်မည်",
       removeMoney: "ငွေနုတ်မည်",
       historyTitle: "ငွေလွှဲမှု မှတ်တမ်း",
-      historyDescription: "ဤအကောင့်တွင် မှတ်တမ်းတင်ထားသော ရွှေ့ပြောင်းမှုအားလုံး။",
+      historyDescription:
+        "ဤအကောင့်တွင် မှတ်တမ်းတင်ထားသော ရွှေ့ပြောင်းမှုအားလုံး။",
       emptyHistoryTitle: "ငွေလွှဲမှု မရှိသေးပါ",
-      emptyHistoryDescription: "ကိုယ်တိုင်ထည့်သွင်းမှုများနှင့် ချိတ်ဆက်ထားသော ငွေသွင်း/ငွေထုတ်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
+      emptyHistoryDescription:
+        "ကိုယ်တိုင်ထည့်သွင်းမှုများနှင့် ချိတ်ဆက်ထားသော ငွေသွင်း/ငွေထုတ်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
     },
     transactionColumns: {
       dateTime: "ရက်စွဲ နှင့် အချိန်",
@@ -5632,7 +7601,8 @@ const mm = {
       referenceCodePlaceholder: "ဥပမာ - ဘဏ်ဖြတ်ပိုင်းနံပါတ်",
       noteLabel: "မှတ်ချက် (ရွေးချယ်ရန်)",
       notePlaceholder: "ဤမှတ်တမ်းအတွက် အသေးစိတ်ထည့်ပါ",
-      negativeBalanceWarning: "ဤလုပ်ဆောင်ချက်ကြောင့် အကောင့်လက်ကျန်ငွေသည် အနုတ်ဖြစ်သွားပါမည်။",
+      negativeBalanceWarning:
+        "ဤလုပ်ဆောင်ချက်ကြောင့် အကောင့်လက်ကျန်ငွေသည် အနုတ်ဖြစ်သွားပါမည်။",
       save: "မှတ်တမ်းသိမ်းမည်",
       creditedToast: "ငွေထည့်ပြီးပါပြီ",
       debitedToast: "ငွေနုတ်ပြီးပါပြီ",
@@ -5640,7 +7610,8 @@ const mm = {
     },
     central: {
       title: "ငွေလွှဲမှုအားလုံး",
-      description: "ငွေပေးချေမှုအကောင့်တိုင်း၏ ရွှေ့ပြောင်းမှုအားလုံးကို တစ်နေရာတည်းတွင်။",
+      description:
+        "ငွေပေးချေမှုအကောင့်တိုင်း၏ ရွှေ့ပြောင်းမှုအားလုံးကို တစ်နေရာတည်းတွင်။",
       loadError: "ငွေလွှဲမှုများကို ရယူ၍မရပါ။",
       filters: {
         accountLabel: "ငွေပေးချေမှုအကောင့်",
@@ -5672,7 +7643,8 @@ const mm = {
       noPhone: "ဖုန်းနံပါတ် မှတ်တမ်းမရှိပါ",
       noIp: "IP လိပ်စာ မှတ်တမ်းမရှိပါ",
       none: "—",
-      maskedNoticeTitle: "ဖုန်းနံပါတ်နှင့် IP လိပ်စာများကို တစ်စိတ်တစ်ပိုင်း ဖုံးကွယ်ထားသည်",
+      maskedNoticeTitle:
+        "ဖုန်းနံပါတ်နှင့် IP လိပ်စာများကို တစ်စိတ်တစ်ပိုင်း ဖုံးကွယ်ထားသည်",
       maskedNoticeDescription:
         "သင့်ရာထူးသည် ဤကဏ္ဍကို ကြည့်နိုင်သော်လည်း ကိုယ်ရေးကိုယ်တာအချက်အလက်များကို အပြည့်အစုံ မကြည့်နိုင်ပါ။ အပြည့်အစုံကြည့်ရန် စီမံခန့်ခွဲသူထံမှ Tracking → PII View ခွင့်ပြုချက် တောင်းခံပါ။",
       allTime: "အချိန်အားလုံး",
@@ -5680,7 +7652,8 @@ const mm = {
       minutesAgo: (minutes: number) => `လွန်ခဲ့သော ${minutes} မိနစ်`,
       hoursAgo: (hours: number) => `လွန်ခဲ့သော ${hours} နာရီ`,
       daysAgo: (days: number) => `လွန်ခဲ့သော ${days} ရက်`,
-      durationHoursMinutes: (hours: number, minutes: number) => `${hours} နာရီ ${minutes} မိနစ်`,
+      durationHoursMinutes: (hours: number, minutes: number) =>
+        `${hours} နာရီ ${minutes} မိနစ်`,
       durationMinutes: (minutes: number) => `${minutes} မိနစ်`,
       durationSeconds: (seconds: number) => `${seconds} စက္ကန့်`,
     },
@@ -5693,7 +7666,8 @@ const mm = {
     },
     comments: {
       title: "မှတ်ချက်များ",
-      subtitle: "ရုပ်ရှင်နှင့်စီးရီးများတွင် ရေးသားထားသော မှတ်ချက်အားလုံး၊ အသစ်ဆုံးမှစ၍။",
+      subtitle:
+        "ရုပ်ရှင်နှင့်စီးရီးများတွင် ရေးသားထားသော မှတ်ချက်အားလုံး၊ အသစ်ဆုံးမှစ၍။",
       cards: {
         total: "မှတ်ချက် စုစုပေါင်း",
         totalHint: "အချိန်အားလုံး",
@@ -5732,7 +7706,8 @@ const mm = {
       readMore: "ဆက်ဖတ်မည်",
       empty: {
         title: "မှတ်ချက် မရှိသေးပါ",
-        description: "ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်တွင် ရေးသားသော မှတ်ချက်များကို ဤနေရာတွင် ဖော်ပြပါမည်။",
+        description:
+          "ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်တွင် ရေးသားသော မှတ်ချက်များကို ဤနေရာတွင် ဖော်ပြပါမည်။",
       },
       details: {
         title: "မှတ်ချက်",
@@ -5745,7 +7720,8 @@ const mm = {
         hide: "မှတ်ချက်ကို ဖုံးကွယ်မည်",
         restore: "မှတ်ချက်ကို ပြန်ဖော်မည်",
         delete: "မှတ်ချက်ကို ဖျက်မည်",
-        needsPermission: "မှတ်ချက်များ ထိန်းညှိရန် Tracking → Comments Moderate ခွင့်ပြုချက် လိုအပ်သည်။",
+        needsPermission:
+          "မှတ်ချက်များ ထိန်းညှိရန် Tracking → Comments Moderate ခွင့်ပြုချက် လိုအပ်သည်။",
       },
       hideDialog: {
         title: "ဤမှတ်ချက်ကို ဖုံးကွယ်မလား။",
@@ -5773,7 +7749,8 @@ const mm = {
     },
     feedback: {
       title: "အကြံပြုချက်များ",
-      subtitle: "အသုံးပြုသူများ ပြောကြားချက် — ဝဘ်ဆိုက်နှင့် အက်ပ်မှ ချွတ်ယွင်းချက်၊ အကြံပြုချက်နှင့် တိုင်ကြားချက်များ။",
+      subtitle:
+        "အသုံးပြုသူများ ပြောကြားချက် — ဝဘ်ဆိုက်နှင့် အက်ပ်မှ ချွတ်ယွင်းချက်၊ အကြံပြုချက်နှင့် တိုင်ကြားချက်များ။",
       cards: {
         total: "စုစုပေါင်း",
         new: "အသစ်",
@@ -5814,7 +7791,8 @@ const mm = {
       },
       empty: {
         title: "အကြံပြုချက် မရှိသေးပါ",
-        description: "ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်မှ ပေးပို့သော မက်ဆေ့ချ်များကို ဤနေရာတွင် ဖော်ပြပါမည်။",
+        description:
+          "ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်မှ ပေးပို့သော မက်ဆေ့ချ်များကို ဤနေရာတွင် ဖော်ပြပါမည်။",
       },
       details: {
         title: "အကြံပြုချက်",
@@ -5827,10 +7805,12 @@ const mm = {
         statusLabel: "အခြေအနေ",
         adminNote: "အတွင်းရေး မှတ်စု",
         adminNotePlaceholder: "ဤအတွက် မည်သို့ဆောင်ရွက်ခဲ့သည်…",
-        adminNoteHint: "ဝန်ထမ်းများသာ မြင်နိုင်သည်။ အကြံပြုချက်ပေးပို့သူအား ဘယ်တော့မှ မပြပါ။",
+        adminNoteHint:
+          "ဝန်ထမ်းများသာ မြင်နိုင်သည်။ အကြံပြုချက်ပေးပို့သူအား ဘယ်တော့မှ မပြပါ။",
         save: "အပြောင်းအလဲများ သိမ်းမည်",
         saving: "သိမ်းနေသည်…",
-        needsPermission: "အကြံပြုချက် အခြေအနေပြောင်းရန် Tracking → Feedback Manage ခွင့်ပြုချက် လိုအပ်သည်။",
+        needsPermission:
+          "အကြံပြုချက် အခြေအနေပြောင်းရန် Tracking → Feedback Manage ခွင့်ပြုချက် လိုအပ်သည်။",
       },
       toast: {
         updated: "အကြံပြုချက်ကို ပြင်ဆင်ပြီးပါပြီ",
@@ -5839,13 +7819,15 @@ const mm = {
     },
     activeUsers: {
       title: "လက်ရှိအသုံးပြုနေသူများ",
-      subtitle: "ယခုအချိန် MyanFlix ကို အသုံးပြုနေသူများ — စက်ပစ္စည်းမည်မျှသုံးသည်ဖြစ်စေ တစ်ဦးလျှင် တစ်ကြောင်းသာ။",
+      subtitle:
+        "ယခုအချိန် MyanFlix ကို အသုံးပြုနေသူများ — စက်ပစ္စည်းမည်မျှသုံးသည်ဖြစ်စေ တစ်ဦးလျှင် တစ်ကြောင်းသာ။",
       cards: {
         total: "ယခုအသုံးပြုနေသူ",
         totalHint: "မတူညီသောလူဦးရေ",
         web: "ဝဘ်ဆိုက်တွင်",
         mobile: "မိုဘိုင်းတွင်",
-        overlapHint: "ဝဘ်နှင့်မိုဘိုင်း နှစ်ခုလုံးသုံးသူကို စုစုပေါင်းတွင် တစ်ကြိမ်သာရေတွက်ပြီး ပလက်ဖောင်းနှစ်ခုလုံးတွင် ပြပါသည်။",
+        overlapHint:
+          "ဝဘ်နှင့်မိုဘိုင်း နှစ်ခုလုံးသုံးသူကို စုစုပေါင်းတွင် တစ်ကြိမ်သာရေတွက်ပြီး ပလက်ဖောင်းနှစ်ခုလုံးတွင် ပြပါသည်။",
       },
       columns: {
         user: "အသုံးပြုသူ",
@@ -5865,17 +7847,22 @@ const mm = {
       },
       onlineHint: "ယခုအချိန် ဆက်သွယ်မှု တိုက်ရိုက်ဖွင့်ထားသည်။",
       recentHint: "လွန်ခဲ့သော ၅ မိနစ်အတွင်း တွေ့ရှိခဲ့သည်။",
-      windowNote: "လက်ရှိအသုံးပြုနေသည် ဆိုသည်မှာ ဆက်သွယ်မှုတိုက်ရိုက်ဖွင့်ထားခြင်း သို့မဟုတ် လွန်ခဲ့သော ၅ မိနစ်အတွင်း လှုပ်ရှားမှုရှိခြင်းကို ဆိုလိုသည်။",
+      windowNote:
+        "လက်ရှိအသုံးပြုနေသည် ဆိုသည်မှာ ဆက်သွယ်မှုတိုက်ရိုက်ဖွင့်ထားခြင်း သို့မဟုတ် လွန်ခဲ့သော ၅ မိနစ်အတွင်း လှုပ်ရှားမှုရှိခြင်းကို ဆိုလိုသည်။",
       empty: {
         title: "ယခုအချိန် အသုံးပြုနေသူ မရှိပါ",
-        description: "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်ကို ဖွင့်လာသည်နှင့် ဤစာရင်းတွင် ပေါ်လာပါမည်။",
+        description:
+          "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်ကို ဖွင့်လာသည်နှင့် ဤစာရင်းတွင် ပေါ်လာပါမည်။",
       },
     },
     watchTime: {
       title: "အကြည့်များဆုံးအချိန်",
-      subtitle: "အသုံးပြုသူများ ဘယ်အချိန်တွင် ကြည့်ကြသလဲ — တစ်နေ့တာ နာရီအလိုက်နှင့် ရက်သတ္တပတ် နေ့အလိုက်။",
-      notTitlesNote: "ဤအစီရင်ခံစာသည် ကြည့်ရှုသည့် အချိန်အကြောင်းဖြစ်ပြီး ခေါင်းစဉ်များ ရေပန်းစားမှုအကြောင်း မဟုတ်ပါ။",
-      timezoneNote: "နာရီနှင့် ရက်များကို ဆာဗာ၏ အချိန်ဇုန်အတိုင်း ဖော်ပြထားသည်။",
+      subtitle:
+        "အသုံးပြုသူများ ဘယ်အချိန်တွင် ကြည့်ကြသလဲ — တစ်နေ့တာ နာရီအလိုက်နှင့် ရက်သတ္တပတ် နေ့အလိုက်။",
+      notTitlesNote:
+        "ဤအစီရင်ခံစာသည် ကြည့်ရှုသည့် အချိန်အကြောင်းဖြစ်ပြီး ခေါင်းစဉ်များ ရေပန်းစားမှုအကြောင်း မဟုတ်ပါ။",
+      timezoneNote:
+        "နာရီနှင့် ရက်များကို ဆာဗာ၏ အချိန်ဇုန်အတိုင်း ဖော်ပြထားသည်။",
       cards: {
         peak: "အမြင့်ဆုံးအချိန်ပိုင်း",
         peakEmpty: "အမြင့်ဆုံးအချိန် မှတ်တမ်းမရှိသေးပါ",
@@ -5896,12 +7883,14 @@ const mm = {
         description: "အရောင်ပိုရင့်လေ ကြည့်ရှုချိန် ပိုများလေဖြစ်သည်။",
         legendLess: "နည်း",
         legendMore: "များ",
-        cellLabel: (day: string, hour: string, duration: string) => `${day}၊ ${hour} · ${duration}`,
+        cellLabel: (day: string, hour: string, duration: string) =>
+          `${day}၊ ${hour} · ${duration}`,
         empty: "ဤကာလအတွက် ကြည့်ရှုမှု မှတ်တမ်းမရှိသေးပါ။",
       },
       hourChart: {
         title: "တစ်နေ့တာ နာရီအလိုက်",
-        description: "နာရီတစ်ခုစီ၏ စုစုပေါင်းကြည့်ရှုချိန်၊ ဝဘ်ဆိုက်နှင့် မိုဘိုင်း နှိုင်းယှဉ်ချက်။",
+        description:
+          "နာရီတစ်ခုစီ၏ စုစုပေါင်းကြည့်ရှုချိန်၊ ဝဘ်ဆိုက်နှင့် မိုဘိုင်း နှိုင်းယှဉ်ချက်။",
         xLabel: "တစ်နေ့တာ နာရီ",
         yLabel: "ကြည့်ရှုချိန်",
       },
@@ -5927,27 +7916,70 @@ const mm = {
       ],
       weekdaysShort: ["နွေ", "လာ", "ဂါ", "ဟူး", "တေး", "ကြာ", "နေ"],
       hours: [
-        "၀၀", "၀၁", "၀၂", "၀၃", "၀၄", "၀၅", "၀၆", "၀၇", "၀၈", "၀၉", "၁၀", "၁၁",
-        "၁၂", "၁၃", "၁၄", "၁၅", "၁၆", "၁၇", "၁၈", "၁၉", "၂၀", "၂၁", "၂၂", "၂၃",
+        "၀၀",
+        "၀၁",
+        "၀၂",
+        "၀၃",
+        "၀၄",
+        "၀၅",
+        "၀၆",
+        "၀၇",
+        "၀၈",
+        "၀၉",
+        "၁၀",
+        "၁၁",
+        "၁၂",
+        "၁၃",
+        "၁၄",
+        "၁၅",
+        "၁၆",
+        "၁၇",
+        "၁၈",
+        "၁၉",
+        "၂၀",
+        "၂၁",
+        "၂၂",
+        "၂၃",
       ],
       hourLabels: [
-        "ညနက် ၁၂ နာရီ", "ညနက် ၁ နာရီ", "ညနက် ၂ နာရီ", "ညနက် ၃ နာရီ",
-        "ညနက် ၄ နာရီ", "နံနက် ၅ နာရီ", "နံနက် ၆ နာရီ", "နံနက် ၇ နာရီ",
-        "နံနက် ၈ နာရီ", "နံနက် ၉ နာရီ", "နံနက် ၁၀ နာရီ", "နံနက် ၁၁ နာရီ",
-        "မွန်းတည့် ၁၂ နာရီ", "နေ့လယ် ၁ နာရီ", "နေ့လယ် ၂ နာရီ", "နေ့လယ် ၃ နာရီ",
-        "နေ့လယ် ၄ နာရီ", "ညနေ ၅ နာရီ", "ညနေ ၆ နာရီ", "ည ၇ နာရီ",
-        "ည ၈ နာရီ", "ည ၉ နာရီ", "ည ၁၀ နာရီ", "ည ၁၁ နာရီ",
+        "ညနက် ၁၂ နာရီ",
+        "ညနက် ၁ နာရီ",
+        "ညနက် ၂ နာရီ",
+        "ညနက် ၃ နာရီ",
+        "ညနက် ၄ နာရီ",
+        "နံနက် ၅ နာရီ",
+        "နံနက် ၆ နာရီ",
+        "နံနက် ၇ နာရီ",
+        "နံနက် ၈ နာရီ",
+        "နံနက် ၉ နာရီ",
+        "နံနက် ၁၀ နာရီ",
+        "နံနက် ၁၁ နာရီ",
+        "မွန်းတည့် ၁၂ နာရီ",
+        "နေ့လယ် ၁ နာရီ",
+        "နေ့လယ် ၂ နာရီ",
+        "နေ့လယ် ၃ နာရီ",
+        "နေ့လယ် ၄ နာရီ",
+        "ညနေ ၅ နာရီ",
+        "ညနေ ၆ နာရီ",
+        "ည ၇ နာရီ",
+        "ည ၈ နာရီ",
+        "ည ၉ နာရီ",
+        "ည ၁၀ နာရီ",
+        "ည ၁၁ နာရီ",
       ],
       hourRange: (from: string, to: string) => `${from} – ${to}`,
       empty: {
         title: "ကြည့်ရှုမှု အချက်အလက် မရှိသေးပါ",
-        description: "အသုံးပြုသူများ ကြည့်ရှုသည်နှင့်အမျှ မှတ်တမ်းတင်ပါသည်။ ဤကာလအတွက် မှတ်တမ်းမရှိသေးပါ။",
+        description:
+          "အသုံးပြုသူများ ကြည့်ရှုသည်နှင့်အမျှ မှတ်တမ်းတင်ပါသည်။ ဤကာလအတွက် မှတ်တမ်းမရှိသေးပါ။",
       },
     },
     searches: {
       title: "အရှာများဆုံးစကားလုံးများ",
-      subtitle: "အသုံးပြုသူများ ရှာဖွေမှုအကွက်တွင် ရိုက်ထည့်သော စကားလုံးများနှင့် ရရှိသည့် ရလဒ်အရေအတွက်။",
-      typedTextNote: "ဤအရာများသည် အသုံးပြုသူများ ရိုက်ထည့်ခဲ့သော ရှာဖွေမှုစကားလုံးများဖြစ်ပြီး ကြည့်ရှုခဲ့သည့် ခေါင်းစဉ်များ မဟုတ်ပါ။",
+      subtitle:
+        "အသုံးပြုသူများ ရှာဖွေမှုအကွက်တွင် ရိုက်ထည့်သော စကားလုံးများနှင့် ရရှိသည့် ရလဒ်အရေအတွက်။",
+      typedTextNote:
+        "ဤအရာများသည် အသုံးပြုသူများ ရိုက်ထည့်ခဲ့သော ရှာဖွေမှုစကားလုံးများဖြစ်ပြီး ကြည့်ရှုခဲ့သည့် ခေါင်းစဉ်များ မဟုတ်ပါ။",
       tabs: {
         top: "အများဆုံးစကားလုံးများ",
         recent: "မကြာမီက ရှာဖွေမှုများ",
@@ -5987,15 +8019,18 @@ const mm = {
       },
       empty: {
         topTitle: "ရှာဖွေမှု မရှိသေးပါ",
-        topDescription: "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်တွင် ရှာဖွေသည်နှင့်အမျှ မှတ်တမ်းတင်ပါသည်။",
+        topDescription:
+          "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်တွင် ရှာဖွေသည်နှင့်အမျှ မှတ်တမ်းတင်ပါသည်။",
         recentTitle: "မကြာမီက ရှာဖွေမှု မရှိပါ",
         recentDescription: "ဤကာလအတွင်း ရှာဖွေမှု မရှိခဲ့ပါ။",
       },
-      staffExcludedNote: "ဝန်ထမ်းအကောင့်များ၏ ရှာဖွေမှုများကို ဤနေရာတွင် မှတ်တမ်းမတင်ပါ။",
+      staffExcludedNote:
+        "ဝန်ထမ်းအကောင့်များ၏ ရှာဖွေမှုများကို ဤနေရာတွင် မှတ်တမ်းမတင်ပါ။",
     },
     phoneIp: {
       title: "အသုံးပြုသူ ဖုန်း / IP",
-      subtitle: "အကောင့်တစ်ခုစီအတွက် မှတ်တမ်းရှိသော ဖုန်းနံပါတ်နှင့် ကွန်ရက်လိပ်စာ၊ နှင့် အကောင့်များ ထပ်နေသည့်နေရာများ။",
+      subtitle:
+        "အကောင့်တစ်ခုစီအတွက် မှတ်တမ်းရှိသော ဖုန်းနံပါတ်နှင့် ကွန်ရက်လိပ်စာ၊ နှင့် အကောင့်များ ထပ်နေသည့်နေရာများ။",
       columns: {
         user: "အသုံးပြုသူ",
         phone: "ဖုန်းနံပါတ်",
@@ -6020,13 +8055,15 @@ const mm = {
         sharedIp: "IP မျှဝေထားသည်",
         sharedIpHint: "ဤလိပ်စာမှ အကောင့်တစ်ခုထက်ပို၍ ဆက်သွယ်ခဲ့သည်။",
         sharedPhone: "ဖုန်းနံပါတ် မျှဝေထားသည်",
-        sharedPhoneHint: "ဤနံပါတ်ကို အကောင့်တစ်ခုထက်ပို၍ အသုံးပြုထားသည် — ဤသို့ဖြစ်ရန် မသင့်ပါ။",
+        sharedPhoneHint:
+          "ဤနံပါတ်ကို အကောင့်တစ်ခုထက်ပို၍ အသုံးပြုထားသည် — ဤသို့ဖြစ်ရန် မသင့်ပါ။",
         none: "မရှိပါ",
       },
       sessionCount: (count: number) => `ဆက်ရှင် ${count} ခု`,
       drawer: {
         title: "ဆက်ရှင်များ",
-        description: (name: string) => `${name} အတွက် မှတ်တမ်းတင်ထားသော ဆက်ရှင်အားလုံး။`,
+        description: (name: string) =>
+          `${name} အတွက် မှတ်တမ်းတင်ထားသော ဆက်ရှင်အားလုံး။`,
         columns: {
           started: "စတင်ချိန်",
           lastSeen: "နောက်ဆုံးတွေ့ချိန်",
@@ -6043,7 +8080,8 @@ const mm = {
       },
       empty: {
         title: "ဆက်ရှင်မှတ်တမ်း မရှိသေးပါ",
-        description: "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်မှ အကောင့်ဝင်သည့်အခါ ဆက်ရှင်များကို မှတ်တမ်းတင်ပါသည်။",
+        description:
+          "အသုံးပြုသူများ ဝဘ်ဆိုက် သို့မဟုတ် အက်ပ်မှ အကောင့်ဝင်သည့်အခါ ဆက်ရှင်များကို မှတ်တမ်းတင်ပါသည်။",
       },
     },
   },
@@ -6067,19 +8105,22 @@ const mm = {
     kindHelp: {
       HERO: "ဆလိုက်များသည် ပင်မစာမျက်နှာ ထိပ်ဆုံးရှိ အထူးရွေးချယ်ထားသော ခေါင်းစဉ် ၅ ခုနှင့် တစ်လှည့်စီ ပြသပါသည် (ခေါင်းစဉ်၊ ပရိုမိုးရှင်း၊ ခေါင်းစဉ်၊ ပရိုမိုးရှင်း…)။ အောက်ပါ အစီအစဉ်အတိုင်း ပေါ်ပါမည်။",
       SPOTLIGHT:
-        "\"ဒီအပတ် အသစ်\" ဘန်နာ။ လူများ ဖွင့်ကြည့်နိုင်သော ခေါင်းစဉ်ပါသည့် ပထမဆုံး ပြသနေသော အထူးဖော်ပြချက်ကို အက်ပ်များက ပြသပါသည်။ မရှိပါက နောက်ဆုံးထွက် ရုပ်ရှင်ကို ပြသပါသည်။",
+        '"ဒီအပတ် အသစ်" ဘန်နာ။ လူများ ဖွင့်ကြည့်နိုင်သော ခေါင်းစဉ်ပါသည့် ပထမဆုံး ပြသနေသော အထူးဖော်ပြချက်ကို အက်ပ်များက ပြသပါသည်။ မရှိပါက နောက်ဆုံးထွက် ရုပ်ရှင်ကို ပြသပါသည်။',
       COMING_SOON:
         "ပင်မစာမျက်နှာ အောက်ပိုင်းရှိ မကြာမီလာမည် အတန်းတွင် ပြသမည့် ကတ်များ။ ပြစရာ မရှိပါက အတန်းတစ်ခုလုံးကို ဝှက်ထားပါမည်။",
     },
     countOfMax: (count: number, max: number) => `${max} ခုအနက် ${count} ခု`,
-    listFull: (max: number) => `ဤစာရင်း ပြည့်နေပါပြီ (${max} ခု)။ နောက်တစ်ခု ထည့်ရန် တစ်ခုကို ဖျက်ပါ။`,
+    listFull: (max: number) =>
+      `ဤစာရင်း ပြည့်နေပါပြီ (${max} ခု)။ နောက်တစ်ခု ထည့်ရန် တစ်ခုကို ဖျက်ပါ။`,
     phoneHeroCap: (max: number) =>
       `ဖုန်းအက်ပ်တွင် ပြသနေသော ဘန်နာ စလိုက် ပထမ ${max} ခုကိုသာ ပြပါသည်။ ${max} ခုမြောက်ပြီးနောက် စလိုက်များကို ဝဘ်ဆိုက်တွင်သာ မြင်ရပါမည်။`,
     emptyTitle: "ဘာမှ မရှိသေးပါ",
     emptyDescription: {
       HERO: "ဆလိုက် မရှိပါက ပင်မစာမျက်နှာ ထိပ်ဆုံးတွင် အထူးရွေးချယ်ထားသော ခေါင်းစဉ်များကိုသာ ပြသပါမည်။",
-      SPOTLIGHT: "အထူးဖော်ပြချက် မရှိပါက ဘန်နာတွင် နောက်ဆုံးထုတ်ပြန်ထားသော ရုပ်ရှင်ကို ပြသပါမည်။",
-      COMING_SOON: "ကတ် မရှိပါက (ဂိမ်း ကြိုတင်ကြော်ငြာလည်း ပိတ်ထားပါက) မကြာမီလာမည် အတန်းကို ဝှက်ထားပါမည်။",
+      SPOTLIGHT:
+        "အထူးဖော်ပြချက် မရှိပါက ဘန်နာတွင် နောက်ဆုံးထုတ်ပြန်ထားသော ရုပ်ရှင်ကို ပြသပါမည်။",
+      COMING_SOON:
+        "ကတ် မရှိပါက (ဂိမ်း ကြိုတင်ကြော်ငြာလည်း ပိတ်ထားပါက) မကြာမီလာမည် အတန်းကို ဝှက်ထားပါမည်။",
     },
     liveStates: {
       LIVE: "ပြသနေသည်",
@@ -6102,8 +8143,10 @@ const mm = {
     },
     targetMissing:
       "ချိတ်ထားသော ခေါင်းစဉ်ကို ဖျက်လိုက်ပါပြီ။ ပရိုမိုးရှင်းကို ပြင်ပြီး အခြားခေါင်းစဉ်တစ်ခု ချိတ်ပါ သို့မဟုတ် ဖျက်ပါ။ ထိုမတိုင်မီ ဖွင့်/ပိတ် ပြောင်း၍ မရပါ။",
-    targetHiddenSkipped: "ချိတ်ထားသော ခေါင်းစဉ်ကို မထုတ်ပြန်ရသေးသဖြင့် ထုတ်ပြန်သည်အထိ အက်ပ်များက ဤပရိုမိုးရှင်းကို ကျော်သွားပါမည်။",
-    targetHiddenNoButton: "ချိတ်ထားသော ခေါင်းစဉ်ကို မထုတ်ပြန်ရသေးသဖြင့် ထုတ်ပြန်သည်အထိ ကတ်ကို ခလုတ်မပါဘဲ ပြသပါမည်။",
+    targetHiddenSkipped:
+      "ချိတ်ထားသော ခေါင်းစဉ်ကို မထုတ်ပြန်ရသေးသဖြင့် ထုတ်ပြန်သည်အထိ အက်ပ်များက ဤပရိုမိုးရှင်းကို ကျော်သွားပါမည်။",
+    targetHiddenNoButton:
+      "ချိတ်ထားသော ခေါင်းစဉ်ကို မထုတ်ပြန်ရသေးသဖြင့် ထုတ်ပြန်သည်အထိ ကတ်ကို ခလုတ်မပါဘဲ ပြသပါမည်။",
     bookSignedInOnly: "စာအုပ်များကို အကောင့်ဝင်ထားသူများကိုသာ ပြသပါသည်။",
     addedBy: (name: string) => `${name} ထည့်ခဲ့သည်`,
     moveUp: "အပေါ်သို့ ရွှေ့မည်",
@@ -6133,7 +8176,8 @@ const mm = {
       kickerLabel: "ခေါင်းစဉ်အပေါ်ရှိ စာကြောင်းတို",
       bodyLabel: "ဖော်ပြချက်",
       ctaLabelLabel: "ခလုတ်ပေါ်ရှိ စာသား",
-      pairHint: "အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ခုလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။",
+      pairHint:
+        "အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ခုလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။",
       buttonHeading: "ခလုတ်",
       ctaTargetLabel: "ခလုတ်နှိပ်လျှင် ဖွင့်မည့်အရာ",
       ctaTargetOptions: {
@@ -6145,7 +8189,8 @@ const mm = {
         BOOK: "စာအုပ်",
         URL: "ဝက်ဘ်လင့်ခ်",
       },
-      spotlightTargetHint: "အထူးဖော်ပြချက်သည် ရုပ်ရှင်၊ စီးရီး သို့မဟုတ် စာအုပ် တစ်ခုကို အမြဲ ဖွင့်ပါသည်။",
+      spotlightTargetHint:
+        "အထူးဖော်ပြချက်သည် ရုပ်ရှင်၊ စီးရီး သို့မဟုတ် စာအုပ် တစ်ခုကို အမြဲ ဖွင့်ပါသည်။",
       targetLabel: {
         MOVIE: "ရုပ်ရှင်",
         SERIES: "စီးရီး",
@@ -6164,8 +8209,10 @@ const mm = {
       replaceImage: "ပုံ အစားထိုးမည်",
       removeImage: "ပုံ ဖယ်ရှားမည်",
       uploadingImage: "ပုံ တင်နေသည်…",
-      imageHint: "တင်ထားသော ပုံသည် ရေးဆွဲထားသော နောက်ခံကို အစားထိုးပါသည်။ အလျားလိုက် ပုံများ (16:9) အကောင်းဆုံး ဖြစ်သည်။",
-      spotlightImageHint: "ပုံ မတင်ပါက ခေါင်းစဉ်၏ ကိုယ်ပိုင်ပုံကို အသုံးပြုပါမည်။",
+      imageHint:
+        "တင်ထားသော ပုံသည် ရေးဆွဲထားသော နောက်ခံကို အစားထိုးပါသည်။ အလျားလိုက် ပုံများ (16:9) အကောင်းဆုံး ဖြစ်သည်။",
+      spotlightImageHint:
+        "ပုံ မတင်ပါက ခေါင်းစဉ်၏ ကိုယ်ပိုင်ပုံကို အသုံးပြုပါမည်။",
       previewLabel: "ကြိုတင်ကြည့်ရှုမှု",
       scheduleHeading: "ပြသမည့်အချိန်",
       startsAtLabel: "စတင်ချိန်",
@@ -6174,7 +8221,8 @@ const mm = {
       scheduleHint:
         "ယခုချက်ချင်း စတင်ပြီး မပြီးဆုံးစေလိုပါက ချန်ထားပါ။ အချိန်များသည် ဤကွန်ပျူတာ၏ အချိန်ဇုန်အတိုင်း ဖြစ်သည်။",
       dateTextLabel: "ကတ်ပေါ်ရှိ ရက်စွဲ စာသား",
-      dateTextHint: "မဖြည့်လည်း ရသည်၊ ဥပမာ \"နိုဝင်ဘာတွင် လာမည်\"။ ရက်စွဲ မပြလိုပါက ချန်ထားပါ။",
+      dateTextHint:
+        'မဖြည့်လည်း ရသည်၊ ဥပမာ "နိုဝင်ဘာတွင် လာမည်"။ ရက်စွဲ မပြလိုပါက ချန်ထားပါ။',
       activeLabel: "အက်ပ်များတွင် ပြသမည်",
       activeHint: "မဖျက်ဘဲ ဝှက်ထားလိုပါက ပိတ်ပါ။",
     },
@@ -6187,20 +8235,29 @@ const mm = {
       dateText: "ရက်စွဲ စာသား",
     },
     problems: {
-      titleRequired: "ခေါင်းစဉ်ကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာဖြင့် ဖြည့်ပါ။",
-      pairMissing: (field: string) => `${field} - အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။`,
-      spotlightNeedsTitle: "အထူးဖော်ပြချက်သည် ရုပ်ရှင်၊ စီးရီး သို့မဟုတ် စာအုပ် တစ်ခုကို ချိတ်ရပါမည်။",
+      titleRequired:
+        "ခေါင်းစဉ်ကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာဖြင့် ဖြည့်ပါ။",
+      pairMissing: (field: string) =>
+        `${field} - အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။`,
+      spotlightNeedsTitle:
+        "အထူးဖော်ပြချက်သည် ရုပ်ရှင်၊ စီးရီး သို့မဟုတ် စာအုပ် တစ်ခုကို ချိတ်ရပါမည်။",
       targetRequired: "ဤပရိုမိုးရှင်း ဖွင့်မည့် ခေါင်းစဉ်ကို ရွေးပါ။",
-      targetDeleted: "ချိတ်ထားသော ခေါင်းစဉ်ကို ဖျက်လိုက်ပါပြီ။ အခြားခေါင်းစဉ်တစ်ခု ရွေးပါ သို့မဟုတ် ခလုတ်ဖွင့်မည့်အရာကို ပြောင်းပါ။",
+      targetDeleted:
+        "ချိတ်ထားသော ခေါင်းစဉ်ကို ဖျက်လိုက်ပါပြီ။ အခြားခေါင်းစဉ်တစ်ခု ရွေးပါ သို့မဟုတ် ခလုတ်ဖွင့်မည့်အရာကို ပြောင်းပါ။",
       urlRequired: "ဝက်ဘ်လင့်ခ်ကို ဖြည့်ပါ။",
-      urlInvalid: "http:// သို့မဟုတ် https:// ဖြင့် စသော ဝက်ဘ်လိပ်စာ အပြည့်အစုံ ထည့်ပါ (ဥပမာ https://example.com)။",
-      ctaLabelRequired: "ခလုတ်ပါသော ထိပ်ဆုံးဆလိုက်တွင် ခလုတ်စာသားကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာဖြင့် ဖြည့်ရပါမည်။",
+      urlInvalid:
+        "http:// သို့မဟုတ် https:// ဖြင့် စသော ဝက်ဘ်လိပ်စာ အပြည့်အစုံ ထည့်ပါ (ဥပမာ https://example.com)။",
+      ctaLabelRequired:
+        "ခလုတ်ပါသော ထိပ်ဆုံးဆလိုက်တွင် ခလုတ်စာသားကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာဖြင့် ဖြည့်ရပါမည်။",
       windowInvalid: "ပြီးဆုံးချိန်သည် စတင်ချိန်နောက်တွင် ဖြစ်ရပါမည်။",
-      tooLong: (field: string, max: number) => `${field} ရှည်လွန်းပါသည် (အများဆုံး စာလုံး ${max} လုံး)။`,
+      tooLong: (field: string, max: number) =>
+        `${field} ရှည်လွန်းပါသည် (အများဆုံး စာလုံး ${max} လုံး)။`,
     },
     serverErrors: {
-      HOME_PROMO_NOT_FOUND: "ဤပရိုမိုးရှင်း မရှိတော့ပါ။ စာရင်းကို ပြန်လည် ဖွင့်ထားပါသည်။",
-      HOME_PROMO_TRANSLATION_MISSING: "စာသားတစ်ခုစီကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။",
+      HOME_PROMO_NOT_FOUND:
+        "ဤပရိုမိုးရှင်း မရှိတော့ပါ။ စာရင်းကို ပြန်လည် ဖွင့်ထားပါသည်။",
+      HOME_PROMO_TRANSLATION_MISSING:
+        "စာသားတစ်ခုစီကို အင်္ဂလိပ်နှင့် မြန်မာ နှစ်ဘာသာလုံး ဖြည့်ပါ သို့မဟုတ် နှစ်ခုလုံး ချန်ထားပါ။",
       HOME_PROMO_TARGET_NOT_FOUND:
         "ထိုခေါင်းစဉ် မရှိတော့ပါ (အပိုင်းများကို ၎င်းတို့၏ စီးရီးမှတစ်ဆင့် ချိတ်ပါ)။",
       HOME_PROMO_REORDER_MISMATCH:
@@ -6223,16 +8280,19 @@ const mm = {
       description:
         "အခြားအက်ပ်ကို ရယူရန် အက်ပ်များက လူများကို ညွှန်ပြမည့်နေရာနှင့် မကြာမီလာမည် အတန်းရှိ ဂိမ်းကတ်။",
       webUrlLabel: "ဝက်ဘ်ဆိုက် လိပ်စာ",
-      webUrlHint: "ဖုန်းအက်ပ်၏ \"ဝက်ဘ်တွင်လည်း ကြည့်နိုင်သည်\" ကတ်တွင် ပြသပါသည်။ ကတ်ကို ဝှက်လိုပါက ချန်ထားပါ။",
+      webUrlHint:
+        'ဖုန်းအက်ပ်၏ "ဝက်ဘ်တွင်လည်း ကြည့်နိုင်သည်" ကတ်တွင် ပြသပါသည်။ ကတ်ကို ဝှက်လိုပါက ချန်ထားပါ။',
       appStoreUrlLabel: "App Store လင့်ခ်",
       playStoreUrlLabel: "Google Play လင့်ခ်",
       storeHint:
-        "ဝက်ဘ်ဆိုက်၏ \"ဖုန်းဖြင့် ကြည့်ရှုပါ\" ကတ်တွင် စတိုး တံဆိပ်များအဖြစ် ပြသပါသည်။ ဖြည့်ထားသော လင့်ခ်များသာ ပေါ်ပါမည်။",
+        'ဝက်ဘ်ဆိုက်၏ "ဖုန်းဖြင့် ကြည့်ရှုပါ" ကတ်တွင် စတိုး တံဆိပ်များအဖြစ် ပြသပါသည်။ ဖြည့်ထားသော လင့်ခ်များသာ ပေါ်ပါမည်။',
       gamesEnabledLabel: "ဂိမ်း ကြိုတင်ကြော်ငြာ ပြသမည်",
-      gamesEnabledHint: "မကြာမီလာမည် အတန်းတွင် \"ဂိမ်းများ လာတော့မည်\" ကတ်။",
+      gamesEnabledHint: 'မကြာမီလာမည် အတန်းတွင် "ဂိမ်းများ လာတော့မည်" ကတ်။',
       gamesDateLabel: "ဂိမ်း ရက်စွဲ စာသား",
-      gamesDateHint: "မဖြည့်လည်း ရသည်၊ ဥပမာ \"2027\"။ ချန်ထားပါက \"မကြာမီလာမည်\" ဟုသာ ပြသပါမည်။",
-      urlInvalid: "http:// သို့မဟုတ် https:// ဖြင့် စသော ဝက်ဘ်လိပ်စာ အပြည့်အစုံ ထည့်ပါ",
+      gamesDateHint:
+        'မဖြည့်လည်း ရသည်၊ ဥပမာ "2027"။ ချန်ထားပါက "မကြာမီလာမည်" ဟုသာ ပြသပါမည်။',
+      urlInvalid:
+        "http:// သို့မဟုတ် https:// ဖြင့် စသော ဝက်ဘ်လိပ်စာ အပြည့်အစုံ ထည့်ပါ",
       tooLong: (max: number) => `အများဆုံး စာလုံး ${max} လုံး`,
       save: "ဆက်တင် သိမ်းမည်",
       savedToast: "ပင်မစာမျက်နှာ ဆက်တင် သိမ်းပြီးပါပြီ",
@@ -6240,20 +8300,1312 @@ const mm = {
       rejected:
         "ဤဆက်တင်များကို ဆာဗာက လက်မခံပါ။ လင့်ခ်တိုင်းသည် http:// သို့မဟုတ် https:// ဖြင့် စသော ဝက်ဘ်လိပ်စာ အပြည့်အစုံ ဖြစ်ကြောင်း စစ်ဆေးပါ။",
       loadError: "ပင်မစာမျက်နှာ ဆက်တင်ကို ဖွင့်၍ မရပါ။",
-      lastChanged: (who: string, when: string) => `${when} တွင် ${who} နောက်ဆုံး ပြင်ဆင်ခဲ့သည်`,
-      neverChanged: "မပြင်ဆင်ရသေးပါ — အက်ပ်များက မူလတန်ဖိုးများကို အသုံးပြုနေပါသည်။",
+      lastChanged: (who: string, when: string) =>
+        `${when} တွင် ${who} နောက်ဆုံး ပြင်ဆင်ခဲ့သည်`,
+      neverChanged:
+        "မပြင်ဆင်ရသေးပါ — အက်ပ်များက မူလတန်ဖိုးများကို အသုံးပြုနေပါသည်။",
+    },
+  },
+  ads: {
+    thumbnailAlt: (title: string) => `${title} — ထောင့်ပုံ`,
+    serverErrors: {
+      AD_NOT_FOUND: "ဤကြော်ငြာ မရှိတော့ပါ။ စာရင်းကို ပြန်လည် ဖွင့်ထားပါသည်။",
+      AD_TARGET_MOVIE_NOT_FOUND: "ရွေးထားသော ရုပ်ရှင်တစ်ကား မရှိတော့ပါ။",
+      AD_VIDEO_MISSING:
+        "တင်ထားသော ဗီဒီယိုကို ဆာဗာတွင် ရှာမတွေ့ပါ။ ကျေးဇူးပြု၍ ထပ်မံ တင်ပါ။",
+      AD_VIDEO_NOT_MP4: "ဤဖိုင်သည် MP4 ဗီဒီယို မဟုတ်ပါ။",
+      AD_VIDEO_TOO_LARGE: "ဗီဒီယိုသည် 200 MB ထက် ကြီးပါသည်။",
+      AD_VIDEO_TOO_LONG: "ဗီဒီယို ကြာချိန်သည် 1 စက္ကန့်မှ 10 မိနစ် အတွင်း မရှိပါ။",
+      AD_VIDEO_UNREADABLE:
+        "ဆာဗာက ဗီဒီယိုကို ဖတ်၍ မရပါ။ MP4 (H.264 ဗီဒီယို၊ AAC အသံ) အဖြစ် ထပ်မံ ထုတ်ပြီး တင်ပါ။",
+      AD_VIDEO_ATTACH_CONFLICT:
+        "ဤကြော်ငြာတွင် အခြား ဗီဒီယို တင်မှုတစ်ခု ကြားထဲတွင် ရောက်သွားပါသည်။ ထပ်မံ တင်ပြီး ထည့်သွင်းပါ။",
+      AD_VIDEO_REQUIRED: "ကြော်ငြာ ဖွင့်ရန် ဗီဒီယို အရင် တင်ပါ။",
+      AD_FORMAT_MISMATCH:
+        "ဤကြော်ငြာ အမျိုးအစား (ဗီဒီယို သို့မဟုတ် ထောင့်ပုံ) နှင့် မကိုက်ညီပါ။ စာမျက်နှာကို ပြန်ဖွင့်ပြီး ထပ်ကြိုးစားပါ။",
+      AD_CORNER_TIMING_INVALID:
+        "ထောင့်ပုံ ပြချိန် မမှန်ပါ — 3 မှ 600 စက္ကန့် ပြရမည်၊ 1 မှ 240 မိနစ်တိုင်း ပြန်ပေါ်ရမည်၊ ပြန်ပေါ်ချိန်သည် ပြချိန်ထက် ရှည်ရမည်။",
+      AD_ANALYTICS_RANGE_INVALID: "ရက်စွဲများသည် မှန်ကန်သော အပိုင်းအခြား မဟုတ်ပါ။",
+      AD_ANALYTICS_RANGE_TOO_LONG: "အပိုင်းအခြားသည် 366 ရက်ထက် ရှည်ပါသည်။",
+    },
+  },
+  adsUi: adsUiMm,
+  lottery: {
+    prizeGroups: {
+      first: "ပထမဆု",
+      nearFirst: "ပထမဆု ကပ်လျက်",
+      second: "ဒုတိယဆု",
+      third: "တတိယဆု",
+      fourth: "စတုတ္ထဆု",
+      fifth: "ပဉ္စမဆု",
+      front3: "ရှေ့ ၃ လုံး",
+      back3: "နောက် ၃ လုံး",
+      back2: "နောက် ၂ လုံး",
+    },
+    dreams: {
+      title: "ထီ အိပ်မက်များ",
+      description:
+        "ထီအက်ပ်တွင် ပြသသော အိပ်မက်စာအုပ် နှစ်အုပ် — ဂဏန်းတိုင်းအတွက် အမည်နှင့် ပုံ။ အမည် မရှိသော ဂဏန်းကို ဝယ်ယူသူများ မမြင်ရပါ။",
+      readOnly: "သင် ကြည့်ရှုနိုင်သော်လည်း ပြင်ဆင်ခွင့် မရှိပါ။",
+      loadError: "အိပ်မက်များကို ဖွင့်၍ မရပါ။",
+      books: {
+        "1000": "Dream 1000",
+        "100": "Dream 100",
+      },
+      bookHelp: {
+        "1000": "000 မှ 999 အထိ ဂဏန်းသုံးလုံး တိုင်းအတွက် အိပ်မက် တစ်ခုစီ။",
+        "100": "00 မှ 99 အထိ ဂဏန်းနှစ်လုံး တိုင်းအတွက် အိပ်မက် တစ်ခုစီ။",
+      },
+      searchPlaceholder: "အမည် သို့မဟုတ် ဂဏန်းဖြင့် ရှာမည်…",
+      filters: {
+        all: "အားလုံး",
+        missing_name: "အမည် မရှိ",
+        missing_picture: "ပုံ မရှိ",
+        inactive: "ပိတ်ထား",
+      },
+      noMatches: {
+        all: "ကိုက်ညီသော ဂဏန်း မရှိပါ။",
+        missing_name: "ဂဏန်းတိုင်းတွင် အမည် ရှိပါပြီ။",
+        missing_picture: "ဂဏန်းတိုင်းတွင် ပုံ ရှိပါပြီ။",
+        inactive: "ပိတ်ထားသော ဂဏန်း မရှိပါ။",
+      },
+      emptyTitle: "အိပ်မက် မရှိသေးပါ",
+      emptyDescription:
+        "အိပ်မက်စာအုပ်များကို ထီဇယားများနှင့်အတူ ဖန်တီးပါသည်။ Backend ကို စီစဉ်ပြီးပါက ဂဏန်းတိုင်း ဤနေရာတွင် ပေါ်လာပါမည်။",
+      columns: {
+        number: "ဂဏန်း",
+        picture: "ပုံ",
+        nameEn: "အင်္ဂလိပ် အမည်",
+        nameMy: "မြန်မာ အမည်",
+        status: "အခြေအနေ",
+      },
+      statuses: {
+        shown: "ပြသနေသည်",
+        unnamed: "အမည် မရှိ",
+        off: "ပိတ်ထားသည်",
+      },
+      export: "ထုတ်ယူမည်",
+      exporting: "ထုတ်ယူနေသည်…",
+      exportFailedToast: "စာအုပ်ကို ထုတ်ယူ၍ မရပါ",
+      savedToast: "အိပ်မက် သိမ်းပြီးပါပြီ",
+      saveFailedToast: "အိပ်မက်ကို သိမ်း၍ မရပါ",
+      form: {
+        title: "အိပ်မက် ပြင်ဆင်မည်",
+        numberLabel: "ဂဏန်း",
+        numberHint:
+          "ဂဏန်းကို ပြောင်း၍ မရပါ — ဂဏန်းတိုင်းတွင် အတန်း တစ်ခုစီသာ ရှိသည်။",
+        nameEnLabel: "အင်္ဂလိပ် အမည်",
+        nameEnPlaceholder: "ဥပမာ Snake",
+        nameMyLabel: "မြန်မာ အမည်",
+        nameMyPlaceholder: "ဥပမာ မြွေ",
+        nameHint:
+          "အမည် တစ်ခုခု ရှိမှသာ ဝယ်ယူသူများ ဤအိပ်မက်ကို မြင်ရပါမည်။ ရှင်းလိုပါက ကွက်လပ် ချန်ထားပါ။",
+        pictureLabel: "ပုံ",
+        pictureHint:
+          "စတုရန်း ပုံများ အကောင်းဆုံး ဖြစ်သည်။ ပုံ မရှိပါက အက်ပ်များတွင် နေရာယူပုံကို ပြသပါမည်။",
+        uploadPicture: "ပုံ တင်မည်",
+        replacePicture: "ပုံ အစားထိုးမည်",
+        removePicture: "ဖယ်ရှားမည်",
+        uploadingPicture: "ပုံ တင်နေသည်…",
+        activeLabel: "အက်ပ်များတွင် ပြသမည်",
+        activeHint: "အမည် မဖျက်ဘဲ ဤဂဏန်းကို ဝှက်ထားလိုပါက ပိတ်ပါ။",
+      },
+      import: {
+        open: "သွင်းယူမည်",
+        title: "အမည်များ သွင်းယူမည်",
+        description:
+          "စာရင်းဇယားဖိုင်မှ အမည်များ ဖြည့်မည်။ ဖိုင်ကို အရင် စစ်ဆေးပါမည်၊ အတည်ပြုမှသာ ပြောင်းလဲပါမည်။",
+        columnsHint:
+          "ခေါင်းစဉ်အတန်းနှင့် book, number, name_en, name_my ကော်လံများ ပါသော .xlsx သို့မဟုတ် .csv ဖိုင်။ book သည် 1000 သို့မဟုတ် 100 ဖြစ်ရမည်။",
+        blankHint:
+          "အမည်ကွက် ကွက်လပ်ဖြစ်ပါက ထိုအမည်ကို မပြောင်းပါ။ အမှားပါသော အတန်းများကို ကျော်သွားပါမည်။",
+        templateLink: "လက်ရှိ စာအုပ်ကို နမူနာပုံစံအဖြစ် ဒေါင်းလုဒ်လုပ်မည်",
+        chooseFile: ".xlsx သို့မဟုတ် .csv ဖိုင် ရွေးပါ",
+        clearFile: "ဖိုင် ဖယ်ရှားမည်",
+        checking: "ဖိုင်ကို စစ်ဆေးနေသည်…",
+        checkFailed: "ဖိုင်ကို စစ်ဆေး၍ မရပါ",
+        summary: (updated: number, unchanged: number, errors: number) =>
+          `ပြောင်းမည် ${updated} · မပြောင်း ${unchanged} · အမှား ${errors}`,
+        appliedSummary: (updated: number, unchanged: number, errors: number) =>
+          `ပြောင်းပြီး ${updated} · မပြောင်း ${unchanged} · အမှား ${errors}`,
+        applyHint:
+          "အတည်ပြုလျှင် အထက်ပါ အမည်များကို အိပ်မက်စာအုပ်များထဲ ရေးသွင်းပါမည်။",
+        nothingToApply: "အတည်ပြုစရာ မရှိပါ။",
+        rowLabel: (row: number) => `အတန်း ${row}`,
+        moreErrors: (count: number) => `+${count} ခု ထပ်ရှိသည်`,
+        apply: "အတည်ပြုမည်",
+        applying: "အတည်ပြုနေသည်…",
+        appliedToast: "အမည်များ သွင်းယူပြီးပါပြီ",
+        applyFailedToast: "အမည်များကို သွင်းယူ၍ မရပါ",
+      },
+      pictures: {
+        open: "ပုံများ သွင်းယူမည်",
+        title: "ပုံများ သွင်းယူမည်",
+        description: (book: string) =>
+          `${book} ရှိ ဂဏန်းများစွာအတွက် ပုံများကို တစ်ကြိမ်တည်း ထည့်မည်။ ဖိုင်တိုင်းကို တင်ပြီး ၎င်း၏ ဂဏန်းသို့ ချက်ချင်း သိမ်းပါမည်။`,
+        namingHint:
+          "ဖိုင်တိုင်းကို ၎င်း၏ ဂဏန်းဖြင့် အမည်ပေးပါ — Dream 1000 တွင် 027.png၊ Dream 100 တွင် 07.png။ ဂဏန်းနောက်က စာလုံးများကို လျစ်လျူရှုပါမည် (027-fish.png)။",
+        replaceHint:
+          "PNG၊ JPEG သို့မဟုတ် WebP၊ တစ်ဖိုင်လျှင် အများဆုံး 10 MB။ ပုံ ရှိပြီးသား ဂဏန်းတွင် ပုံအသစ်ဖြင့် အစားထိုးပါမည်။",
+        chooseFiles: "ပုံများ ရွေးပါ",
+        chooseAgain: "အခြား ပုံများ ရွေးပါ",
+        planSummary: (files: number, matched: number, skipped: number) =>
+          `ဖိုင် ${files} · ဂဏန်းနှင့် ကိုက် ${matched} · ကျော်မည် ${skipped}`,
+        skipReasons: {
+          no_number: "အမည်သည် ဂဏန်းဖြင့် မစပါ",
+          out_of_range: "ဤစာအုပ်တွင် မရှိသော ဂဏန်း",
+          duplicate: "အရင်ဖိုင်နှင့် ဂဏန်း တူသည်",
+          wrong_type: "PNG၊ JPEG သို့မဟုတ် WebP မဟုတ်ပါ",
+          too_large: "10 MB ထက် ကြီးသည်",
+        },
+        startHint:
+          "စတင်လျှင် ကိုက်ညီသော ဖိုင်များကို တင်ပြီး ၎င်းတို့၏ ဂဏန်းသို့ သိမ်းပါမည်။",
+        nothingToStart: "ဂဏန်းနှင့် ကိုက်ညီသော ဖိုင် မရှိပါ။",
+        start: "စတင်မည်",
+        progressLabel: "သွင်းယူပြီး ပုံများ",
+        progress: (done: number, total: number, failed: number) =>
+          `${total} ခုတွင် ${done} ပြီး · မအောင်မြင် ${failed}`,
+        doneSummary: (done: number, failed: number, left: number) =>
+          left > 0
+            ? `ပြီး ${done} · မအောင်မြင် ${failed} · မစရသေး ${left}`
+            : `ပြီး ${done} · မအောင်မြင် ${failed}`,
+        stopping: "လက်ရှိ ဖိုင်များ ပြီးလျှင် ရပ်ပါမည်…",
+        rowMissing: "ဤဂဏန်းအတွက် အတန်း မရှိပါ",
+        continueRun: "ဆက်လုပ်မည်",
+        retryFailed: "မအောင်မြင်သည်များ ပြန်ကြိုးစားမည်",
+        moreNames: (count: number) => `+${count} ခု ထပ်ရှိသည်`,
+        doneToast: "ပုံများ သွင်းယူပြီးပါပြီ",
+        stoppedToast: "သွင်းယူခြင်း ရပ်လိုက်ပါပြီ",
+      },
+    },
+    settings: {
+      title: "ထီ ဆက်တင်များ",
+      description:
+        "ထီလက်မှတ် တစ်စောင်၏ ဈေးနှုန်း၊ ဝယ်သူတစ်ဦး ဂဏန်းတစ်လုံးလျှင် ကိုင်ဆောင်နိုင်သော လက်မှတ်အရေအတွက်၊ ဆုငွေအတွက် ငွေလဲနှုန်းနှင့် ထိုင်းထီ မဖွင့်မီ အရောင်းပိတ်ချိန်။",
+      readOnly: "သင် ကြည့်ရှုနိုင်သော်လည်း ပြင်ဆင်ခွင့် မရှိပါ။",
+      loadError: "ထီ ဆက်တင်များကို ဖွင့်၍ မရပါ။",
+      ticketsTitle: "ထီလက်မှတ်များ",
+      ticketPriceLabel: "ထီလက်မှတ် ဈေးနှုန်း (Ks)",
+      maxPerNumberLabel: "ဂဏန်းတစ်လုံးလျှင် လက်မှတ်အရေအတွက်",
+      maxPerNumberHint:
+        "ထီဖွင့်ပွဲတစ်ခုတွင် ဝယ်သူတစ်ဦးက ဂဏန်းတစ်လုံးအတွက် ကိုင်ဆောင်နိုင်သော အများဆုံး လက်မှတ်အရေအတွက် — ရှိပြီးသား လက်မှတ်များ အပါအဝင်။",
+      copiedNote:
+        "ဈေးနှုန်းနှင့် ကန့်သတ်ချက်ကို ထီဖွင့်ပွဲ ဖန်တီးချိန်တွင် ကူးယူပါသည်။ ဤနေရာတွင် ပြောင်းလဲခြင်းက ရောင်းနေပြီးသော ထီဖွင့်ပွဲကို မပြောင်းပါ။",
+      prizesTitle: "ဆုငွေများ",
+      exchangeRateLabel: "ငွေလဲနှုန်း (၁ ဘတ်လျှင် Ks)",
+      exchangeRateHint:
+        "ထိုင်းထီက ဆုငွေများကို ဘတ်ဖြင့် သတ်မှတ်သည်။ ရလဒ် ထုတ်ပြန်ချိန်တွင် ဤနှုန်းဖြင့် ကျပ်ငွေသို့ တွက်ချက်ပြီး တောင်းခံမှုတစ်ခုချင်း အတည်ပြုချိန်တွင် ပေးချေပါမည်။",
+      exchangeExample: (baht: string, rate: string, ks: string) =>
+        `${baht} ဘတ် × ${rate} = ${ks} Ks`,
+      claimDeadlineLabel: "ဆုငွေ တောင်းခံရန် နောက်ဆုံးရက် (ရက်)",
+      claimDeadlineHint:
+        "ထုတ်ပြန်ပြီး ဤရက်အရေအတွက် ကျော်လွန်ပါက မတောင်းခံရသေးသော ဆုငွေ သက်တမ်းကုန်ပါမည်။",
+      closingTitle: "အရောင်းပိတ်ချိန်",
+      closeMinutesLabel: "ထိုင်းထီ မဖွင့်မီ မိနစ်",
+      closeMinutesHint:
+        "ထိုင်းထီကို ထီဖွင့်ရက်တွင် မြန်မာစံတော်ချိန် 14:00 ၌ ဖွင့်သည်။ ထီဖွင့်ပွဲတစ်ခုချင်းစီအတွက် သီးသန့် ပိတ်ချိန် သတ်မှတ်နိုင်သည်။",
+      closesAt: (time: string) =>
+        `ထီဖွင့်ရက်တွင် မြန်မာစံတော်ချိန် ${time} ၌ အရောင်းပိတ်ပါမည်။`,
+      closesAtDayBefore: (time: string) =>
+        `ထီဖွင့်ရက် မတိုင်မီ တစ်ရက်တွင် မြန်မာစံတော်ချိန် ${time} ၌ အရောင်းပိတ်ပါမည်။`,
+      invalid: {
+        ticketPrice:
+          "1 Ks သို့မဟုတ် ထို့ထက် များသော ဈေးနှုန်းကို ဒသမ အများဆုံး 2 နေရာဖြင့် ထည့်ပါ။",
+        maxPerNumber: (min: number, max: number) =>
+          `${min} မှ ${max} အထိ ကိန်းပြည့် ထည့်ပါ။`,
+        exchangeRate: (decimals: number) =>
+          `0 ထက် ကြီးပြီး ဒသမ အများဆုံး ${decimals} နေရာ ပါသော နှုန်း ထည့်ပါ။`,
+        closeMinutes: (min: number, max: number) =>
+          `${min} မှ ${max} အထိ ကိန်းပြည့် ထည့်ပါ။`,
+        claimDeadline: (min: number, max: number) =>
+          `${min} မှ ${max} အထိ ကိန်းပြည့် ထည့်ပါ။`,
+      },
+      lastChanged: (who: string, when: string) =>
+        `${when} တွင် ${who} နောက်ဆုံး ပြင်ဆင်ခဲ့သည်`,
+      neverChanged: "မပြင်ဆင်ရသေးပါ — မူလတန်ဖိုးများကို အသုံးပြုနေပါသည်။",
+      saveChanges: "ပြောင်းလဲမှုများ သိမ်းမည်",
+      updatedToast: "ထီ ဆက်တင်များ သိမ်းပြီးပါပြီ",
+      saveFailedToast: "ဆက်တင်များကို သိမ်း၍ မရပါ",
+      frame: {
+        title: "ထီလက်မှတ် ဘောင်",
+        description:
+          "လက်မှတ်တိုင်း ပုံနှိပ်သော နောက်ခံ — ပုံနှိပ်ထားသော အစိတ်အပိုင်း အားလုံး ပါဝင်သည်။ ဘောင်ကို ထီဖွင့်ပွဲ ဖန်တီးချိန်တွင် ကူးယူသောကြောင့် ရောင်းပြီးသား လက်မှတ်များသည် ရောင်းစဉ်က ဘောင်အတိုင်း ဆက်ရှိနေပါမည်။",
+        builtIn: "ပါဝင်ပြီးသား ဘောင်ကို အသုံးပြုနေသည်။",
+        uploaded: "တင်ထားသော ဘောင်ကို အသုံးပြုနေသည်။",
+        picked: (name: string) => `${name} — သိမ်းချိန်တွင် တင်ပါမည်။`,
+        upload: "ဘောင် တင်မည်",
+        replace: "ဘောင် အစားထိုးမည်",
+        remove: "ဖယ်ရှားမည်",
+        hint: "PNG 1800 × 940 သို့မဟုတ် 3600 × 1880၊ အများဆုံး 25 MB။ လမ်းညွှန်၏ အပြင်အဆင်ကို ထိန်းသိမ်းပါ — နောက်ခံ အနုပညာလက်ရာသာ ပြောင်းသည်။",
+        tooLargeToast:
+          "ထိုဖိုင်သည် 25 MB ထက် ကြီးနေသည်။ ဘောင်ကို အရွယ်အစား လျှော့၍ ထုတ်ပြီး ပြန်ရွေးပါ။",
+        downloadGuide: "အပြင်အဆင် လမ်းညွှန် ဒေါင်းလုဒ်လုပ်မည်",
+        guideFailedToast: "အပြင်အဆင် လမ်းညွှန်ကို တည်ဆောက်၍ မရပါ",
+        sampleTitle: "နမူနာ လက်မှတ်",
+        sampleHint:
+          "နမူနာ ပုံနှင့် ဂဏန်းဖြင့် ဤဘောင်ပေါ်တွင် လက်မှတ် ပုံနှိပ်ပုံ။ ဖုန်းက ၎င်း၏ ကိုယ်ပိုင် ဖောင့်များကို သုံးသည်၊ နေရာများမှာ အတူတူပင် ဖြစ်သည်။",
+        previewLabel: "လက်ရှိ ဘောင်ပေါ်ရှိ နမူနာ လက်မှတ်",
+        uploading: "ဘောင် တင်နေသည်…",
+      },
+      resultsSource: {
+        title: "ရလဒ် ရင်းမြစ်",
+        description:
+          "ထိုင်းထီ ဖွင့်ပြီးတိုင်း ပေါက်ဂဏန်းများကို ဆွဲယူမည့် နေရာ။ ၎င်းတို့ကို ထီဖွင့်ပွဲ၏ စာမျက်နှာတွင် ပြသည် — ထိုနေရာတွင် သင် ထုတ်ပြန်မှသာ ဆုငွေ ပေးမည်။",
+        urlLabel: "ရလဒ် URL",
+        urlPlaceholder: "https://",
+        urlHint:
+          "ရလဒ်များကို ကိုယ်တိုင် ထည့်မည်ဆိုလျှင် ဗလာထားပါ။ ရက်စွဲအလိုက် endpoint အတွက် URL တွင် {date} ကို သုံးပါ။ မပါလျှင် URL သည် နောက်ဆုံး ထီဖွင့်ပွဲကို ပြန်ပေးရမည်။",
+        urlInvalid: "http သို့မဟုတ် https လိပ်စာ ထည့်ပါ။",
+        offLine:
+          "ဆွဲယူခြင်း ပိတ်ထားသည် — ထီဖွင့်ပွဲတိုင်း၏ စာမျက်နှာတွင် ဂဏန်းများကို ကိုယ်တိုင် ထည့်ရမည်။",
+        test: "ရင်းမြစ်ကို စမ်းသပ်မည်",
+        testing: "စမ်းသပ်နေသည်…",
+        testUnsaved:
+          "URL ကို အရင် သိမ်းပါ — စမ်းသပ်မှုသည် သိမ်းထားသော URL ကို ခေါ်သည်။",
+        testOk: (date: string) =>
+          `ရင်းမြစ်က ${date} ထီဖွင့်ပွဲဖြင့် ဖြေကြားသည်။`,
+        testOkNoDate: "ရင်းမြစ်က ဖြေကြားသည်။",
+        testFailed: "ရင်းမြစ်က မဖြေကြားပါ။",
+        testGroups: (summary: string) => `အုပ်စုများ — ${summary}`,
+        testFailedToast: "ရင်းမြစ်ကို စမ်းသပ်၍ မရပါ",
+      },
+    },
+    draws: {
+      title: "ထီဖွင့်ပွဲများ",
+      description:
+        "ထိုင်းထီ ဖွင့်ရက် တစ်ရက်လျှင် ထီဖွင့်ပွဲ တစ်ခု။ အရောင်းဖွင့်ပါ၊ လက်မှတ်များ ရောင်းရသည်ကို ကြည့်ပါ၊ ထီမဖွင့်မီ အရောင်းပိတ်ပါ။",
+      readOnly: "သင် ကြည့်ရှုနိုင်သော်လည်း ပြင်ဆင်ခွင့် မရှိပါ။",
+      loadError: "ထီဖွင့်ပွဲများကို ဖွင့်၍ မရပါ။",
+      emptyTitle: "ထီဖွင့်ပွဲ မရှိသေးပါ",
+      emptyDescription: "လက်မှတ် စတင်ရောင်းရန် ပထမဆုံး ထီဖွင့်ပွဲကို ဖန်တီးပါ။",
+      noMatches: "ဤအခြေအနေရှိ ထီဖွင့်ပွဲ မရှိပါ။",
+      newDraw: "ထီဖွင့်ပွဲ အသစ်",
+      filters: {
+        all: "အားလုံး",
+        scheduled: "စီစဉ်ထား",
+        open: "ဖွင့်ထား",
+        paused: "ခေတ္တရပ်",
+        closed: "ပိတ်ပြီး",
+        published: "ထုတ်ပြန်ပြီး",
+      },
+      statuses: {
+        scheduled: "စီစဉ်ထား",
+        open: "ဖွင့်ထား",
+        paused: "ခေတ္တရပ်",
+        closed: "ပိတ်ပြီး",
+        published: "ထုတ်ပြန်ပြီး",
+      },
+      columns: {
+        drawNo: "ထီဖွင့်ပွဲ အမှတ်",
+        thaiDrawDate: "ထိုင်းထီ ဖွင့်ရက်",
+        salesClose: "အရောင်းပိတ်ချိန် (MMT)",
+        status: "အခြေအနေ",
+        ticketsSold: "ရောင်းပြီး လက်မှတ်",
+        revenue: "ဝင်ငွေ (Ks)",
+        buyers: "ဝယ်သူ",
+      },
+      publishedLine: (winners: number, ks: string) =>
+        `ပေါက်သူ ${winners} ဦး · ${ks} ပေးပြီး`,
+      open: "ဖွင့်မည်",
+      drawLabel: (drawNo: number) => `ထီဖွင့်ပွဲ ${drawNo}`,
+      mmt: "MMT",
+      form: {
+        createTitle: "ထီဖွင့်ပွဲ အသစ်",
+        createDescription:
+          "ထီဖွင့်ပွဲသည် စီစဉ်ထား အခြေအနေဖြင့် စတင်သည်။ အသင့်ဖြစ်လျှင် ၎င်း၏ စာမျက်နှာမှ အရောင်းဖွင့်ပါ။",
+        editTitle: "ထီဖွင့်ပွဲ ပြင်ဆင်မည်",
+        drawNoLabel: "ထီဖွင့်ပွဲ အမှတ်",
+        drawNoHint: "နောက်အမှတ်ကို ဖြည့်ပေးထားသည်။",
+        drawNoInvalid: "1 သို့မဟုတ် ထို့ထက် ကြီးသော ကိန်းပြည့် ထည့်ပါ။",
+        thaiDrawDateLabel: "ထိုင်းထီ ဖွင့်ရက်",
+        thaiDrawDateHint:
+          "ထိုင်းထီကို လတိုင်း ၁ ရက်နှင့် ၁၆ ရက် မြန်မာစံတော်ချိန် 14:00 တွင် ဖွင့်သည်။",
+        dateInvalid: "ရက်စွဲ ထည့်ပါ။",
+        salesCloseLabel: "အရောင်းပိတ်ချိန် (မြန်မာစံတော်ချိန်)",
+        salesClosePreview: (when: string, minutes: number) =>
+          `${when} — ထီမဖွင့်မီ ${minutes} မိနစ်၊ ဆက်တင်များမှ။`,
+        overrideSalesClose: "အခြား ပိတ်ချိန် သတ်မှတ်မည်",
+        useDefaultSalesClose: "ဆက်တင်များမှ အချိန်ကို သုံးမည်",
+        salesCloseInvalid: "ထိုင်းထီ မဖွင့်မီ အရောင်းပိတ်ရမည်။",
+        pictureLabel: "ပုံ",
+        pictureHint:
+          "အက်ပ်များတွင် ထီဖွင့်ပွဲ၌ ပြသသည်။ လက်မှတ် ရောင်းပြီးပါက ပြောင်း၍ မရတော့ပါ။",
+        uploadPicture: "ပုံ တင်မည်",
+        replacePicture: "ပုံ အစားထိုးမည်",
+        removePicture: "ဖယ်ရှားမည်",
+        uploadingPicture: "ပုံ တင်နေသည်…",
+        frame: {
+          label: "ထီလက်မှတ် ဘောင်",
+          fromSettings: "ဆက်တင်များမှ",
+          builtIn: "ပါဝင်ပြီးသား ဘောင်",
+          own: "ဤထီဖွင့်ပွဲ၏ ကိုယ်ပိုင် ဘောင်",
+          picked: (name: string) => `${name} — သိမ်းချိန်တွင် တင်မည်`,
+          useDifferent: "အခြား ဘောင် သုံးမည်",
+          useSettings: "ဆက်တင်များမှ ဘောင်ကို သုံးမည်",
+          useBuiltIn: "ပါဝင်ပြီးသား ဘောင်ကို သုံးမည်",
+          keepCurrent: "လက်ရှိ ဘောင်ကို ဆက်သုံးမည်",
+          hint: "ထီဖွင့်ပွဲ ဖန်တီးချိန်တွင် ဆက်တင်များမှ ကူးယူသည်။ လက်မှတ် ရောင်းပြီးပါက ပြောင်း၍ မရတော့ပါ။ PNG အများဆုံး 25 MB။",
+          tooLargeToast:
+            "ထိုဖိုင်သည် 25 MB ထက် ကြီးနေသည်။ ဘောင်ကို အရွယ်အစား လျှော့၍ ထုတ်ပြီး ပြန်ရွေးပါ။",
+          uploading: "ဘောင် တင်နေသည်…",
+        },
+        copiedNote: (price: string, max: number) =>
+          `ဈေးနှုန်း ${price} နှင့် ဂဏန်းတစ်လုံးလျှင် အများဆုံး ${max} စောင်ကို ဆက်တင်များမှ ကူးယူပါသည်။`,
+        settingsUnavailable:
+          "ဆက်တင်များကို ဖွင့်၍ မရပါ။ ဈေးနှုန်းနှင့် ကန့်သတ်ချက်ကို backend က ဖြည့်ပါမည်။",
+        ticketPriceLabel: "ထီလက်မှတ် ဈေးနှုန်း (Ks)",
+        priceInvalid:
+          "1 Ks သို့မဟုတ် ထို့ထက် များသော ဈေးနှုန်းကို ဒသမ အများဆုံး 2 နေရာဖြင့် ထည့်ပါ။",
+        maxPerNumberLabel: "ဂဏန်းတစ်လုံးလျှင် လက်မှတ်အရေအတွက်",
+        maxPerNumberInvalid: (min: number, max: number) =>
+          `${min} မှ ${max} အထိ ကိန်းပြည့် ထည့်ပါ။`,
+        locked: {
+          sold: "ပိတ်ထားသည် — လက်မှတ်များ ရောင်းပြီးဖြစ်သည်။",
+          published: "ပိတ်ထားသည် — ထီဖွင့်ပွဲကို ထုတ်ပြန်ပြီးဖြစ်သည်။",
+          closed: "ပိတ်ထားသည် — အရောင်း ပိတ်ပြီးဖြစ်သည်။",
+        },
+        createdToast: "ထီဖွင့်ပွဲ ဖန်တီးပြီးပါပြီ",
+        updatedToast: "ထီဖွင့်ပွဲ သိမ်းပြီးပါပြီ",
+        saveFailedToast: "ထီဖွင့်ပွဲကို သိမ်း၍ မရပါ",
+      },
+      detail: {
+        backToList: "ထီဖွင့်ပွဲများသို့ ပြန်သွားမည်",
+        loadError: "ထီဖွင့်ပွဲကို ဖွင့်၍ မရပါ။",
+        notFoundTitle: "ထီဖွင့်ပွဲ မတွေ့ပါ",
+        notFoundDescription:
+          "ဤထီဖွင့်ပွဲ မရှိပါ သို့မဟုတ် ဖယ်ရှားခံရပြီး ဖြစ်သည်။",
+        ticketsSoldCard: "ရောင်းပြီး လက်မှတ်",
+        revenueCard: "ဝင်ငွေ",
+        buyersCard: "ဝယ်သူ",
+        winnersCard: "ပေါက်သူများ",
+        prizesPaidCard: "ပေးပြီး ဆုငွေ",
+        drawCardTitle: "ထီဖွင့်ပွဲ",
+        thaiDrawDate: "ထိုင်းထီ ဖွင့်ရက်",
+        drawAt: "ထိုင်းထီ ဖွင့်ချိန်",
+        salesCloseAt: "အရောင်းပိတ်ချိန်",
+        ticketPrice: "ထီလက်မှတ် ဈေးနှုန်း",
+        maxPerNumber: "ဂဏန်းတစ်လုံးလျှင် လက်မှတ်",
+        exchangeRate: "ငွေလဲနှုန်း",
+        exchangeRateUnset: "ရလဒ် ထုတ်ပြန်ချိန်တွင် သတ်မှတ်မည်",
+        exchangeRateValue: (rate: string) => `၁ ဘတ်လျှင် ${rate} Ks`,
+        openedAt: "ဖွင့်ခဲ့သည်",
+        closedAt: "ပိတ်ခဲ့သည်",
+        publishedAt: "ထုတ်ပြန်ခဲ့သည်",
+        ticketPreview: (drawNo: number) =>
+          `ထီဖွင့်ပွဲ ${drawNo} အတွက် နမူနာ လက်မှတ် — အက်ပ်များတွင် ပုံနှိပ်သည့်အတိုင်း ၎င်း၏ ဘောင်နှင့် ပုံ။`,
+        edit: "ပြင်ဆင်မည်",
+        actions: {
+          open: "အရောင်းဖွင့်မည်",
+          pause: "အရောင်း ခေတ္တရပ်မည်",
+          close: "အရောင်းပိတ်မည်",
+          reopen: "အရောင်း ပြန်ဖွင့်မည်",
+        },
+        cannotOpenPast:
+          "အရောင်း ဖွင့်၍ မရပါ — ပိတ်ချိန် ကျော်လွန်သွားပြီ။ ထီဖွင့်ပွဲကို ပြင်ဆင်၍ ပိတ်ချိန်ကို ရွှေ့ပါ။",
+        cannotReopenPast:
+          "အရောင်း ပြန်ဖွင့်၍ မရပါ — ပိတ်ချိန် ကျော်လွန်သွားပြီ။",
+        cannotReopenResults:
+          "အရောင်း ပြန်ဖွင့်၍ မရပါ — ဤထီဖွင့်ပွဲ၏ ရလဒ်များ ရောက်ရှိပြီးဖြစ်သည်။",
+        confirm: {
+          openTitle: "အရောင်း ဖွင့်မလား။",
+          openDescription: (drawNo: number, until: string) =>
+            `ဝယ်သူများသည် ထီဖွင့်ပွဲ ${drawNo} အတွက် လက်မှတ်များကို မြန်မာစံတော်ချိန် ${until} အထိ ဝယ်ယူနိုင်ပါမည်။`,
+          pauseTitle: "အရောင်း ခေတ္တရပ်မလား။",
+          pauseDescription: (drawNo: number) =>
+            `အရောင်း ပြန်ဖွင့်သည်အထိ ဝယ်သူများသည် ထီဖွင့်ပွဲ ${drawNo} အတွက် လက်မှတ် ဝယ်၍ မရပါ။`,
+          closeTitle: "အရောင်း ပိတ်မလား။",
+          closeDescription: (drawNo: number) =>
+            `ဝယ်သူများသည် ထီဖွင့်ပွဲ ${drawNo} အတွက် လက်မှတ် ဝယ်၍ မရတော့ပါ။ ပိတ်ချိန် မကျော်သေးပြီး ရလဒ်များ မရောက်သေးမှသာ အရောင်းကို ပြန်ဖွင့်နိုင်ပါသည်။`,
+          reopenTitle: "အရောင်း ပြန်ဖွင့်မလား။",
+          reopenDescription: (drawNo: number, until: string) =>
+            `အရောင်းကို မြန်မာစံတော်ချိန် ${until} အထိ ပြန်ဖွင့်ပါမည်။ ဝယ်သူများသည် ထီဖွင့်ပွဲ ${drawNo} အတွက် လက်မှတ်များ ဝယ်ယူနိုင်ပါမည်။`,
+        },
+        openedToast: "အရောင်း ဖွင့်ပြီးပါပြီ",
+        pausedToast: "အရောင်း ခေတ္တရပ်ထားပါသည်",
+        closedToast: "အရောင်း ပိတ်ပြီးပါပြီ",
+        reopenedToast: "အရောင်း ပြန်ဖွင့်ပြီးပါပြီ",
+        actionFailedToast: "ထီဖွင့်ပွဲကို ပြောင်း၍ မရပါ",
+        offSale: {
+          title: "ရောင်းမထုတ်သော ဂဏန်းများ",
+          description:
+            "ဤထီဖွင့်ပွဲတွင် ဝယ်သူများ ဝယ်၍ မရသော ဂဏန်းများ။ သိမ်းလျှင် စာရင်းတစ်ခုလုံးကို အစားထိုးပါမည်။",
+          empty: "ဂဏန်းအားလုံး ရောင်းနေပါသည်။",
+          count: (count: number) => `${count} လုံး ရောင်းမထုတ်`,
+          addPlaceholder: "ဂဏန်း ၆ လုံး",
+          add: "ထည့်မည်",
+          addHint:
+            "ဂဏန်းများစွာကို space သို့မဟုတ် ကော်မာ ခြားပြီး တစ်ပြိုင်နက် ထည့်နိုင်သည်။",
+          invalid: "ဂဏန်း ၆ လုံး ထည့်ပါ။",
+          duplicate: "ထိုဂဏန်း စာရင်းတွင် ရှိပြီးသား ဖြစ်သည်။",
+          tooMany: (max: number) => `အများဆုံး ဂဏန်း ${max} လုံး။`,
+          remove: (number: string) => `${number} ကို ဖယ်ရှားမည်`,
+          unsaved: "မသိမ်းရသေးသော ပြောင်းလဲမှုများ",
+          save: "စာရင်း သိမ်းမည်",
+          savedToast: "ရောင်းမထုတ်သော ဂဏန်းများ သိမ်းပြီးပါပြီ",
+          saveFailedToast: "စာရင်းကို သိမ်း၍ မရပါ",
+        },
+        tickets: {
+          title: "ထီလက်မှတ်များ",
+          description:
+            "ဤထီဖွင့်ပွဲတွင် ရောင်းပြီးသော လက်မှတ်တိုင်း၊ နောက်ဆုံးမှ အစဉ်လိုက်။",
+          loadError: "ထီလက်မှတ်များကို ဖွင့်၍ မရပါ။",
+          searchPlaceholder:
+            "လက်မှတ် ID၊ ဂဏန်း၊ ဝယ်ယူမှု ရည်ညွှန်း သို့မဟုတ် ဝယ်သူဖြင့် ရှာမည်…",
+          empty: "လက်မှတ် မရောင်းရသေးပါ။",
+          noMatches: "ကိုက်ညီသော လက်မှတ် မရှိပါ။",
+          columns: {
+            ticket: "လက်မှတ်",
+            number: "ဂဏန်း",
+            customer: "ဝယ်သူ",
+            purchaseRef: "ဝယ်ယူမှု",
+            boughtAt: "ဝယ်ချိန် (MMT)",
+            status: "အခြေအနေ",
+          },
+          statuses: {
+            waiting: "စောင့်ဆိုင်းဆဲ",
+            won: "ပေါက်သည်",
+            notwon: "မပေါက်ပါ",
+          },
+        },
+        results: {
+          title: "ရလဒ်များ",
+          description:
+            "ထိုင်းထီ ဖွင့်ပွဲ၏ ပေါက်ဂဏန်းများ။ စစ်ဆေးပါ၊ နှုန်း သတ်မှတ်ပါ၊ ထို့နောက် ထုတ်ပြန်၍ လက်မှတ်တိုင်းကို သတ်မှတ်ပြီး ဆုငွေတိုင်းကို တွက်ချက်ပါ။ ပေါက်သူများက အက်ပ်မှ ငွေပေးချေရန် တောင်းခံသည်၊ သင်က ဆုငွေ တောင်းခံမှုများ စာမျက်နှာတွင် တစ်ခုချင်း အတည်ပြုသည်။",
+          loadError: "ရလဒ်များကို ဖွင့်၍ မရပါ။",
+          status: {
+            beforeDraw: "ထိုင်းထီ ဖွင့်ချိန်ကို စောင့်နေသည်",
+            pending: "ရလဒ်များကို စောင့်နေသည်",
+            pendingHint: (when: string) =>
+              `ထိုင်းထီ ဖွင့်ပြီးနောက် မြန်မာစံတော်ချိန် ${when} တွင် အလိုအလျောက် ဆွဲယူမည်။`,
+            fetchedApi: (when: string) =>
+              `ရင်းမြစ်မှ ${when} MMT တွင် ဆွဲယူခဲ့သည်`,
+            fetchedManual: (when: string, by: string | null) =>
+              by
+                ? `${when} MMT တွင် ${by} က ကိုယ်တိုင် ထည့်ခဲ့သည်`
+                : `${when} MMT တွင် ကိုယ်တိုင် ထည့်ခဲ့သည်`,
+            failed: "နောက်ဆုံး ဆွဲယူမှု မအောင်မြင်ပါ",
+            badges: {
+              waiting: "စောင့်ဆိုင်းဆဲ",
+              fetched: "ဆွဲယူပြီး",
+              manual: "ကိုယ်တိုင် ထည့်ထား",
+              failed: "ဆွဲယူမှု မအောင်မြင်",
+            },
+            published: (when: string) => `${when} MMT တွင် ထုတ်ပြန်ခဲ့သည်`,
+            publishedHint: (winners: number, ks: string, rate: string) =>
+              `ပေါက်လက်မှတ် ${winners} စောင် · ၁ ဘတ်လျှင် ${rate} Ks ဖြင့် တွက်ချက်ထားသော ဆုငွေ ${ks} · ထုတ်ပြန်ခြင်းဖြင့် မည်သူ့ကိုမျှ မပေးပါ — ပေါက်သူများ တောင်းခံ၍ သင် အတည်ပြုသည်။`,
+            attempts: (count: number) => `${count} ကြိမ် ကြိုးစားပြီး`,
+            sourceDate: (date: string) =>
+              `ရင်းမြစ်က ${date} ထီဖွင့်ပွဲကို ပြနေသည်။`,
+          },
+          noNumbers: "ဂဏန်း မရှိသေးပါ။",
+          noSource:
+            "ရလဒ် ရင်းမြစ် မသတ်မှတ်ရသေးပါ — ဂဏန်းများကို ကိုယ်တိုင် ထည့်ပါ သို့မဟုတ် ဆက်တင်တွင် URL သတ်မှတ်ပါ။",
+          notClosed:
+            "အရောင်း ပိတ်ပြီးမှ ဂဏန်းများကို ဆွဲယူ သို့မဟုတ် ထည့်နိုင်သည်။",
+          perTicket: "ပေါက်လက်မှတ် တစ်စောင်လျှင်",
+          bahtValue: (baht: string) => `${baht} ဘတ်`,
+          ksValue: (ks: string) => `= ${ks}`,
+          countOf: (shown: number, total: number) =>
+            `${total} လုံးအနက် ${shown}`,
+          showAll: (count: number) => `${count} လုံးလုံး ပြမည်`,
+          showFewer: "လျှော့ပြမည်",
+          rateLabel: "ဤထီဖွင့်ပွဲအတွက် နှုန်း (၁ ဘတ်လျှင် Ks)",
+          rateHint:
+            "ဆက်တင်မှ ကြိုတင် ဖြည့်ထားသည်။ ဆုငွေများကို ဤနှုန်းဖြင့် တွက်ချက်မည် — ထီဖွင့်ပွဲ ထုတ်ပြန်ပြီးလျှင် ပြောင်း၍ မရတော့ပါ။",
+          rateInvalid: (decimals: number) =>
+            `ဒသမ အများဆုံး ${decimals} နေရာဖြင့် 0 ထက် ကြီးသော နှုန်း ထည့်ပါ။`,
+          ratePaid: (rate: string) =>
+            `၁ ဘတ်လျှင် ${rate} Ks ဖြင့် ဆုငွေများ။ ထီဖွင့်ပွဲ ထုတ်ပြန်ချိန်တွင် နှုန်းကို သော့ခတ်ခဲ့သည်။`,
+          nearFirstWarning: "ပထမဆု ကပ်လျက် ဂဏန်းများသည် ပထမဆု ±1 ဖြစ်သင့်သည်။",
+          incompleteSheet:
+            "ဇယား မပြည့်စုံပါ — အုပ်စုတိုင်းတွင် ဂဏန်း အရေအတွက် အပြည့် ရှိရမည်။",
+          fetchNow: "ယခု ဆွဲယူမည်",
+          fetching: "ဆွဲယူနေသည်…",
+          fetchedToast: "ရလဒ်များ ဆွဲယူပြီးပါပြီ",
+          fetchNoMatchToast: "ရင်းမြစ်က ဤထီဖွင့်ပွဲကို မပြသေးပါ",
+          fetchFailedToast: "ရလဒ်များကို ဆွဲယူ၍ မရပါ",
+          enterByHand: "ကိုယ်တိုင် ထည့်မည်",
+          publish: "ရလဒ်များ ထုတ်ပြန်မည်",
+          publishNoteLead: "ထုတ်ပြန်ခြင်းက မည်သူ့ကိုမျှ မပေးပါ။",
+          publishNote:
+            "လက်မှတ်တိုင်းကို ပေါက်သည် သို့မဟုတ် မပေါက်ပါ ဟု သတ်မှတ်ပြီး ဆုငွေတိုင်းကို ဤနှုန်းဖြင့် တွက်ချက်သည်။ ပေါက်သူများက အက်ပ်မှ ငွေပေးချေရန် တောင်းခံသည်၊ သင်က ဆုငွေ တောင်းခံမှုများ စာမျက်နှာတွင် တစ်ခုချင်း အတည်ပြုသည်။",
+          counting: "ပေါက်သူများကို ရေတွက်နေသည်…",
+          previewFailedToast: "ပေါက်သူများကို ရေတွက်၍ မရပါ",
+          publishedToast: "ထီဖွင့်ပွဲ ထုတ်ပြန်ပြီးပါပြီ",
+          publishedDescription: (winners: number, ks: string) =>
+            `ပေါက်လက်မှတ် ${winners} စောင် · ဆုငွေ ${ks} ချီးမြှင့်ပြီး။ မည်သူ့ကိုမျှ မပေးရသေးပါ — ပေါက်သူများ တောင်းခံ၍ သင်က ဆုငွေ တောင်းခံမှုများ တွင် အတည်ပြုသည်။`,
+          publishFailedToast: "ထီဖွင့်ပွဲကို ထုတ်ပြန်၍ မရပါ",
+          claims: {
+            title: "ဤထီဖွင့်ပွဲ၏ ဆုငွေ တောင်းခံမှုများ",
+            winningTickets: "ပေါက်လက်မှတ်",
+            prizeTotal: "ဆုငွေ စုစုပေါင်း",
+            waiting: "စောင့်ဆိုင်းဆဲ",
+            paid: "ပေးပြီး",
+            notRequested: "မတောင်းခံရသေး",
+            rejected: "ငြင်းပယ်ပြီး",
+            expired: "သက်တမ်းကုန်",
+            tickets: (_count: number) => "စောင်",
+            note: "တောင်းခံမှုတိုင်းကို ဆုငွေ တောင်းခံမှုများ စာမျက်နှာတွင် တစ်ခုချင်း အတည်ပြုသည် — တစ်ပြိုင်နက် အားလုံးပေးခြင်း မရှိပါ။",
+            deadline: (when: string) => `တောင်းခံရန် နောက်ဆုံးရက် — ${when} MMT။`,
+            open: "ဤထီဖွင့်ပွဲ၏ ဆုငွေ တောင်းခံမှုများကို ဖွင့်မည်",
+            headerButton: "ဤထီဖွင့်ပွဲ၏ ဆုငွေ တောင်းခံမှုများ",
+            unavailable: "ဤထီဖွင့်ပွဲ၏ တောင်းခံမှု အကျဉ်းချုပ်ကို မရရှိသေးပါ။",
+          },
+          enter: {
+            title: "ရလဒ်များကို ကိုယ်တိုင် ထည့်မည်",
+            description: (drawNo: number, date: string) =>
+              `ထီဖွင့်ပွဲ ${drawNo} · ${date} ထိုင်းထီ။ ထိုင်းထီ ထုတ်ပြန်သည့်အတိုင်း အုပ်စုတိုင်း၏ ဂဏန်းများကို ရိုက်ထည့်ပါ။`,
+            numbersLabel: (count: number, digits: number) =>
+              `ဂဏန်း ${digits} လုံး × ${count} ခု`,
+            numbersHint:
+              "ဂဏန်းများကို space သို့မဟုတ် ကော်မာ ခြားပြီး ကူးထည့်ပါ။",
+            bahtLabel: "လက်မှတ် တစ်စောင်လျှင် ဘတ်",
+            countLine: (have: number, need: number) => `${need} ခုအနက် ${have}`,
+            wrongDigits: (digits: number) =>
+              `ဂဏန်းတိုင်းတွင် ${digits} လုံး ရှိရမည်။`,
+            duplicate: "ဂဏန်း တစ်ခု ထပ်နေသည်။",
+            bahtInvalid: "0 သို့မဟုတ် ထို့ထက် ကြီးသော ဘတ် ပမာဏ ထည့်ပါ။",
+            noteLabel: "မှတ်ချက်",
+            notePlaceholder: "ဥပမာ ရင်းမြစ် ပျက်နေ၍ ထီဆိုက်မှ ကူးထည့်သည်",
+            replaceHint:
+              "သိမ်းလျှင် ဇယားတစ်ခုလုံးကို အစားထိုးသည်။ ထီဖွင့်ပွဲ မထုတ်ပြန်မီအထိ ထပ်ပြင်နိုင်သည်။",
+            save: "ဇယား သိမ်းမည်",
+            savedToast: "ရလဒ်များ သိမ်းပြီးပါပြီ",
+            saveFailedToast: "ရလဒ်များကို သိမ်း၍ မရပါ",
+          },
+          publishDialog: {
+            title: "ရလဒ်များ ထုတ်ပြန်မလား။",
+            description: (drawNo: number) =>
+              `ထီဖွင့်ပွဲ ${drawNo} ကို ဝယ်သူများထံ ထုတ်ပြန်ပြီး ဟု ပြမည်၊ လက်မှတ်တိုင်းကို ပေါက်သည် သို့မဟုတ် မပေါက်ပါ ဟု သတ်မှတ်ပြီး ဆုငွေများကို တွက်ချက်မည်။ ယခု မည်သူ့ကိုမျှ မပေးပါ — ပေါက်သူများက အက်ပ်မှ ငွေပေးချေရန် တောင်းခံပြီး သင်က ဆုငွေ တောင်းခံမှုများ စာမျက်နှာတွင် တစ်ခုချင်း အတည်ပြုသည်။ ပြန်ပြင်၍ မရပါ။`,
+            summary: (winners: number, ks: string) =>
+              `ပေါက်လက်မှတ် ${winners} စောင် · ဆုငွေ ${ks}`,
+            noWinners:
+              "ပေါက်သော လက်မှတ် မရှိပါ။ ထီဖွင့်ပွဲကို ထုတ်ပြန်ပြီး လက်မှတ်တိုင်းကို မပေါက်ပါ ဟု သတ်မှတ်မည်။",
+            ticketsChecked: (count: number) =>
+              `လက်မှတ် ${count} စောင် စစ်ဆေးပြီး`,
+            rateLine: (rate: string) => `၁ ဘတ်လျှင် ${rate} Ks ဖြင့်။`,
+            rateDiffers: (rate: string) =>
+              `စုစုပေါင်းများကို ၁ ဘတ်လျှင် ${rate} Ks ဖြင့် ရေတွက်ပြီး အပေါ်က နှုန်းသို့ ချိန်ညှိထားသည် — ထုတ်ပြန်ချိန်တွင် အပေါ်က နှုန်းကို သုံးမည်။`,
+            byGroup: "အုပ်စုအလိုက်",
+            groupLine: (winners: number, ks: string) => `${winners} · ${ks}`,
+            confirm: "ရလဒ်များ ထုတ်ပြန်မည်",
+            paying: "ရလဒ်များ ထုတ်ပြန်နေသည်… တစ်မိနစ်ခန့် ကြာနိုင်သည်။",
+          },
+        },
+        winners: {
+          title: "ပေါက်သူများ",
+          description:
+            "ဤထီဖွင့်ပွဲတွင် ပေါက်သော လက်မှတ်တိုင်း၊ ဆုငွေ အများဆုံးမှ အစဉ်လိုက်။ တောင်းခံမှု ကော်လံက လက်မှတ်တစ်စောင်ချင်း၏ ငွေပေးချေမှု အခြေအနေကို ပြသည်။",
+          loadError: "ပေါက်သူများကို ဖွင့်၍ မရပါ။",
+          searchPlaceholder: "လက်မှတ် ID၊ ဂဏန်း သို့မဟုတ် ဝယ်သူဖြင့် ရှာမည်…",
+          empty: "ဤထီဖွင့်ပွဲတွင် ပေါက်သော လက်မှတ် မရှိပါ။",
+          noMatches: "ကိုက်ညီသော ပေါက်သူ မရှိပါ။",
+          columns: {
+            ticket: "လက်မှတ်",
+            number: "ဂဏန်း",
+            customer: "ဝယ်သူ",
+            groups: "ဆု အုပ်စုများ",
+            baht: "ဘတ်",
+            ks: "ဆုငွေ (Ks)",
+            claim: "တောင်းခံမှု",
+            paidAt: "ပေးချိန် (MMT)",
+            transaction: "ငွေလွှဲ",
+          },
+        },
+      },
+    },
+    claims: {
+      title: "ဆုငွေ တောင်းခံမှုများ",
+      description:
+        "ပေါက်သူများက အက်ပ်မှ ဆုငွေကို တောင်းခံသည်။ တောင်းခံမှုတိုင်းကို ဤနေရာတွင် သင် အတည်ပြု သို့မဟုတ် ငြင်းပယ်သည်။ ထီဖွင့်ပွဲတစ်ခုတွင် ဝယ်သူတစ်ဦးလျှင် တစ်ကြောင်း။ တစ်ပြိုင်နက် အားလုံးပေးခြင်း မရှိပါ — ငွေပေးချေမှုတိုင်းသည် အတည်ပြုပြီး တောင်းခံမှု တစ်ခု ဖြစ်သည်။",
+      timezone: "မြန်မာစံတော်ချိန် (MMT, UTC+6:30)",
+      updated: (when: string) => `${when} MMT တွင် အသစ်ပြင်ဆင်ပြီး`,
+      readOnly:
+        "တောင်းခံမှုများကို ကြည့်ရှုနိုင်သော်လည်း အတည်ပြုခြင်း၊ ငြင်းပယ်ခြင်း မလုပ်နိုင်ပါ — LOTTERY.CLAIMS_CONFIRM လိုအပ်သည်။",
+      openDraw: (drawNo: number) => `ထီဖွင့်ပွဲ ${drawNo} ကို ဖွင့်မည်`,
+      drawLabel: (drawNo: number, date: string) => `ထီဖွင့်ပွဲ ${drawNo} · ${date}`,
+      oneAtATime: "တောင်းခံမှုကို တစ်ခုချင်း အတည်ပြုပါ",
+      permissionLine:
+        "ကြည့်ရှုရန် LOTTERY.VIEW · ပေးချေရန်နှင့် ငြင်းပယ်ရန် LOTTERY.CLAIMS_CONFIRM လိုအပ်သည်",
+      statuses: {
+        not_requested: "မတောင်းခံရသေး",
+        requested: "စောင့်ဆိုင်းဆဲ",
+        paid: "ပေးပြီး",
+        rejected: "ငြင်းပယ်ပြီး",
+        expired: "သက်တမ်းကုန်",
+      },
+      reasons: {
+        suspicious_account: "သံသယဖြစ်ဖွယ် အကောင့်",
+        duplicate_request: "ထပ်နေသော တောင်းခံမှု",
+        ticket_under_review: "လက်မှတ် စစ်ဆေးဆဲ",
+        other: "အခြား",
+      },
+      tiles: {
+        waiting: "အတည်ပြုရန် စောင့်ဆိုင်းဆဲ",
+        waitingSub: (ks: string) => `ပေးရန် ${ks}`,
+        waitingEmpty: "ယခု အတည်ပြုရန် မရှိပါ",
+        paidToday: "ယနေ့ ပေးပြီး",
+        paidTodaySub: (ks: string) => `${ks} · တစ်ခုချင်းစီတွင် လုပ်ဆောင်မှုမှတ်တမ်း တစ်ကြောင်းစီ`,
+        paidTodayEmpty: "ယနေ့ မပေးရသေးပါ",
+        notRequested: "မတောင်းခံရသေး",
+        notRequestedSub: (ks: string, tickets: number) => `လက်မှတ် ${tickets} စောင်တွင် ${ks}`,
+        notRequestedEmpty: "ဆုငွေအားလုံး တောင်းခံပြီး ဖြစ်သည်",
+        expiredSub: (tickets: number, ks: string) => `လက်မှတ် ${tickets} စောင် သက်တမ်းကုန် (${ks})`,
+        rejected: "ငြင်းပယ်ပြီး",
+        rejectedSub: (ks: string) => `${ks} · ငြင်းပယ်ထားသော တောင်းခံမှုကို ပြန်လည် သုံးသပ်နိုင်သည်`,
+        rejectedEmpty: "ငြင်းပယ်ထားသော တောင်းခံမှု မရှိပါ",
+        claimUnit: (_count: number) => "ခု",
+        winnerUnit: (_count: number) => "ဦး",
+        loadError: "စုစုပေါင်းများကို ဖွင့်၍ မရပါ။",
+      },
+      tabs: {
+        requested: "စောင့်ဆိုင်းဆဲ",
+        paid: "ပေးပြီး",
+        rejected: "ငြင်းပယ်ပြီး",
+        not_requested: "မတောင်းခံရသေး",
+        all: "အားလုံး",
+      },
+      filters: {
+        draw: "ထီဖွင့်ပွဲ",
+        search: "ရှာဖွေရန်",
+        searchPlaceholder: "ဖုန်း၊ အမည် သို့မဟုတ် လက်မှတ် အမှတ်…",
+        drawsLoadError:
+          "ထီဖွင့်ပွဲ စာရင်းကို ဖွင့်၍ မရပါ၊ စာရင်းတွင် ထီဖွင့်ပွဲ အားလုံးကို ဆက်ပြသည်။",
+      },
+      loadError: "တောင်းခံမှုများကို ဖွင့်၍ မရပါ။",
+      columns: {
+        requestedAt: "တောင်းခံချိန် (MMT)",
+        customer: "ဝယ်သူ",
+        draw: "ထီဖွင့်ပွဲ",
+        tickets: "လက်မှတ်",
+        ks: "ဆုငွေ (Ks)",
+        status: "အခြေအနေ",
+        action: "လုပ်ဆောင်ချက်",
+      },
+      notRequestedCell: "မတောင်းခံရသေး",
+      ticketCount: (count: number) => `လက်မှတ် ${count} စောင်`,
+      review: "သုံးသပ်မည်",
+      view: "ကြည့်မည်",
+      empty: {
+        requested: {
+          title: "စောင့်ဆိုင်းနေသော တောင်းခံမှု မရှိပါ",
+          description:
+            "တောင်းခံမှုတိုင်းကို အတည်ပြု သို့မဟုတ် ငြင်းပယ်ပြီး ဖြစ်သည်။ ဝယ်သူများ အက်ပ်မှ ပို့လာသည်နှင့် တောင်းခံမှု အသစ်များ ဤနေရာတွင် ပေါ်လာပါမည်။",
+        },
+        paid: {
+          title: "ပေးပြီး တောင်းခံမှု မရှိပါ",
+          description: "ဤရွေးချယ်မှုတွင် ဘာမျှ မပေးရသေးပါ။",
+        },
+        rejected: {
+          title: "ငြင်းပယ်ထားသော တောင်းခံမှု မရှိပါ",
+          description: "ဤရွေးချယ်မှုတွင် ငြင်းပယ်ထားသော တောင်းခံမှု မရှိပါ။",
+        },
+        not_requested: {
+          title: "တောင်းခံရန် စောင့်နေသော ဆုငွေ မရှိပါ",
+          description: "ဤရွေးချယ်မှုရှိ ပေါက်သူတိုင်း ဆုငွေကို တောင်းခံပြီး ဖြစ်သည်။",
+        },
+        all: {
+          title: "တောင်းခံမှု မရှိသေးပါ",
+          description:
+            "ထီဖွင့်ပွဲ ထုတ်ပြန်ပြီး ပေါက်သူများ ဆုငွေ တောင်းခံသည်နှင့် တောင်းခံမှုများ ဤနေရာတွင် ပေါ်လာပါမည်။",
+        },
+        searchTitle: "ကိုက်ညီသော တောင်းခံမှု မရှိပါ",
+        searchDescription: (q: string, draw: string) =>
+          `${draw} တွင် "${q}" နှင့် ကိုက်ညီသည် မရှိပါ။ ဖုန်း၊ အမည် သို့မဟုတ် လက်မှတ် အမှတ်ဖြင့် ရှာပါ။`,
+        inDraw: (draw: string) =>
+          `ဤတက်ဘ်အောက် ${draw} တွင် ဘာမျှ မရှိပါ။ အခြား တက်ဘ် သို့မဟုတ် ထီဖွင့်ပွဲ အားလုံးကို စမ်းကြည့်ပါ။`,
+        showAll: "တောင်းခံမှု အားလုံး ပြမည်",
+        clearSearch: "ရှာဖွေမှု ရှင်းမည်",
+      },
+      dialog: {
+        title: (name: string) => `တောင်းခံမှု · ${name}`,
+        requestedAt: (when: string) => `${when} MMT တွင် တောင်းခံခဲ့သည်`,
+        loadError: "တောင်းခံမှုကို ဖွင့်၍ မရပါ။",
+        notFound: "ဤတောင်းခံမှု မရှိတော့ပါ။",
+        customer: "ဝယ်သူ",
+        name: "အမည်",
+        phone: "ဖုန်း",
+        memberSince: "အသင်းဝင်သည့်ရက်",
+        walletBalance: "လက်ရှိ ပိုက်ဆံအိတ် လက်ကျန်",
+        earlierClaims: "ယခင် တောင်းခံမှုများ",
+        account: "အကောင့်",
+        earlier: (paid: number, rejected: number) => `ပေးပြီး ${paid} · ငြင်းပယ် ${rejected}`,
+        earlierNone: "မရှိပါ (ပထမဆုံး တောင်းခံမှု)",
+        accountActive: "အသုံးပြုနေသည်",
+        accountNew: "အကောင့်အသစ်",
+        openCustomer: "ဝယ်သူကို ဖွင့်မည်",
+        ticketsTitleOne: "ပေါက်သော လက်မှတ်",
+        ticketsTitle: (count: number) => `ပေါက်သော လက်မှတ် ${count} စောင်`,
+        ticketColumns: {
+          ticket: "လက်မှတ်",
+          number: "ဂဏန်း",
+          group: "ဆု အုပ်စု",
+          baht: "ဘတ်",
+          ks: "Ks",
+        },
+        total: "စုစုပေါင်း",
+        ticketsSummary: (count: number, ks: string) => `ပေါက်သော လက်မှတ် ${count} စောင် · ${ks}`,
+        ticketsUnavailable: "လက်မှတ် အသေးစိတ်များသည် တောင်းခံမှုနှင့်အတူ ရောက်လာမည်။",
+        rateLine: (rate: string, draw: string, when: string) =>
+          `${when} MMT တွင် ${draw} နှင့်အတူ ထုတ်ပြန်ခဲ့သော နှုန်း — ၁ ဘတ်လျှင် ${rate} Ks ဖြင့် ဆုငွေများ။`,
+        whenRequested: (when: string) => `${when} MMT တွင် အက်ပ်မှ တောင်းခံခဲ့သည်။`,
+        whenNotRequested: (deadline: string) =>
+          `မတောင်းခံရသေးပါ · ${deadline} MMT အထိ ဆုငွေကို တောင်းခံနိုင်သည်။`,
+        whenNotRequestedNoDeadline: "မတောင်းခံရသေးပါ။",
+        banner: {
+          newAccountTitle: "အကောင့်အသစ်၊ ပထမဆုံး တောင်းခံမှု",
+          newAccountRepeatTitle: "အကောင့်အသစ်",
+          newAccountText: (since: string, wallet: string) =>
+            `${since} တွင် အသင်းဝင်ခဲ့သည်၊ ပိုက်ဆံအိတ် ${wallet}။ မပေးမီ စစ်ဆေးသင့်သည်။ ငွေကြေးဌာနက အရင် စစ်ဆေးသင့်လျှင် "လက်မှတ် စစ်ဆေးဆဲ" ဖြင့် ငြင်းပယ်ပါ။`,
+          payTitle: "အတည်ပြု၍ ပေးလျှင် ပိုက်ဆံအိတ်ထဲသို့ ချက်ချင်း ထည့်ပေးသည်",
+          payText: (ks: string, name: string) =>
+            `${ks} ကို ${name} ၏ MyanFlix ပိုက်ဆံအိတ်ထဲသို့ LOTTERY_PRIZE စာရင်းမှတ်တမ်း တစ်ကြောင်းအဖြစ် ထည့်ပေးမည်၊ လုပ်ဆောင်မှုမှတ်တမ်း တစ်ကြောင်းက သင့်အမည်ကို မှတ်တမ်းတင်မည်။ ပြန်ပြင်၍ မရပါ။`,
+          paidTitle: (when: string, by: string) => `${when} MMT တွင် ${by} က ပေးခဲ့သည်`,
+          paidAtPublishTitle: (when: string) => `${when} MMT တွင် ထီဖွင့်ပွဲ ထုတ်ပြန်စဉ် ပေးခဲ့သည်`,
+          paidText: (transactionId: string) =>
+            `စာရင်း ${transactionId} (LOTTERY_PRIZE) · လုပ်ဆောင်မှုမှတ်တမ်း ရေးပြီး · ဝယ်သူက အက်ပ်တွင် "သင့်ပိုက်ဆံအိတ်ထဲသို့ ပေးပြီး" ဟု မြင်ရသည်။`,
+          paidTextNoLedger: `ဝယ်သူက အက်ပ်တွင် "သင့်ပိုက်ဆံအိတ်ထဲသို့ ပေးပြီး" ဟု မြင်ရသည်။`,
+          rejectedTitle: (when: string, by: string, reason: string) =>
+            `${when} MMT တွင် ${by} က ငြင်းပယ်ခဲ့သည် · ${reason}`,
+          rejectedText: (note: string) =>
+            `${note} ဝယ်သူက ဤအကြောင်းပြချက်ကို အက်ပ်တွင် မြင်ရသည်။ "ပြန်လည် သုံးသပ်မည်" က တောင်းခံမှုကို စောင့်ဆိုင်းဆဲသို့ ပြန်ထားသည်။`,
+          noNote: "မှတ်ချက် မရှိပါ။",
+          notRequestedTitle: "မတောင်းခံရသေးပါ",
+          notRequestedText: (deadline: string) =>
+            `ဝယ်သူက ဤဆုငွေကို မတောင်းခံရသေးပါ။ ဤနေရာမှ ဘာမျှ ပေး၍ မရပါ — တောင်းခံမှုသည် အက်ပ်မှ လာရမည် (နောက်ဆုံးရက် ${deadline} MMT)။`,
+          notRequestedTextNoDeadline:
+            "ဝယ်သူက ဤဆုငွေကို မတောင်းခံရသေးပါ။ ဤနေရာမှ ဘာမျှ ပေး၍ မရပါ — တောင်းခံမှုသည် အက်ပ်မှ လာရမည်။",
+        },
+        perm: {
+          pay: "LOTTERY.CLAIMS_CONFIRM လိုအပ်သည် · လုပ်ဆောင်မှုမှတ်တမ်း တစ်ကြောင်း ရေးမည်",
+          reopen: "ပြန်လည် သုံးသပ်ရန် LOTTERY.CLAIMS_CONFIRM လိုအပ်သည်",
+          readOnly: "ကြည့်ရှုရန်သာ · LOTTERY.VIEW",
+        },
+        reviewAgain: "ပြန်လည် သုံးသပ်မည်",
+        reject: "ငြင်းပယ်မည်…",
+        confirmPay: (ks: string) => `အတည်ပြု၍ ${ks} ပေးမည်`,
+        paying: "ပေးနေသည်…",
+        paidToast: (ks: string, name: string) => `${name} ထံ ${ks} ပေးပြီးပါပြီ`,
+        paidToastDescription: (draw: string) =>
+          `${draw} · ပိုက်ဆံအိတ်ထဲသို့ ထည့်ပြီး (LOTTERY_PRIZE) · လုပ်ဆောင်မှုမှတ်တမ်း တစ်ကြောင်း · ဝယ်သူက ယခု "သင့်ပိုက်ဆံအိတ်ထဲသို့ ပေးပြီး" ဟု မြင်ရသည်။`,
+        payFailedToast: "တောင်းခံမှုကို ပေး၍ မရပါ",
+        reopenedToast: "တောင်းခံမှုကို ပြန်လည် သုံးသပ်ရန် ဖွင့်ပြီးပါပြီ",
+        reopenedToastDescription: (name: string, draw: string) =>
+          `${name} · ${draw} · စောင့်ဆိုင်းဆဲ ပြန်ဖြစ်သည်၊ ဝယ်သူက ငြင်းပယ်သည့် အကြောင်းပြချက်ကို မမြင်ရတော့ပါ။`,
+        reopenFailedToast: "တောင်းခံမှုကို ပြန်ဖွင့်၍ မရပါ",
+        stateChanged: "ဤစာမျက်နှာ ဖွင့်ပြီးနောက် တောင်းခံမှု ပြောင်းလဲသွားသည်။ ပြန်လည် ဖွင့်ထားသည်။",
+      },
+      rejectDialog: {
+        title: "ဤတောင်းခံမှုကို ငြင်းပယ်မလား။",
+        text: (name: string, draw: string, ks: string) =>
+          `${name} · ${draw} · ${ks}။ ဝယ်သူက အကြောင်းပြချက်ကို အက်ပ်တွင် "ငွေပေးချေမှု အတည်မပြုပါ" အောက်၌ မြင်ရသည်။ တောင်းခံမှုကို နောက်မှ ပြန်လည် သုံးသပ်နိုင်သည်။`,
+        reason: "အကြောင်းပြချက်",
+        reasonHelp: {
+          suspicious_account:
+            "အကောင့် သို့မဟုတ် စက်ပစ္စည်း မှားယွင်းနေပုံ ရလျှင် သုံးပါ။ ဘာမျှ မပေးမီ ငွေကြေးဌာနက အကောင့်ကို စစ်ဆေးသင့်သည်။",
+          duplicate_request:
+            "ဤဆုငွေကို အခြား အကောင့် သို့မဟုတ် တောင်းခံမှုမှ တောင်းခံပြီး သို့မဟုတ် ပေးပြီး ဖြစ်လျှင် သုံးပါ။",
+          ticket_under_review:
+            "လက်မှတ်ကိုယ်တိုင် အရင် စစ်ဆေးရန် လိုလျှင် သုံးပါ။ အကူအညီဌာနက ဝယ်သူကို ဆက်သွယ်မည်။",
+          other: "အကြောင်းပြချက်ကို မှတ်ချက်တွင် ရေးပါ — ဝယ်သူက စာလုံးတိုင်း ဖတ်ရမည်။",
+        },
+        noteRequired: "မှတ်ချက် (မဖြစ်မနေ၊ ဝယ်သူထံ ပြမည်)",
+        noteOptional: "မှတ်ချက် (ရွေးချယ်နိုင်၊ ဝယ်သူထံ ပြမည်)",
+        notePlaceholder:
+          "ဥပမာ — မပေးမီ ဤလက်မှတ်ကို စစ်ဆေးနေပါသည်။ အကူအညီဌာနက အလုပ်ရက် ၂ ရက်အတွင်း ဆက်သွယ်ပါမည်။",
+        noteHelp: "ရိုးရှင်းသော စကားလုံးများ။ ဝယ်သူက ဤစာကို အကြောင်းပြချက်အောက်တွင် ဖတ်ရသည်။",
+        noteMissing: "ဝယ်သူ နားလည်စေရန် အကြောင်းပြချက်ကို ရေးပါ။",
+        noteTooLong: (max: number) => `အများဆုံး စာလုံး ${max} လုံး။`,
+        noteCount: (used: number, max: number) => `${used}/${max}`,
+        submit: "တောင်းခံမှုကို ငြင်းပယ်မည်",
+        rejectedToast: (reason: string) => `တောင်းခံမှု ငြင်းပယ်ပြီး · ${reason}`,
+        rejectedToastDescription: (name: string, draw: string, ks: string) =>
+          `${name} · ${draw} · ${ks} မပေးပါ · ဝယ်သူက အကြောင်းပြချက်ကို မြင်ရသည် · လုပ်ဆောင်မှုမှတ်တမ်း တစ်ကြောင်း။`,
+        rejectFailedToast: "တောင်းခံမှုကို ငြင်းပယ်၍ မရပါ",
+      },
+    },
+    analytics: {
+      title: "ထီ စာရင်းဇယား",
+      description:
+        "လက်မှတ်၊ ဝယ်ယူမှု၊ ဝယ်သူနှင့် လူများ ကစားသည့်အချိန် — ငွေပေးချေပြီး ဝယ်ယူမှုများမှ မြန်မာစံတော်ချိန်ဖြင့် တွက်ချက်ထားသည်။",
+      reportingTime: "အစီရင်ခံချိန်: မြန်မာစံတော်ချိန် (MMT, UTC+6:30)",
+      updated: (when: string) => `${when} MMT တွင် အသစ်ပြင်ဆင်ပြီး`,
+      reportsButton: "အစီရင်ခံစာများ",
+      exportCsv: "CSV ထုတ်မည်",
+      exporting: "ထုတ်နေသည်…",
+      exportFailedToast: "CSV ထုတ်၍ မရပါ",
+      exportedToast: (file: string) => `${file} ကို ဒေါင်းလုဒ်ဆွဲပြီး။ အချိန်များသည် MMT ဖြစ်သည်။`,
+      exportedNumbersToast: (file: string) =>
+        `${file} ကို ဒေါင်းလုဒ်ဆွဲပြီး။ အချိန်များသည် MMT ဖြစ်သည်၊ ထီဂဏန်းများကို ရှေ့သုည မပျောက်စေရန် စာသားအဖြစ် (="000007") ရေးထားသည်။`,
+      mmt: "MMT",
+      none: "—",
+      weekdays: ["တနင်္လာ", "အင်္ဂါ", "ဗုဒ္ဓဟူး", "ကြာသပတေး", "သောကြာ", "စနေ", "တနင်္ဂနွေ"],
+      weekdaysShort: ["လာ", "ဂါ", "ဟူး", "တေး", "ကြာ", "နေ", "နွေ"],
+      monthsShort: ["ဇန်", "ဖေ", "မတ်", "ဧ", "မေ", "ဇွန်", "ဇူ", "ဩ", "စက်", "အောက်", "နို", "ဒီ"],
+      hourLabels: [
+        "ညနက် 12:00", "ညနက် 1:00", "ညနက် 2:00", "ညနက် 3:00", "ညနက် 4:00", "နံနက် 5:00",
+        "နံနက် 6:00", "နံနက် 7:00", "နံနက် 8:00", "နံနက် 9:00", "နံနက် 10:00", "နံနက် 11:00",
+        "မွန်းတည့် 12:00", "နေ့လယ် 1:00", "နေ့လယ် 2:00", "နေ့လယ် 3:00", "နေ့လယ် 4:00", "ညနေ 5:00",
+        "ညနေ 6:00", "ည 7:00", "ည 8:00", "ည 9:00", "ည 10:00", "ည 11:00",
+      ],
+      hourRange: (from: string, to: string) => `${from}–${to}`,
+      dayHalves: ["နံနက်", "ညနေ"],
+      clock: (half: string, hour12: number, minutes: string) => `${half} ${hour12}:${minutes}`,
+      date: {
+        day: (weekday: string, day: number, month: string) => `${weekday} ${day} ${month}`,
+        dayYear: (weekday: string, day: number, month: string, year: number) =>
+          `${weekday} ${day} ${month} ${year}`,
+        short: (day: number, month: string) => `${day} ${month}`,
+        shortYear: (day: number, month: string, year: number) => `${day} ${month} ${year}`,
+        span: (from: string, to: string) => `${from}–${to}`,
+      },
+      filters: {
+        period: "ကာလ",
+        draw: "ထီဖွင့်ပွဲ",
+        view: "မြင်ကွင်း",
+        allDraws: "ထီဖွင့်ပွဲ အားလုံး",
+        drawOption: (drawNo: number, date: string) => `ထီဖွင့်ပွဲ ${drawNo} · ${date}`,
+        drawOptionStatus: (drawNo: number, date: string, status: string) =>
+          `ထီဖွင့်ပွဲ ${drawNo} · ${date} (${status})`,
+        drawsLoadError: "ထီဖွင့်ပွဲ စာရင်းကို ဖွင့်၍ မရပါ၊ ကာလကို ထီဖွင့်ပွဲ အားလုံးအတွက် ဆက်သုံးသည်။",
+        periods: {
+          today: "ယနေ့",
+          yesterday: "မနေ့က",
+          last7: "ပြီးခဲ့သော ၇ ရက်",
+          last30: "ပြီးခဲ့သော ၃၀ ရက်",
+          month: "ဤလ",
+          custom: "စိတ်ကြိုက်…",
+          all: "အချိန်အားလုံး",
+        },
+        customChip: (range: string) => `စိတ်ကြိုက် · ${range}`,
+        views: { hourly: "နာရီအလိုက်", daily: "နေ့အလိုက်", weekly: "အပတ်အလိုက်" },
+        viewTitle: (view: string) => `${view} မြင်ကွင်း`,
+        viewHints: {
+          daily: "တစ်ရက်ထက် ပိုရန် လိုသည်",
+          weekly: "အနည်းဆုံး ၁၄ ရက် လိုသည်",
+        },
+        fallback: {
+          weeklyDaily: "အပတ်အလိုက် မြင်ကွင်းသည် အနည်းဆုံး ၁၄ ရက် လိုသည်: နေ့အလိုက် ပြနေသည်",
+          weeklyHourly: "အပတ်အလိုက် မြင်ကွင်းသည် အနည်းဆုံး ၁၄ ရက် လိုသည်: နာရီအလိုက် ပြနေသည်",
+          dailyHourly: "နေ့အလိုက် မြင်ကွင်းသည် တစ်ရက်ထက် ပိုရန် လိုသည်: နာရီအလိုက် ပြနေသည်",
+        },
+      },
+      customRange: {
+        title: "စိတ်ကြိုက် ကာလ",
+        descriptionDashboard:
+          "ရက်စွဲများသည် မြန်မာစံတော်ချိန် (MMT, UTC+6:30) ပြက္ခဒိန်ရက်များ ဖြစ်သည်။ ယခင် တူညီသော ကာလတွင် အချက်အလက် ရှိလျှင် ထိုကာလနှင့် နှိုင်းယှဉ် ပြမည်။",
+        descriptionReports:
+          "ရက်စွဲများသည် မြန်မာစံတော်ချိန် (MMT, UTC+6:30) ပြက္ခဒိန်ရက်များ ဖြစ်သည်။ အစီရင်ခံစာများသည် ကာလအတွင်း ဝယ်ယူမှုများကို ရေတွက်သည်။",
+        from: "မှ",
+        to: "အထိ",
+        enterBoth: "ရက်စွဲ နှစ်ခုလုံး ထည့်ပါ။",
+        endBeforeStart: "ဆုံးရက်သည် စရက်ထက် စောနေသည်။",
+        endAfterToday: "ဆုံးရက်သည် ယနေ့ထက် နောက်ကျနေသည်။",
+        tooLong: (max: number) => `ကာလသည် ${max} ရက်ထက် ရှည်နေသည်။`,
+        help: (days: number, range: string) => `${days} ရက် · ${range}`,
+        helpCompared: (days: number, range: string) =>
+          `${days} ရက် · ${range} · ယခင် ${days} ရက်နှင့် နှိုင်းယှဉ်မည်`,
+        cancel: "ပယ်ဖျက်မည်",
+        apply: "ကာလ သတ်မှတ်မည်",
+      },
+      range: {
+        today: (date: string, time: string) => `ယနေ့၊ ${date} · ${time} အထိ`,
+        yesterday: (date: string) => `မနေ့က၊ ${date}`,
+        last7: (range: string) => `ပြီးခဲ့သော ၇ ရက် · ${range}`,
+        last30: (range: string) => `ပြီးခဲ့သော ၃၀ ရက် · ${range}`,
+        month: (range: string, time: string) => `ဤလ · ${range}၊ ${time} အထိ`,
+        custom: (range: string) => `စိတ်ကြိုက် · ${range}`,
+        allTime: "အချိန်အားလုံး",
+        allTimeSince: (date: string) => `အချိန်အားလုံး · ${date} မှစ၍`,
+        comparedWith: (days: number, range: string) =>
+          `ယခင် ${days} ရက် (${range}) နှင့် နှိုင်းယှဉ်ထားသည်`,
+        comparedWithDay: (date: string) => `${date} နှင့် နှိုင်းယှဉ်ထားသည်`,
+        comparedWithWholeDay: (date: string) =>
+          `မနေ့က တစ်နေ့လုံး (${date}) နှင့် နှိုင်းယှဉ်ထားသည် — ယနေ့ မပြီးဆုံးသေးပါ`,
+        noEarlierData: "ယခင် အချက်အလက် မရှိပါ",
+        noEarlierDataSince: (date: string) => `ယခင် အချက်အလက် မရှိပါ: အရောင်း ${date} တွင် စခဲ့သည်`,
+        noEarlierDataDraw: (draw: string, inVs: string) => `${inVs} တွင် ${draw} အတွက် ယခင် အချက်အလက် မရှိပါ`,
+        vsDays: (days: number) => `ယခင် ${days} ရက်`,
+        vsYesterday: "မနေ့က တစ်နေ့လုံး",
+        sameDays: (days: number) => `ယခင် ${days} ရက်`,
+        sameYesterday: "မနေ့က",
+        inDays: (days: number) => `ယခင် ${days} ရက်`,
+        inYesterday: "မနေ့က",
+        onDay: (date: string) => date,
+        scope: (tickets: string, buyers: string) => `ဤရွေးချယ်မှုတွင် လက်မှတ် ${tickets} စောင် · ဝယ်သူ ${buyers} ဦး`,
+        scopeEmpty: "ဤရွေးချယ်မှုတွင် ဝယ်ယူမှု မရှိပါ",
+      },
+      states: {
+        loading: (range: string) => `${range} ကို ဖွင့်နေသည်…`,
+        loadingReports: (draw: string) => `${draw} အတွက် အစီရင်ခံစာများ ဖွင့်နေသည်…`,
+        errorTitle: "စာရင်းဇယားကို ဖွင့်၍ မရပါ",
+        errorDescription: (range: string) =>
+          `${range} အတွက် အစီရင်ခံစာ ပြန်မလာပါ။ ဘာမှ ပြောင်းလဲမထားပါ။ အင်တာနက် ချိတ်ဆက်မှုကို စစ်ဆေးပြီး ထပ်ကြိုးစားပါ။`,
+        cardError: "ဤကတ်ကို ဖွင့်၍ မရပါ။",
+        emptyTitle: "ဤကာလတွင် ဝယ်ယူမှု မရှိပါ",
+        emptyDescription: (draw: string, range: string) =>
+          `${range} တွင် ${draw} အတွက် ဘာမှ မရောင်းရပါ။ ကာလ ပိုရှည်ရှည် သို့မဟုတ် ထီဖွင့်ပွဲ အားလုံးကို စမ်းကြည့်ပါ။`,
+        emptyReportsTitle: "ဤရွေးချယ်မှုတွင် ဝယ်ယူမှု မရှိပါ",
+        emptyReportsDescription: (draw: string, range: string) =>
+          `${range} တွင် ${draw} အတွက် ဘာမှ မရောင်းရပါ။`,
+        showLast30: "ပြီးခဲ့သော ၃၀ ရက် ပြမည်",
+        showAllTime: "အချိန်အားလုံး ပြမည်",
+        allDraws: "ထီဖွင့်ပွဲ အားလုံး",
+      },
+      overview: {
+        ticketsSold: "ရောင်းရသော လက်မှတ် စုစုပေါင်း",
+        purchases: "ဝယ်ယူမှု အကြိမ်ရေ",
+        buyers: "ဝယ်သူ ဦးရေ",
+        popularNumber: "အရောင်းရဆုံး ဂဏန်း",
+        peakHour: "အများဆုံး လှုပ်ရှားသည့် နာရီ (MMT)",
+        avgTickets: "တစ်ကြိမ်လျှင် ပျမ်းမျှ လက်မှတ်",
+        delta: (signed: string, vs: string) => `${vs} နှင့် ${signed}`,
+        noEarlierData: "ယခင် အချက်အလက် မရှိပါ",
+        trackingStarts: "ဤအပ်ဒိတ်နောက်မှ စောင့်ကြည့်မှု စမည်",
+        peakSame: (same: string) => `${same} နှင့် အတူတူ`,
+        peakWas: (hour: string, inVs: string) => `${inVs} တွင် ${hour} ဖြစ်ခဲ့သည်`,
+        numberAlsoFirst: (inVs: string) => `${inVs} တွင်လည်း ပထမ`,
+        numberWas: (number: string, inVs: string) => `${inVs} တွင် ${number} ဖြစ်ခဲ့သည်`,
+        todayPrevious: (value: string) => `မနေ့က တစ်နေ့လုံး: ${value}`,
+        up: "တက်",
+        down: "ကျ",
+        flat: "မပြောင်းလဲ",
+      },
+      activity: {
+        titles: {
+          hourly: "နာရီအလိုက် လှုပ်ရှားမှု (MMT)",
+          daily: "နေ့အလိုက် လှုပ်ရှားမှု (MMT)",
+          weekly: "အပတ်အလိုက် လှုပ်ရှားမှု (MMT)",
+        },
+        subHourly: (range: string, days: number, draw: string) =>
+          `${range} · နာရီတိုင်းတွင် ${days} ရက်စလုံးကို ပေါင်းထားသည် · ${draw}`,
+        subHourlyOneDay: (range: string, draw: string) => `${range} · ${draw}`,
+        subDaily: (range: string, draw: string) => `${range} · ပြက္ခဒိန်ရက် တစ်ရက်လျှင် အုပ်စု တစ်ခု · ${draw}`,
+        subWeekly: (range: string, draw: string) => `${range} · အပတ်များ တနင်္လာတွင် စသည် · ${draw}`,
+        axisHourly: "နေ့၏ နာရီ 00–23 · မြန်မာစံတော်ချိန် (MMT, UTC+6:30)",
+        axisHourlyToday: (time: string) => `${time} နောက်ပိုင်း နာရီများ မရောက်သေးပါ`,
+        axisDaily: (range: string) => `ရက်များ ${range} · မြန်မာစံတော်ချိန် (MMT, UTC+6:30)`,
+        axisWeekly:
+          "အပတ်စရက် (တနင်္လာ) · မြန်မာစံတော်ချိန် (MMT, UTC+6:30) · မပြည့်သော အပတ်များကို tooltip တွင် ဖော်ပြသည်",
+        series: {
+          ticketsSold: "ရောင်းရသော လက်မှတ်",
+          purchases: "ဝယ်ယူမှု",
+          purchasingUsers: "ဝယ်သူ",
+          activeUsers: "လှုပ်ရှားသူ",
+        },
+        activeNotTracked: "လှုပ်ရှားသူ · ဤအပ်ဒိတ်နောက်မှ စောင့်ကြည့်မှု စမည်",
+        notYet: "မရှိသေးပါ",
+        stillToCome: "မရောက်သေးပါ",
+        weekOf: (date: string) => `${date} အပတ်`,
+        partialWeek: (days: number) => `ကာလအတွင်း ၇ ရက်မှ ${days} ရက်`,
+        insightNone: "ဤကာလတွင် လှုပ်ရှားမှု မရှိသေးပါ။",
+        insightHour: (hour: string, active: string, tickets: string) =>
+          `${hour} MMT သည် အများဆုံး လှုပ်ရှားသည့် နာရီ ဖြစ်သည် — လှုပ်ရှားသူ ${active} ဦး၊ လက်မှတ် ${tickets} စောင် ဝယ်ယူခဲ့သည်။`,
+        insightHourUntracked: (hour: string, buyers: string, tickets: string) =>
+          `${hour} MMT သည် အများဆုံး ဝယ်ယူသည့် နာရီ ဖြစ်သည် — ဝယ်သူ ${buyers} ဦး၊ လက်မှတ် ${tickets} စောင်။ လှုပ်ရှားသူများကို နောက်အပ်ဒိတ်မှ စ၍ ရေတွက်မည်။`,
+        insightDay: (day: string, active: string, tickets: string) =>
+          `${day} သည် အများဆုံး လှုပ်ရှားသည့် နေ့ ဖြစ်သည် — လှုပ်ရှားသူ ${active} ဦး၊ လက်မှတ် ${tickets} စောင် ဝယ်ယူခဲ့သည်။`,
+        insightDayUntracked: (day: string, buyers: string, tickets: string) =>
+          `${day} သည် အများဆုံး လှုပ်ရှားသည့် နေ့ ဖြစ်သည် — ဝယ်သူ ${buyers} ဦး၊ လက်မှတ် ${tickets} စောင်။ လှုပ်ရှားသူများကို နောက်အပ်ဒိတ်မှ စ၍ ရေတွက်မည်။`,
+        insightWeek: (date: string, active: string, tickets: string) =>
+          `${date} အပတ်သည် အများဆုံး လှုပ်ရှားသည့် အပတ် ဖြစ်သည် — လှုပ်ရှားသူ ${active} ဦး၊ လက်မှတ် ${tickets} စောင် ဝယ်ယူခဲ့သည်။`,
+        insightWeekUntracked: (date: string, buyers: string, tickets: string) =>
+          `${date} အပတ်သည် အများဆုံး လှုပ်ရှားသည့် အပတ် ဖြစ်သည် — ဝယ်သူ ${buyers} ဦး၊ လက်မှတ် ${tickets} စောင်။ လှုပ်ရှားသူများကို နောက်အပ်ဒိတ်မှ စ၍ ရေတွက်မည်။`,
+        notes: {
+          busiestHour: "အများဆုံး လှုပ်ရှားသည့် နာရီ",
+          busiestHourByTickets: "အများဆုံး လှုပ်ရှားသည့် နာရီ (လက်မှတ်အရ)",
+          quietestHour: "အငြိမ်ဆုံး နာရီ",
+          busiestDay: "အများဆုံး လှုပ်ရှားသည့် နေ့",
+          highestPurchasing: "ဝယ်ယူမှု အများဆုံး နာရီ",
+          lowestPurchasing: "ဝယ်ယူမှု အနည်းဆုံး နာရီ",
+        },
+        showTable: "ဇယားအဖြစ် ပြမည်",
+        hideTable: "ဇယား ဖျောက်မည်",
+        tableCaption: (title: string) => `${title}၊ ဇယားအဖြစ်`,
+        columns: {
+          hour: "နာရီ (MMT)",
+          day: "နေ့ (MMT)",
+          week: "အပတ်စရက် (MMT)",
+          activeNotTracked: "လှုပ်ရှားသူ (မစောင့်ကြည့်ရသေးပါ)",
+        },
+        csvStems: {
+          hourly: "activity-by-hour",
+          daily: "activity-by-day",
+          weekly: "activity-by-week",
+        },
+      },
+      numbers: {
+        title: "အရောင်းရဆုံး ဂဏန်းများ",
+        sub: (range: string, trend: string) => `ဝယ်ယူသော လက်မှတ်အရ အစဉ်လိုက် · ${range} · ${trend}`,
+        trendVs: (previous: string) => `${previous} နှင့် နှိုင်းယှဉ်ထားသော လမ်းကြောင်း`,
+        trendNone: "လမ်းကြောင်းအတွက် ယခင် အချက်အလက် မရှိပါ",
+        barsTitle: "ကာလအတွင်း လက်မှတ်အားလုံး၏ ဝေစု · ထိပ်ဆုံး ၁၀",
+        barLabel: (rank: number, number: string, share: string) =>
+          `အဆင့် ${rank}၊ ဂဏန်း ${number}: လက်မှတ်အားလုံး၏ ${share}`,
+        tableCaption: (range: string) => `ဝယ်ယူသော လက်မှတ်အရ ထိပ်ဆုံး ဂဏန်းများ၊ ${range}`,
+        columns: {
+          rank: "အဆင့်",
+          number: "ဂဏန်း",
+          tickets: "လက်မှတ်",
+          buyers: "ဝယ်သူ",
+          share: "ဝေစု",
+          shareOfDraw: "ထီဖွင့်ပွဲ၏ ဝေစု",
+          trend: "လမ်းကြောင်း",
+          repeat: "ထပ်ဝယ်မှု",
+          drawsPlayed: "ကစားသော ထီဖွင့်ပွဲ",
+          bestRank: "အကောင်းဆုံး အဆင့်",
+        },
+        sortBy: (column: string) => `${column} အလိုက် စီမည်`,
+        trend: {
+          new: "အသစ်",
+          newSr: "ယခင်ကာလတွင် မဝယ်ခဲ့ပါ",
+          upSr: "တက်နေသည်",
+          downSr: "ကျနေသည်",
+          flatSr: "မပြောင်းလဲပါ",
+          noneSr: "ယခင် အချက်အလက် မရှိပါ",
+        },
+        note: (total: string) =>
+          `ဝေစု = ကာလအတွင်း လက်မှတ် ${total} စောင်လုံးထဲမှ ဤဂဏန်း၏ လက်မှတ် အချိုး။ ဂဏန်းများကို ရေးထားသည့်အတိုင်း ထားသည်: 000007 သည် 000007 အတိုင်း ရှိနေသည်။ ထပ်ဝယ်မှု = ကာလအတွင်း ထိုဂဏန်းကို တစ်ကြိမ်ထက် ပို၍ ဝယ်သော ဝယ်သူများ။`,
+        empty: "ဤကာလတွင် ကစားသော ဂဏန်း မရှိပါ။",
+        loadError: "ဂဏန်းများကို ဖွင့်၍ မရပါ။",
+        csvStem: "popular-numbers",
+      },
+      days: {
+        title: "အများဆုံး လှုပ်ရှားသည့် နေ့များ",
+        description: "နေ့အလိုက် ရောင်းရသော လက်မှတ် · MMT",
+        ticketsSold: "ရောင်းရသော လက်မှတ်",
+        ofPeriod: "ကာလ၏",
+        purchasingUsers: "ဝယ်သူ",
+        inPeriod: (count: number, day: string) => `ကာလအတွင်း ${day} ${count} ရက်`,
+        noteNone: "ဤကာလတွင် အရောင်း မရှိပါ။",
+        noteOnly: (day: string) =>
+          `ဤကာလတွင် ${day} တွင်သာ အချက်အလက် ရှိသည်။ နေ့များ နှိုင်းယှဉ်ရန် ကာလ ပိုရှည်ရှည် ရွေးပါ။`,
+        note: (day: string, tickets: string, count: number, quietest: string | null) =>
+          `${day} သည် အများဆုံး လှုပ်ရှားသည့် နေ့ ဖြစ်သည်: ကာလအတွင်း ${day} ${count} ရက်တွင် လက်မှတ် ${tickets} စောင်${quietest ? ` · အငြိမ်ဆုံး ${quietest}` : ""}။`,
+        loadError: "နေ့များကို ဖွင့်၍ မရပါ။",
+        csvStem: "busiest-days",
+      },
+      definitions: {
+        title: "ဤကိန်းဂဏန်းများကို မည်သို့ ရေတွက်သနည်း",
+        description:
+          "တွေ့ရှိချက် ကိန်းဂဏန်းများသည် ငွေပေးချေပြီး ဝယ်ယူမှုများနှင့် ထီ လှုပ်ရှားမှု မှတ်တမ်းမှ လာသည်။ ခန့်မှန်းချက် ဖြစ်လျှင် ဖော်ပြထားသည်။",
+        badges: {
+          observed: "တွေ့ရှိချက်",
+          notTracked: "မစောင့်ကြည့်ရသေးပါ",
+          noEarlier: "ယခင် အချက်အလက် မရှိပါ",
+        },
+        items: {
+          activeUsers: {
+            term: "လှုပ်ရှားသူ",
+            text: "ထီထဲသို့ ဝင်ရောက်ခဲ့သော အကောင့်ဝင်ထားသူများ: ထီကို ဖွင့်ခြင်း၊ ထီဖွင့်ပွဲ ကြည့်ခြင်း၊ အိပ်မက် ရှာခြင်း၊ ဂဏန်း တောင်းခြင်း သို့မဟုတ် ဝယ်ခြင်း။ တစ်ဦးလျှင် တစ်နာရီ တစ်ကြိမ် (နေ့/အပတ် မြင်ကွင်းတွင် တစ်ရက်/တစ်ပတ် တစ်ကြိမ်) သာ ရေတွက်သဖြင့် refresh လုပ်ခြင်းက မတိုးပါ။ ဧည့်သည်များကို မရေတွက်ပါ။",
+          },
+          purchasingUsers: {
+            term: "ဝယ်သူ",
+            text: "ငွေပေးချေပြီး ဝယ်ယူမှု အနည်းဆုံး တစ်ကြိမ် ရှိသူများ: ဇယားတွင် တစ်နာရီ တစ်ကြိမ်၊ ခြုံငုံကတ်တွင် ကာလအတွင်း တစ်ကြိမ်။",
+          },
+          purchases: {
+            term: "ဝယ်ယူမှု အကြိမ်ရေ",
+            text: "ငွေပေးချေပြီး ဝယ်ယူမှုများ။ တစ်ကြိမ်တွင် လက်မှတ် အများအပြား ပါနိုင်သည်။",
+          },
+          ticketsSold: {
+            term: "ရောင်းရသော လက်မှတ်",
+            text: "ငွေပေးချေပြီး ဝယ်ယူမှုများထဲက လက်မှတ်များ။ ငွေမပေးရသေးသော သို့မဟုတ် ပယ်ဖျက်ထားသော ဝယ်ယူမှုများကို မရေတွက်ပါ။",
+          },
+          shareTrend: {
+            term: "ဝေစုနှင့် လမ်းကြောင်း",
+            text: "ဝေစု = ကာလအတွင်း လက်မှတ်အားလုံးထဲမှ ဂဏန်းတစ်ခု၏ လက်မှတ် အချိုး။ လမ်းကြောင်း = ယခင် တူညီသော ကာလနှင့် ပြောင်းလဲမှု။",
+          },
+          repeatBuys: {
+            term: "ထပ်ဝယ်မှု",
+            text: "ကာလအတွင်း ဂဏန်းတစ်ခုတည်းကို တစ်ကြိမ်ထက် ပို၍ ဝယ်သော ဝယ်သူများ။",
+          },
+          previousPeriod: {
+            term: "ယခင် ကာလ",
+            text: "ကာလ မတိုင်မီ တူညီသော အချိန်အတိုင်းအတာ၊ MMT ဖြင့်။ “ယခင် အချက်အလက် မရှိပါ” ဆိုသည်မှာ ထိုအချိန်သည် အရောင်း မစမီ ဖြစ်သည်။",
+          },
+          previousPeriodSince: (date: string) =>
+            `ကာလ မတိုင်မီ တူညီသော အချိန်အတိုင်းအတာ၊ MMT ဖြင့်။ “ယခင် အချက်အလက် မရှိပါ” ဆိုသည်မှာ ထိုအချိန်သည် ${date} တွင် အရောင်း မစမီ ဖြစ်သည်။`,
+        },
+      },
+      reports: {
+        title: "အစီရင်ခံစာများ",
+        backToAnalytics: "ထီ စာရင်းဇယား",
+        intro:
+          "ကတ်တိုင်းတွင် ကိုယ်ပိုင် CSV ရှိသည်။ ကတ်က တခြားနည်း ဖော်ပြမထားလျှင် ကိန်းဂဏန်းများသည် ငွေပေးချေပြီး ဝယ်ယူမှုများမှ တွေ့ရှိချက် ဖြစ်သည်။",
+        byDraw: {
+          title: "ထီဖွင့်ပွဲအလိုက် အရောင်းရဆုံး ဂဏန်းများ",
+          subOne: (draw: string, range: string, tickets: string) =>
+            `${draw} · ${range} · လက်မှတ် ${tickets} စောင် · ဝေစု = ကာလအတွင်း ဤထီဖွင့်ပွဲ၏ လက်မှတ်များ၏`,
+          subAll: (range: string) =>
+            `ထီဖွင့်ပွဲတိုင်း၏ ထိပ်ဆုံး ၅ · ${range} · စာရင်းအပြည့်အစုံအတွက် အပေါ် သို့မဟုတ် အောက်တွင် ထီဖွင့်ပွဲ ရွေးပါ`,
+          tableCaption: (draw: string) => `${draw} ၏ အရောင်းရဆုံး ဂဏန်းများ`,
+          miniCaption: (draw: string) => `${draw} ၏ ထိပ်ဆုံး ဂဏန်း ၅ ခု`,
+          miniSub: (tickets: string, numbers: string, sales: string) =>
+            `လက်မှတ် ${tickets} စောင် · ကစားသော ဂဏန်း ${numbers} ခု · အရောင်း ${sales}`,
+          miniEmpty: (sales: string) => `ဤကာလတွင် အရောင်း မရှိပါ · အရောင်း ${sales}`,
+          salesSoFar: "ယခုအထိ",
+          showAll: (draw: string) => `${draw} ၏ ဂဏန်းအားလုံး ပြမည်`,
+          noDraws: "ထီဖွင့်ပွဲ မရှိသေးပါ။ ထီဖွင့်ပွဲများ စာမျက်နှာတွင် ဖန်တီးပါ။",
+          csvStem: "popular-numbers",
+          csvByDraw: "popular-numbers_by-draw",
+        },
+        across: {
+          title: "ထီဖွင့်ပွဲ အားလုံး ပေါင်း",
+          sub: (range: string, tickets: string) =>
+            `ကာလအတွင်း အရောင်းရှိသော ထီဖွင့်ပွဲတိုင်း · ${range} · ထီဖွင့်ပွဲ ရွေးချယ်မှုဖြင့် မကန့်သတ်ပါ · ဝေစု = လက်မှတ် ${tickets} စောင်လုံး၏`,
+          tableCaption: (range: string) => `ထီဖွင့်ပွဲ အားလုံးပေါင်း အရောင်းရဆုံး ဂဏန်းများ၊ ${range}`,
+          drawsPlayed: (count: number) => `${count}`,
+          bestRank: (rank: number, draw: string) => `${draw} တွင် #${rank}`,
+          csvStem: "popular-numbers_all-draws",
+        },
+        frequency: {
+          title: "ဝယ်ယူမှု အကြိမ်ရေ",
+          sub: (draw: string, range: string) =>
+            `ဝယ်ယူသည့် အကြိမ်ရေအလိုက် ဝယ်သူများ · ${draw} · ${range}`,
+          bins: {
+            "1": "၁",
+            "2-3": "၂–၃",
+            "4-9": "၄–၉",
+            "10+": "၁၀+",
+          },
+          binNames: {
+            "1": "၁ ကြိမ်",
+            "2-3": "၂–၃ ကြိမ်",
+            "4-9": "၄–၉ ကြိမ်",
+            "10+": "၁၀ ကြိမ်နှင့် အထက်",
+          },
+          users: "ဦး",
+          ofBuyers: "ဝယ်သူများ၏",
+          note: (oncePct: string, tenPct: string) =>
+            `ဝယ်သူများ၏ ${oncePct} သည် တစ်ကြိမ်သာ ဝယ်ခဲ့သည်။ ${tenPct} သည် ဆယ်ကြိမ်နှင့် အထက် ဝယ်ခဲ့သည်။`,
+          noteEmpty: "ဤရွေးချယ်မှုတွင် ဝယ်သူ မရှိပါ။",
+          csvStem: "purchase-frequency",
+        },
+        repeat: {
+          title: "ထပ်ဝယ်သူနှင့် ပထမဆုံး ဝယ်သူ",
+          sub: (range: string) =>
+            `ရွေးချယ်မှု မတိုင်မီ ဝယ်ဖူးသော ဝယ်သူများနှင့် ပထမဆုံး ဝယ်ယူမှု ရွေးချယ်မှုအတွင်း ကျရောက်သော ဝယ်သူများ · ${range}`,
+          subDraw: (draw: string, range: string) =>
+            `ယခင် ဝယ်ဖူးသော ${draw} ဝယ်သူများနှင့် ${draw} တွင် ပထမဆုံး ဝယ်သော ဝယ်သူများ · ${range}`,
+          subDraws: (range: string) =>
+            `ထီဖွင့်ပွဲ နှစ်ခုနှင့် အထက်တွင် ဝယ်သော ဝယ်သူများနှင့် တစ်ခုတည်းတွင်သာ ဝယ်သော ဝယ်သူများ · ${range}`,
+          returning: "ထပ်ဝယ်သူများ",
+          firstTime: "ပထမဆုံး ဝယ်သူများ",
+          returningText: "ရွေးချယ်မှု မတိုင်မီ ဝယ်ဖူးသည်",
+          returningTextDraw: "ဤထီဖွင့်ပွဲ မတိုင်မီ ဝယ်ဖူးသည်",
+          returningTextDraws: "ထီဖွင့်ပွဲ နှစ်ခုနှင့် အထက်တွင် ဝယ်ခဲ့သည်",
+          firstTimeText: "ပထမဆုံး ဝယ်ယူမှု ရွေးချယ်မှုအတွင်း ဖြစ်သည်",
+          firstTimeTextDraw: (draw: string) => `ပထမဆုံး ဝယ်ယူမှုသည် ${draw} ဖြစ်သည်`,
+          firstTimeTextDraws: "ထီဖွင့်ပွဲ တစ်ခုတည်းတွင်သာ ဝယ်ခဲ့သည်",
+          note: (pct: string) =>
+            `အကြိမ်များစွာ ဝယ်သူကို တစ်ကြိမ်သာ ရေတွက်သည်။ ရွေးချယ်မှုအတွင်း ဝယ်သူများ၏ ${pct} သည် ယခင်က ဝယ်ဖူးသည်။`,
+          noteDraw: (pct: string, draw: string) => `${draw} ဝယ်သူများ၏ ${pct} သည် ယခင် ဝယ်ယူမှုမှ ပြန်လာသူများ ဖြစ်သည်။`,
+          noteDraws: (pct: string) =>
+            `ထီဖွင့်ပွဲ များစွာတွင် ဝယ်သူကို တစ်ကြိမ်သာ ရေတွက်သည်။ ဝယ်သူအားလုံး၏ ${pct} သည် ထီဖွင့်ပွဲ တစ်ခုထက် ပို၍ ကစားခဲ့သည်။`,
+          noteAllNew: "ဤရွေးချယ်မှုတွင် ဝယ်သူတိုင်း ပထမဆုံးအကြိမ် ဝယ်ခဲ့သည်။",
+          noteAllNewDraws: "ယခုအထိ ဝယ်သူတိုင်း ထီဖွင့်ပွဲ တစ်ခုတည်းသာ ကစားခဲ့သည်။",
+          noteEmpty: "ဤရွေးချယ်မှုတွင် ဝယ်သူ မရှိပါ။",
+          csvStem: "repeat-vs-first-time",
+        },
+        heatmap: {
+          title: "နာရီနှင့် နေ့အလိုက် လှုပ်ရှားမှု",
+          sub: (measure: string, draw: string, range: string) =>
+            `နေ့နှင့် နာရီအလိုက် ${measure} · ${draw} · ${range}`,
+          measures: { tickets: "ရောင်းရသော လက်မှတ်", purchasingUsers: "ဝယ်သူ" },
+          cell: (day: string, hour: string, value: string, measure: string, count: string) =>
+            `${day} · ${hour} MMT · ${measure} ${value} · ${count}`,
+          cellAllTime: (day: string, hour: string, value: string, measure: string) =>
+            `${day} · ${hour} MMT · ${measure} ${value}`,
+          cellNoData: (day: string, hour: string) => `${day} · ${hour} MMT · ဤရွေးချယ်မှုတွင် အချက်အလက် မရှိပါ`,
+          noData: "အချက်အလက် မရှိပါ",
+          busiestCell: "အများဆုံး အကွက်",
+          insight: (day: string, hour: string, value: string, measure: string, count: string) =>
+            `${day} ${hour} MMT သည် အများဆုံး အကွက် ဖြစ်သည်: ${count} တွင် ${measure} ${value}။`,
+          insightAllTime: (day: string, hour: string, value: string, measure: string) =>
+            `${day} ${hour} MMT သည် အများဆုံး အကွက် ဖြစ်သည်: ${measure} ${value}။`,
+          insightNone: "ဤရွေးချယ်မှုတွင် လှုပ်ရှားမှု မရှိပါ။",
+          footer:
+            "အပေါ်တွင် နာရီ 00–23၊ ဘေးတွင် နေ့များ · မြန်မာစံတော်ချိန် (MMT, UTC+6:30) · အကွက်တိုင်းသည် ရွေးချယ်မှုအတွင်း ကိုက်ညီသော နေ့နှင့် နာရီတိုင်းကို ပေါင်းထားသည်။ လှုပ်ရှားမှု မှတ်တမ်း စပြီးနောက် လှုပ်ရှားသူများ ဤဇယားတွင် ပါဝင်မည်။",
+          csvStem: "activity-heatmap",
+        },
+        beforeClose: {
+          title: "အရောင်းမပိတ်မီ ဝယ်ယူမှုများ",
+          sub: (draw: string, sales: string, close: string) =>
+            `${draw} · အရောင်းကာလ တစ်ခုလုံး ${sales} · ${close} MMT တွင် ပိတ်ခဲ့သည်`,
+          subOpen: (draw: string, close: string) => `${draw} · အရောင်း ${close} MMT တွင် ပိတ်မည်`,
+          subLatest: (draw: string) => `နောက်ဆုံး ပိတ်ထားသော ထီဖွင့်ပွဲ: ${draw} · အရောင်းကာလ တစ်ခုလုံး`,
+          closedAt: (close: string) => `${close} MMT တွင် ပိတ်ခဲ့သည်`,
+          bins: {
+            "72-48h": "၇၂–၄၈ နာရီ",
+            "48-24h": "၄၈–၂၄ နာရီ",
+            "24-12h": "၂၄–၁၂ နာရီ",
+            "12-6h": "၁၂–၆ နာရီ",
+            "6-1h": "၆–၁ နာရီ",
+            "last-1h": "နောက်ဆုံး နာရီ",
+          },
+          binNames: {
+            "72-48h": "မပိတ်မီ ၇၂ မှ ၄၈ နာရီ",
+            "48-24h": "မပိတ်မီ ၄၈ မှ ၂၄ နာရီ",
+            "24-12h": "မပိတ်မီ ၂၄ မှ ၁၂ နာရီ",
+            "12-6h": "မပိတ်မီ ၁၂ မှ ၆ နာရီ",
+            "6-1h": "မပိတ်မီ ၆ မှ ၁ နာရီ",
+            "last-1h": "မပိတ်မီ နောက်ဆုံး နာရီ",
+          },
+          tickets: "လက်မှတ်",
+          ofLast72: "နောက်ဆုံး ၇၂ နာရီ၏",
+          perHour: "တစ်နာရီလျှင် လက်မှတ်",
+          axis:
+            "အရောင်း မပိတ်မီ နာရီများ · မြန်မာစံတော်ချိန် (MMT, UTC+6:30) · ဘားများ၏ အချိန်အတိုင်းအတာ မတူပါ: tooltip တွင် တစ်နာရီလျှင် လက်မှတ် ပြသည်",
+          insight: (pct: string, draw: string, total: string, close: string, bin: string, tickets: string, perHour: string) =>
+            `${draw} ၏ လက်မှတ် ${total} စောင်ထဲမှ ${pct} ကို အရောင်း မပိတ်မီ (${close} MMT) နောက်ဆုံး ၇၂ နာရီအတွင်း ဝယ်ယူခဲ့သည်။ အများဆုံး အပိုင်းမှာ ${bin}: လက်မှတ် ${tickets} စောင်၊ တစ်နာရီလျှင် ${perHour} စောင်။`,
+          insightNone: (draw: string) => `${draw} တွင် လက်မှတ် မရောင်းရပါ။`,
+          insightNoLast72: (draw: string, total: string, close: string) =>
+            `${draw} ၏ လက်မှတ် ${total} စောင်ထဲမှ တစ်စောင်မျှ အရောင်း မပိတ်မီ (${close} MMT) နောက်ဆုံး ၇၂ နာရီအတွင်း ဝယ်ယူခြင်း မရှိပါ။`,
+          earlier: (tickets: string) => `လက်မှတ် ${tickets} စောင်ကို မပိတ်မီ ၇၂ နာရီထက် စော၍ ဝယ်ယူခဲ့သည်။`,
+          notClosedTitle: "အရောင်း မပိတ်သေးပါ",
+          notClosedText: (draw: string, close: string, windowStart: string) =>
+            `${draw} သည် ${close} MMT တွင် ပိတ်မည်။ ၇၂ နာရီ ကာလသည် ${windowStart} MMT တွင် စမည်၊ ထိုနာရီများ ကုန်ဆုံးသည်နှင့်အမျှ ဘားများ ဖြည့်သွားမည်။`,
+          noDrawTitle: "ပိတ်ထားသော ထီဖွင့်ပွဲ မရှိသေးပါ",
+          noDrawText: "ထီဖွင့်ပွဲ တစ်ခု၏ အရောင်း ပိတ်ပြီးမှ ဤကတ် ဖြည့်မည်။",
+          csvStem: "purchases-before-close",
+        },
+        comparison: {
+          title: "ထီဖွင့်ပွဲ နှိုင်းယှဉ်ချက်",
+          sub: "ထီဖွင့်ပွဲတိုင်း၏ အရောင်းကာလ တစ်ခုလုံး၊ ကာလဖြင့် မကန့်သတ်ပါ။",
+          columns: {
+            draw: "ထီဖွင့်ပွဲ",
+            sales: "အရောင်းကာလ (MMT)",
+            tickets: "လက်မှတ်",
+            buyers: "ဝယ်သူ",
+            revenue: "ဝင်ငွေ (Ks)",
+            peakHour: "အများဆုံး နာရီ (MMT)",
+            winners: "ပေးပြီး ပေါက်သူ",
+            status: "အခြေအနေ",
+          },
+          salesNotOpened: "မဖွင့်ရသေးပါ",
+          salesSoFar: (range: string) => `${range} (ယခုအထိ)`,
+          winnersPaid: (winners: string, ks: string) => `ပေါက်သူ ${winners} ဦး · ${ks}`,
+          notDrawn: (date: string) => `မဖွင့်ရသေးပါ (${date})`,
+          note:
+            "ဝင်ငွေသည် ထီဖွင့်ပွဲ၏ ဈေးနှုန်းဖြင့် ငွေပေးချေပြီး လက်မှတ်များကို ရေတွက်သည်၊ ဆုငွေများကို မနုတ်ပါ။ ပေးပြီး ပေါက်သူ = ထိုထီဖွင့်ပွဲအတွက် ပေးပြီးဟု မှတ်တမ်းတင်ထားသော ဆုငွေများ။ အများဆုံး နာရီ = အရောင်းကာလ တစ်ခုလုံးတွင် လက်မှတ် အများဆုံး ရောင်းရသော နာရီ၊ MMT။",
+          empty: "ထီဖွင့်ပွဲ မရှိသေးပါ။",
+          csvStem: "draw-comparison",
+        },
+      },
     },
   },
   levels: {
     title: "အသင်းဝင်အဆင့်များ",
-    description: "ငွေသွင်းစုစုပေါင်းအပေါ် အခြေခံသည့် အဆင့်များ — သတ်မှတ်ပမာဏ၊ တံဆိပ်နှင့် အစီအစဉ်။",
+    description:
+      "ငွေသွင်းစုစုပေါင်းအပေါ် အခြေခံသည့် အဆင့်များ — သတ်မှတ်ပမာဏ၊ တံဆိပ်နှင့် အစီအစဉ်။",
     add: "အဆင့်ထည့်မည်",
     addTitle: "အဆင့်အသစ်ထည့်ရန်",
     editTitle: "အဆင့်ပြင်ဆင်ရန်",
     name: "အမည်",
     namePlaceholder: "ဥပမာ - Gold",
     threshold: "အနည်းဆုံး ငွေသွင်းစုစုပေါင်း (Ks)",
-    thresholdHint: "အတည်ပြုပြီး ငွေသွင်းစုစုပေါင်း ဤပမာဏရောက်လျှင် ဤအဆင့်ကို ရရှိပါမည်။",
+    thresholdHint:
+      "အတည်ပြုပြီး ငွေသွင်းစုစုပေါင်း ဤပမာဏရောက်လျှင် ဤအဆင့်ကို ရရှိပါမည်။",
     icon: "တံဆိပ်",
     color: "အရောင်",
     colorInvalid: "#F0B90B ကဲ့သို့ အရောင်ကုဒ် ထည့်ပါ",
@@ -6270,7 +9622,8 @@ const mm = {
     reorderFailedToast: "အစီအစဉ် ပြောင်း၍မရပါ",
     loadError: "အသင်းဝင်အဆင့်များကို ဖွင့်၍မရပါ။",
     emptyTitle: "အဆင့်များ မရှိသေးပါ",
-    emptyDescription: "ငွေသွင်းစုစုပေါင်းအလိုက် အသုံးပြုသူများကို အဆင့်သတ်မှတ်ရန် ပထမဆုံးအဆင့်ကို ဖန်တီးပါ။",
+    emptyDescription:
+      "ငွေသွင်းစုစုပေါင်းအလိုက် အသုံးပြုသူများကို အဆင့်သတ်မှတ်ရန် ပထမဆုံးအဆင့်ကို ဖန်တီးပါ။",
     deleteTitle: "အဆင့်ဖျက်ရန်",
     deleteDescription: (name: string) =>
       `"${name}" ကို ဖျက်မလား။ ဤအဆင့်ရှိ အသုံးပြုသူများသည် ကိုက်ညီသည့် နောက်အဆင့်သို့ အလိုအလျောက် ပြောင်းသွားပါမည်။`,
@@ -6279,7 +9632,8 @@ const mm = {
   },
   audit: {
     title: "လုပ်ဆောင်မှုမှတ်တမ်း",
-    subtitle: "ဘယ်သူက ဘာကို ဘယ်အချိန်လုပ်ခဲ့သလဲ — အရေးကြီးသော ဝန်ထမ်းလုပ်ဆောင်မှုအားလုံး၊ နောက်ဆုံးမှ အစဉ်လိုက်။",
+    subtitle:
+      "ဘယ်သူက ဘာကို ဘယ်အချိန်လုပ်ခဲ့သလဲ — အရေးကြီးသော ဝန်ထမ်းလုပ်ဆောင်မှုအားလုံး၊ နောက်ဆုံးမှ အစဉ်လိုက်။",
     refresh: "ပြန်လည်ဖွင့်မည်",
     refreshing: "ပြန်လည်ဖွင့်နေသည်…",
     viewDetails: "အသေးစိတ်ကြည့်မည်",
@@ -6288,7 +9642,8 @@ const mm = {
       action: "လုပ်ဆောင်ချက်",
       targetType: "ပစ်မှတ်အမျိုးအစား",
       search: "ရှာဖွေရန်",
-      searchPlaceholder: "ပစ်မှတ်၊ ဝန်ထမ်းအမည် သို့မဟုတ် လုပ်ဆောင်ချက်ဖြင့် ရှာပါ…",
+      searchPlaceholder:
+        "ပစ်မှတ်၊ ဝန်ထမ်းအမည် သို့မဟုတ် လုပ်ဆောင်ချက်ဖြင့် ရှာပါ…",
       clear: "စစ်ထုတ်မှုများ ရှင်းမည်",
       all: "အားလုံး",
     },
@@ -6341,6 +9696,14 @@ const mm = {
       sms_gateway: "SMS Gateway",
       home_promo: "ပင်မစာမျက်နှာ ပရိုမိုးရှင်း",
       home_settings: "ပင်မစာမျက်နှာ ဆက်တင်",
+      bank_events: "ဘဏ် စောင့်ကြည့်စက်",
+      lottery_dream: "ထီ အိပ်မက်",
+      lottery_draw: "ထီဖွင့်ပွဲ",
+      lottery_settings: "ထီ ဆက်တင်",
+      lottery_results: "ထီ ရလဒ်",
+      lottery_claim: "ထီ ဆုငွေ တောင်းခံမှု",
+      advertisement: "ကြော်ငြာ",
+      advertisement_settings: "ကြော်ငြာ ဆက်တင်",
     },
     actions: {
       "movie.create": "ရုပ်ရှင် ဖန်တီးသည်",
@@ -6401,7 +9764,8 @@ const mm = {
       "home_promo.create": "ပင်မစာမျက်နှာ ပရိုမိုးရှင်း ဖန်တီးသည်",
       "home_promo.update": "ပင်မစာမျက်နှာ ပရိုမိုးရှင်း ပြင်ဆင်သည်",
       "home_promo.delete": "ပင်မစာမျက်နှာ ပရိုမိုးရှင်း ဖျက်သည်",
-      "home_promo.reorder": "ပင်မစာမျက်နှာ ပရိုမိုးရှင်းများ အစီအစဉ် ပြောင်းသည်",
+      "home_promo.reorder":
+        "ပင်မစာမျက်နှာ ပရိုမိုးရှင်းများ အစီအစဉ် ပြောင်းသည်",
       "home_settings.update": "ပင်မစာမျက်နှာ ဆက်တင် ပြင်ဆင်သည်",
       "user.status_change": "အသုံးပြုသူ အခြေအနေ ပြောင်းသည်",
       "user.role_change": "အသုံးပြုသူ ရာထူး ပြောင်းသည်",
@@ -6429,20 +9793,25 @@ const mm = {
       "deposit.receiving_account_update": "ငွေသွင်း လက်ခံအကောင့် ပြင်ဆင်သည်",
       "withdrawal.approve": "ငွေထုတ် အတည်ပြုသည်",
       "withdrawal.reject": "ငွေထုတ် ငြင်းပယ်သည်",
-      "withdrawal.transfer_account_update": "ငွေထုတ် လွှဲပြောင်းအကောင့် ပြင်ဆင်သည်",
+      "withdrawal.transfer_account_update":
+        "ငွေထုတ် လွှဲပြောင်းအကောင့် ပြင်ဆင်သည်",
       "deposit.bank_match": "ငွေသွင်းကို ဘဏ်အသိပေးချက်နှင့် တိုက်ဆိုင်သည်",
-      "deposit.bank_screenshot_attach": "ငွေသွင်းတွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
+      "deposit.bank_screenshot_attach":
+        "ငွေသွင်းတွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
       "deposit.risk_update": "ငွေသွင်း အန္တရာယ်အမှတ်အသားများ ပြင်ဆင်သည်",
       "deposit.verification_review": "ငွေသွင်း စိစစ်မှုကို ပြန်လည်သုံးသပ်သည်",
       "withdrawal.bank_match": "ငွေထုတ်ကို ဘဏ်အသိပေးချက်နှင့် တိုက်ဆိုင်သည်",
-      "withdrawal.bank_screenshot_attach": "ငွေထုတ်တွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
+      "withdrawal.bank_screenshot_attach":
+        "ငွေထုတ်တွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
       "withdrawal.risk_update": "ငွေထုတ် အန္တရာယ်အမှတ်အသားများ ပြင်ဆင်သည်",
       "withdrawal.verification_review": "ငွေထုတ် စိစစ်မှုကို ပြန်လည်သုံးသပ်သည်",
       "bank_transaction.store": "ဖုန်းမှ ဘဏ်ငွေလွှဲမှတ်တမ်း သိမ်းဆည်းသည်",
       "bank_transaction.link": "ဘဏ်ငွေလွှဲမှတ်တမ်း ချိတ်ဆက်သည်",
       "bank_transaction.unlink": "ဘဏ်ငွေလွှဲမှတ်တမ်း ချိတ်ဆက်မှု ဖြုတ်သည်",
-      "bank_transaction.state_change": "ဘဏ်ငွေလွှဲမှတ်တမ်း အခြေအနေ ပြောင်းလဲသည်",
-      "bank_transaction.screenshot_attach": "ဘဏ်ငွေလွှဲမှတ်တမ်းတွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
+      "bank_transaction.state_change":
+        "ဘဏ်ငွေလွှဲမှတ်တမ်း အခြေအနေ ပြောင်းလဲသည်",
+      "bank_transaction.screenshot_attach":
+        "ဘဏ်ငွေလွှဲမှတ်တမ်းတွင် ဘဏ်မျက်နှာပြင်ပုံ ထည့်သွင်းသည်",
       "payment_account.create": "ငွေပေးချေမှုအကောင့် ဖန်တီးသည်",
       "payment_account.update": "ငွေပေးချေမှုအကောင့် ပြင်ဆင်သည်",
       "payment_account.delete": "ငွေပေးချေမှုအကောင့် ဖျက်သည်",
@@ -6458,6 +9827,34 @@ const mm = {
       "comment.delete": "မှတ်ချက် ဖျက်သည်",
       "feedback.status_change": "အကြံပြုချက် အခြေအနေ ပြောင်းသည်",
       "sms_gateway.binding_reset": "SMS Gateway ဖုန်း ပြန်သတ်မှတ်သည်",
+      "bank_events.rejected_device":
+        "ဘဏ် စောင့်ကြည့်စက် — အခြား ကွန်ပျူတာကို ငြင်းပယ်သည်",
+      "bank_events.binding_reset":
+        "ဘဏ် စောင့်ကြည့်စက် ကွန်ပျူတာ ပြန်သတ်မှတ်သည်",
+      "lottery_dream.update": "ထီ အိပ်မက် ပြင်ဆင်သည်",
+      "lottery_dream.import": "ထီ အိပ်မက်များ သွင်းယူသည်",
+      "lottery_draw.create": "ထီဖွင့်ပွဲ ဖန်တီးသည်",
+      "lottery_draw.update": "ထီဖွင့်ပွဲ ပြင်ဆင်သည်",
+      "lottery_draw.open": "ထီ အရောင်း ဖွင့်သည်",
+      "lottery_draw.pause": "ထီ အရောင်း ခေတ္တရပ်သည်",
+      "lottery_draw.close": "ထီ အရောင်း ပိတ်သည်",
+      "lottery_draw.reopen": "ထီ အရောင်း ပြန်ဖွင့်သည်",
+      "lottery_draw.off_sale": "ထီ ရောင်းမထုတ်သော ဂဏန်းများ ပြောင်းသည်",
+      "lottery_settings.update": "ထီ ဆက်တင် ပြင်ဆင်သည်",
+      "lottery_draw.publish": "ထီဖွင့်ပွဲ ထုတ်ပြန်သည် (ဆုငွေများ ချီးမြှင့်)",
+      "lottery_claim.confirm": "ထီ ဆုငွေ တောင်းခံမှု အတည်ပြု၍ ပေးသည်",
+      "lottery_claim.reject": "ထီ ဆုငွေ တောင်းခံမှု ငြင်းပယ်သည်",
+      "lottery_claim.reopen": "ထီ ဆုငွေ တောင်းခံမှု ပြန်လည် သုံးသပ်ရန် ဖွင့်သည်",
+      "lottery_results.fetch": "ထီ ရလဒ်များ ဆွဲယူသည်",
+      "lottery_results.enter": "ထီ ရလဒ်များ ကိုယ်တိုင် ထည့်သည်",
+      "advertisement.create": "ကြော်ငြာ ဖန်တီးသည်",
+      "advertisement.update": "ကြော်ငြာ ပြင်ဆင်သည်",
+      "advertisement.delete": "ကြော်ငြာ ဖျက်သည်",
+      "advertisement.video_attach": "ကြော်ငြာ ဗီဒီယို ထည့်သွင်းသည်",
+      "advertisement.image_attach": "ကြော်ငြာ ပုံ ထည့်သွင်းသည်",
+      "advertisement.upload_presign": "ကြော်ငြာ ဗီဒီယို တင်ခြင်း စတင်သည်",
+      "advertisement.upload_multipart": "ကြော်ငြာ ဗီဒီယို တင်ခြင်း စတင်သည် (ဖိုင်ကြီး)",
+      "advertisement_settings.update": "ကြော်ငြာ ဆက်တင် ပြင်ဆင်သည်",
     },
     changesSummary: {
       more: (count: number) => `နောက်ထပ် ${count} ခု`,
@@ -6467,7 +9864,8 @@ const mm = {
     deletedAccount: "အကောင့် ဖျက်ပြီး",
     empty: {
       title: "မှတ်တမ်းများ မရှိသေးပါ",
-      description: "ဝန်ထမ်းလုပ်ဆောင်မှုများ ဖြစ်ပေါ်သည်နှင့် ဤနေရာတွင် ပေါ်လာပါမည်။",
+      description:
+        "ဝန်ထမ်းလုပ်ဆောင်မှုများ ဖြစ်ပေါ်သည်နှင့် ဤနေရာတွင် ပေါ်လာပါမည်။",
     },
     loadError: "လုပ်ဆောင်မှုမှတ်တမ်းကို ဖွင့်၍မရပါ။",
     details: {
@@ -6507,3 +9905,10 @@ const mm = {
 export const translations = { en, mm };
 export type Language = keyof typeof translations;
 export type TranslationShape = typeof en;
+
+/**
+ * Where LanguageProvider keeps the staff member's choice (localStorage).
+ * Exported so code outside React — the API client composing its own error
+ * messages — reads the same key.
+ */
+export const LANGUAGE_STORAGE_KEY = "myanflix-admin-language";

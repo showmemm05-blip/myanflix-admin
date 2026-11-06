@@ -1,5 +1,5 @@
 import { uploadService } from "@/services/api/uploadService";
-import { ApiError } from "@/services/api/apiClient";
+import { ApiError, isUnreachable } from "@/services/api/apiClient";
 import { putToMinio } from "@/lib/upload/minio-put";
 import { PresignedPartUrlPool } from "@/lib/upload/presigned-part-pool";
 
@@ -126,12 +126,16 @@ class PatchBatcher {
  * failure. AbortError is a user's own Pause/Cancel (or the offline-abort
  * effect below) — never retried, always handled by the caller. A bare
  * TypeError is what `fetch` throws for a network-level failure (DNS, CORS,
- * connection reset). A 5xx/408/429 ApiError means the backend itself
- * hiccuped (e.g. mid-restart) — also worth retrying. Any other ApiError
- * (4xx) is a real rejection that retrying won't fix.
+ * connection reset) — putToMinio's raw fetch still surfaces it that way,
+ * while apiClient wraps the same failure (and its GET timeout) in a status-0
+ * "unreachable" ApiError, which counts the same. A 5xx/408/429 ApiError
+ * means the backend itself hiccuped (e.g. mid-restart) — also worth
+ * retrying. Any other ApiError (4xx) is a real rejection that retrying
+ * won't fix.
  */
 export function isTransient(err: unknown): boolean {
   if (err instanceof DOMException && err.name === "AbortError") return false;
+  if (isUnreachable(err)) return true;
   if (err instanceof ApiError) return err.status >= 500 || err.status === 408 || err.status === 429;
   if (err instanceof TypeError) return true;
   return false;

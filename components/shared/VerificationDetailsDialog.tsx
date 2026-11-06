@@ -337,6 +337,15 @@ export function VerificationDetailsDialog({
                     mismatch={nameMismatch}
                   />
                 )}
+                {/* SEC-004: which phone captured the transaction these values
+                    came from — the serial the phone-monitor posted. */}
+                {isDeposit && (
+                  <Field
+                    label={m.postingDevice}
+                    value={bankSeen ? record.bankDeviceSerial : null}
+                    mono
+                  />
+                )}
                 {/* The matcher only ever matches on the declared account, so
                     the bank side is that same account by construction. */}
                 <Field

@@ -5,6 +5,7 @@ import { Banknote, Eye, Film, Lock, TrendingUp, Users as UsersIcon, UserCheck } 
 import { DashboardCard } from "@/components/cards/DashboardCard";
 import { RecentTransactionsTable } from "@/components/finance/RecentTransactionsTable";
 import { RecentUsersTable } from "@/components/users/RecentUsersTable";
+import { BankMonitorCard } from "@/components/dashboard/BankMonitorCard";
 import { SmsGatewayCard } from "@/components/dashboard/SmsGatewayCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -169,6 +170,10 @@ export function AdminDashboard() {
       {/* The phone that texts every sign-in code — if it is offline, nobody
           can sign in, so it sits right under the headline numbers. */}
       {canViewSmsGateway && <SmsGatewayCard />}
+
+      {/* The PC that posts bank events (SEC-004): same gate as the SMS card —
+          both are the two machine tokens' device pins. */}
+      {canViewSmsGateway && <BankMonitorCard />}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { format } from "date-fns";
-import { Clock, Crown, Globe, Star } from "lucide-react";
+import { Clock, Crown, Film, Globe, Star } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { mediaTypeName } from "@/components/shared/MediaTypeSelect";
 import {
   ACCESS_TYPE_TONE,
   getAccessTypeLabel,
@@ -96,7 +97,16 @@ export function MovieDetailsSheet({
                   </div>
                   <p className="mt-1 text-lg font-semibold">{movie.language}</p>
                 </div>
-                <div className="glass-card col-span-2 rounded-lg p-3">
+                <div className="glass-card rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Film className="size-3.5" />
+                    {t.movies.mediaType.detailsLabel}
+                  </div>
+                  <p className="mt-1 text-lg font-semibold">
+                    {movie.country ? mediaTypeName(t, movie.country) : "—"}
+                  </p>
+                </div>
+                <div className="glass-card rounded-lg p-3">
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Star className="size-3.5" />
                     {t.movies.detailsSheet.rating}

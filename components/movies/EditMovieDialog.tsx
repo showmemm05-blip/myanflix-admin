@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileUploadField } from "./FileUploadField";
 import { ActorPicker } from "@/components/actors/ActorPicker";
+import { MediaTypeSelect } from "@/components/shared/MediaTypeSelect";
 import { movieService } from "@/services/api/movieService";
 import { videoService } from "@/services/api/videoService";
 import { uploadService } from "@/services/api/uploadService";
@@ -43,6 +44,7 @@ function EditMovieForm({
   const [title, setTitle] = useState(movie.title);
   const [description, setDescription] = useState(movie.description);
   const [genre, setGenre] = useState(movie.genre);
+  const [country, setCountry] = useState<string | null>(movie.country);
   const [categoryIds, setCategoryIds] = useState<string[]>(movie.categories.map((c) => c.id));
   const [actorIds, setActorIds] = useState<string[]>(movie.actors.map((a) => a.id));
   const [releaseYear, setReleaseYear] = useState(String(movie.releaseYear));
@@ -106,6 +108,9 @@ function EditMovieForm({
         genre,
         categoryIds,
         actorIds,
+        // An episode has no type of its own — the show's is shown — so the
+        // picker is hidden for it and the column left alone. "" clears.
+        ...(isEpisode ? {} : { country: country ?? "" }),
         releaseYear: Number(releaseYear) || movie.releaseYear,
         ...durationPatch,
         // Episodes carry no rating of their own — the show does — so the
@@ -248,6 +253,7 @@ function EditMovieForm({
             </div>
           )}
         </div>
+        {!isEpisode && <MediaTypeSelect kind="movie" value={country} onChange={setCountry} disabled={saving} />}
         <div className="flex flex-col gap-1.5">
           <Label>{t.movies.editDialog.categoriesLabel}</Label>
           <div className="flex flex-wrap gap-2">

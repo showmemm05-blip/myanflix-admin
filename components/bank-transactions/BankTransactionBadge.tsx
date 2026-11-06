@@ -10,7 +10,13 @@ import type { BankTransactionView } from "@/types/bank-transaction";
  * state (UNCLAIMED included) — callers derive it through `viewOf()` so every
  * surface agrees on when a row crosses the 48 h line.
  */
-export function BankTransactionBadge({ view, className }: { view: BankTransactionView; className?: string }) {
+export function BankTransactionBadge({
+  view,
+  className,
+}: {
+  view: BankTransactionView;
+  className?: string;
+}) {
   const { t } = useLanguage();
   return (
     <StatusBadge

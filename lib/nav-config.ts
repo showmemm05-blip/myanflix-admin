@@ -4,20 +4,26 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Banknote,
+  BarChart3,
   BookOpen,
   BookPlus,
+  CalendarDays,
+  Clapperboard,
   Clock,
   CreditCard,
   Feather,
   Film,
   Fingerprint,
   FolderInput,
+  
   Gauge,
+  HandCoins,
   Landmark,
   LayoutDashboard,
   Medal,
   Megaphone,
   ListVideo,
+  MonitorPlay,
   MessageSquare,
   MessageSquareWarning,
   Radio,
@@ -28,7 +34,9 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Smartphone,
+  Sparkles,
   Tags,
+  Ticket,
   Tv,
   UserCog,
   Users,
@@ -78,7 +86,9 @@ export const navItems: NavItem[] = [
         permission: "MOVIES.VIEW",
       },
       {
-        // The bulk folder-drop ingest flow — it creates movies, so it is
+        // The folder-drop ingest flow (pre-transcoded bundles) is the ONE way
+        // a movie comes in (the owner, 3 Nov 2026: the single-.mp4 page is
+        // gone, /movies/upload redirects here). It creates movies, so it is
         // gated on MOVIES.CREATE rather than on being able to view them.
         labelKey: "uploadMovie",
         href: "/movies/upload-external",
@@ -178,6 +188,82 @@ export const navItems: NavItem[] = [
     href: "/home-promos",
     icon: Megaphone,
     permission: "HOME.VIEW",
+  },
+  {
+    // Pre-roll video ads (2026-11-03): the short MP4s that play before a
+    // movie starts, and how they did. Next to Home promos because both are
+    // what staff put in front of viewers. The group's href is its first
+    // child, like Tracking: the list IS the section's front page.
+    labelKey: "ads",
+    href: "/ads",
+    icon: MonitorPlay,
+    children: [
+      {
+        labelKey: "adsList",
+        href: "/ads",
+        icon: Clapperboard,
+        permission: "ADS.VIEW",
+      },
+      {
+        // "Ad results" (was Analytics, 2026-11-04): plays, watched to the
+        // end, skips and corner taps per ad and per Myanmar day — read-only
+        // aggregates, so the same VIEW gate as the list.
+        labelKey: "adsAnalytics",
+        href: "/ads/analytics",
+        icon: BarChart3,
+        permission: "ADS.VIEW",
+      },
+    ],
+  },
+  {
+    // The Lottery app's content. Like Tracking, the group's href is its
+    // first child: there is no /lottery page. Results join in phase 3.
+    labelKey: "lottery",
+    href: "/lottery/dreams",
+    icon: Ticket,
+    children: [
+      {
+        labelKey: "lotteryDreams",
+        href: "/lottery/dreams",
+        icon: Sparkles,
+        permission: "LOTTERY.VIEW",
+      },
+      {
+        // One draw per Thai lottery date: sales, tickets, off-sale numbers.
+        labelKey: "lotteryDraws",
+        href: "/lottery/draws",
+        icon: CalendarDays,
+        permission: "LOTTERY.VIEW",
+      },
+      {
+        // Readable with VIEW (the page shows the values); only Save needs
+        // LOTTERY.SETTINGS_MANAGE — unlike Finance → Limits, which is a
+        // pure editor.
+        labelKey: "lotterySettings",
+        href: "/lottery/settings",
+        icon: SlidersHorizontal,
+        permission: "LOTTERY.VIEW",
+      },
+      {
+        // Tickets, purchases, buyers and when people play — read-only
+        // aggregates, so the same VIEW gate as the rest of the group. Its
+        // /reports child page is reached from the dashboard's own button.
+        labelKey: "lotteryAnalytics",
+        href: "/lottery/analytics",
+        icon: BarChart3,
+        permission: "LOTTERY.VIEW",
+      },
+      {
+        // Winners request their prize in the app; staff confirm or reject
+        // each claim here (2026-10-24). VIEW reads the page like the rest of
+        // the group; paying and rejecting need LOTTERY.CLAIMS_CONFIRM, which
+        // only changes what the page lets you do once you are on it.
+        labelKey: "lotteryClaims",
+        href: "/lottery/claims",
+        icon: HandCoins,
+        permission: "LOTTERY.VIEW",
+      },
+    ],
   },
   {
     labelKey: "people",

@@ -208,7 +208,14 @@ describe("admin next.config security headers", () => {
       "http:",
       "https:",
     ]);
-    assert.deepEqual(csp["media-src"], ["'self'", "blob:"]);
+    // The ad video preview plays a signed URL on the cache server (same
+    // unknown host as the posters); blob: is a picked-but-not-uploaded file.
+    assert.deepEqual(csp["media-src"], [
+      "'self'",
+      "blob:",
+      "http:",
+      "https:",
+    ]);
     assert.deepEqual(csp["worker-src"], ["'self'", "blob:"]);
   });
 

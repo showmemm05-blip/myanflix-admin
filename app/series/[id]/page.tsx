@@ -25,6 +25,7 @@ import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import { SERIES_STATUS_TONE, getSeriesStatusLabel } from "@/components/series/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { ActorPicker } from "@/components/actors/ActorPicker";
+import { MediaTypeSelect } from "@/components/shared/MediaTypeSelect";
 import { FileUploadField } from "@/components/movies/FileUploadField";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -99,6 +100,7 @@ function SeriesManageContent() {
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("");
   const [language, setLanguage] = useState("English");
+  const [country, setCountry] = useState<string | null>(null);
   const [releaseYear, setReleaseYear] = useState("");
   const [rating, setRating] = useState("");
   const [accessType, setAccessType] = useState<Series["accessType"]>("SUBSCRIPTION");
@@ -120,6 +122,7 @@ function SeriesManageContent() {
     setDescription(series.description);
     setGenre(series.genre);
     setLanguage(series.language);
+    setCountry(series.country ?? null);
     setReleaseYear(String(series.releaseYear));
     setRating(ratingToInput(series.rating));
     setAccessType(series.accessType);
@@ -150,6 +153,7 @@ function SeriesManageContent() {
         description: description.trim(),
         genre,
         language,
+        country: country ?? "",
         releaseYear: Number(releaseYear) || new Date().getFullYear(),
         rating: ratingValue,
         accessType,
@@ -529,6 +533,7 @@ function SeriesManageContent() {
               </Select>
               <p className="text-xs text-muted-foreground">{t.series.form.accessTypeHelp}</p>
             </div>
+            <MediaTypeSelect kind="series" value={country} onChange={setCountry} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>{t.series.manage.categoriesLabel}</Label>

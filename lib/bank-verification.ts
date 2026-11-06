@@ -47,6 +47,8 @@ export interface VerificationRecord {
   bankTransactionId: string | null;
   /** The bank's "from" name on that transaction (deposits only, M-16) — compared with the depositor's own name. */
   bankCounterparty: string | null;
+  /** The phone that captured that transaction (deposits only, SEC-004) — the "posted by phone" line. */
+  bankDeviceSerial: string | null;
 }
 
 /**
@@ -81,6 +83,7 @@ export function toDepositVerification(d: Deposit): VerificationRecord {
     hasBankScreenshot: d.hasBankScreenshot,
     bankTransactionId: d.bankTransactionId,
     bankCounterparty: d.bankCounterparty,
+    bankDeviceSerial: d.bankDeviceSerial,
   };
 }
 
@@ -108,6 +111,7 @@ export function toWithdrawalVerification(w: Withdrawal): VerificationRecord {
     hasBankScreenshot: w.hasBankScreenshot,
     bankTransactionId: w.bankTransactionId,
     bankCounterparty: null,
+    bankDeviceSerial: null,
   };
 }
 

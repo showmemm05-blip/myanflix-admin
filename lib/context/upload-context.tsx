@@ -210,6 +210,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
               categoryIds: input.categoryIds,
               actorIds: input.actorIds,
               language: input.language,
+              country: input.country,
               releaseYear: input.releaseYear,
               duration: input.duration,
               accessType: input.accessType,

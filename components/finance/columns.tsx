@@ -25,6 +25,8 @@ export function getTransactionColumns(t: TranslationShape): ColumnDef<Transactio
     WITHDRAWAL: t.finance.columns.typeWithdrawal,
     ADJUSTMENT_CREDIT: t.finance.columns.typeAdjustmentCredit,
     ADJUSTMENT_DEBIT: t.finance.columns.typeAdjustmentDebit,
+    LOTTERY_PURCHASE: t.finance.columns.typeLotteryPurchase,
+    LOTTERY_PRIZE: t.finance.columns.typeLotteryPrize,
   };
 
   return [

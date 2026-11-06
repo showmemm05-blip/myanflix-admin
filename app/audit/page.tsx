@@ -15,6 +15,7 @@ import {
   type AuditFilterValues,
 } from "@/components/audit/AuditFilters";
 import { AuditDetailsDialog } from "@/components/audit/AuditDetailsDialog";
+import { auditSearchParams } from "@/components/audit/auditFormat";
 import { endOfDayIso, startOfDayIso } from "@/components/tracking/trackingFormat";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
@@ -60,8 +61,7 @@ function AuditLogContent() {
     to: filters.range.to ? endOfDayIso(filters.range.to) : undefined,
     category: (filters.category || undefined) as AuditCategory | undefined,
     action: filters.action || undefined,
-    targetType: filters.targetType || undefined,
-    search: appliedSearch || undefined,
+    ...auditSearchParams(appliedSearch, filters.targetType),
   };
 
   const { data, isLoading, error, refetch } = useAsyncData(

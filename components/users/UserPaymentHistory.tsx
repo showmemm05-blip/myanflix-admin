@@ -41,6 +41,8 @@ type LedgerKind =
   | "refund"
   | "adjustmentCredit"
   | "adjustmentDebit"
+  | "lotteryPurchase"
+  | "lotteryPrize"
   // The shadow forms: a deposit/withdrawal known only from its ledger row,
   // shown when the full source row was refused. Distinct kind strings so the
   // details/status cells can never mistake them for full source rows.
@@ -77,6 +79,8 @@ const LEDGER_META: Record<TransactionType, { kind: LedgerKind; direction: "in" |
   REFUND: { kind: "refund", direction: "in" },
   ADJUSTMENT_CREDIT: { kind: "adjustmentCredit", direction: "in" },
   ADJUSTMENT_DEBIT: { kind: "adjustmentDebit", direction: "out" },
+  LOTTERY_PURCHASE: { kind: "lotteryPurchase", direction: "out" },
+  LOTTERY_PRIZE: { kind: "lotteryPrize", direction: "in" },
   DEPOSIT: { kind: "depositShadow", direction: "in" },
   WITHDRAWAL: { kind: "withdrawalShadow", direction: "out" },
 };
@@ -300,6 +304,10 @@ function DetailsCell({ row, t }: { row: PaymentHistoryRow; t: TranslationShape }
       return <span className="text-sm text-muted-foreground">{i.adjustmentCreditDetail}</span>;
     case "adjustmentDebit":
       return <span className="text-sm text-muted-foreground">{i.adjustmentDebitDetail}</span>;
+    case "lotteryPurchase":
+      return <span className="text-sm text-muted-foreground">{i.lotteryPurchaseDetail}</span>;
+    case "lotteryPrize":
+      return <span className="text-sm text-muted-foreground">{i.lotteryPrizeDetail}</span>;
     case "depositShadow":
     case "withdrawalShadow":
       // Known only from the ledger — the caption above the table already

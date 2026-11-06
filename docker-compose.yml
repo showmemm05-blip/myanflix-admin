@@ -21,3 +21,26 @@ services:
         CSP_CONNECT_SRC_EXTRA: ${CSP_CONNECT_SRC_EXTRA:-}
     ports:
       - "${PORT:-3002}:3002"
+    # Does the Next server answer? /login is public and renders without
+    # calling the API, so this never depends on the backend. The image
+    # (node:26-slim) has no curl/wget; Node's own fetch does the asking, and
+    # any answer below 500 counts. A failing check marks the container
+    # "unhealthy" in `docker compose ps`; Docker does not restart it for
+    # that (../backend/DOCKER.md, "Health checks").
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3002/login').then((r) => process.exit(r.status < 500 ? 0 : 1), () => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # Keep at most 5 files of 50 MB of container log (same cap as the cache
+    # server) instead of letting it grow until the disk fills.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"

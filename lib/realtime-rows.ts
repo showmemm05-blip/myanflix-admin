@@ -95,6 +95,7 @@ export function depositFromCreatedEvent(event: DepositCreatedEvent): Deposit {
     hasBankScreenshot: false,
     bankTransactionId: event.bankTransactionId ?? null,
     bankCounterparty: null,
+    bankDeviceSerial: null,
     declaredTransferAt: null,
     createdAt: event.createdAt,
     updatedAt: event.createdAt,
@@ -158,6 +159,8 @@ export interface DepositVerificationEvent {
   bankTransactionId?: string | null;
   /** The bank's "from" name (M-16); absent = leave the row's value alone. */
   bankCounterparty?: string | null;
+  /** The phone that captured the transaction (SEC-004); absent = leave the row's value alone. */
+  bankDeviceSerial?: string | null;
 }
 
 export interface WithdrawalVerificationEvent {
@@ -187,6 +190,7 @@ export function mergeDepositVerification(d: Deposit, event: DepositVerificationE
     // An explicit null (unlink) must win; only an ABSENT key keeps the old link.
     bankTransactionId: event.bankTransactionId !== undefined ? event.bankTransactionId : d.bankTransactionId,
     bankCounterparty: event.bankCounterparty !== undefined ? event.bankCounterparty : d.bankCounterparty,
+    bankDeviceSerial: event.bankDeviceSerial !== undefined ? event.bankDeviceSerial : d.bankDeviceSerial,
   };
 }
 

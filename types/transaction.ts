@@ -7,7 +7,11 @@ export type TransactionType =
   | "WITHDRAWAL"
   /** Admin-initiated wallet correction (see WalletAdjustment). */
   | "ADJUSTMENT_CREDIT"
-  | "ADJUSTMENT_DEBIT";
+  | "ADJUSTMENT_DEBIT"
+  /** A lottery ticket purchase (one row per checkout, lottery phase 2). */
+  | "LOTTERY_PURCHASE"
+  /** A lottery prize paid into the wallet (lottery phase 3). */
+  | "LOTTERY_PRIZE";
 
 export type TransactionStatus = "PENDING" | "COMPLETED" | "FAILED";
 

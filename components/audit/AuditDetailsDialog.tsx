@@ -43,6 +43,7 @@ import {
   isStructured,
   isSystemEntry,
   targetHref,
+  targetName,
   targetTypeLabel,
 } from "@/components/audit/auditFormat";
 import { userLabel } from "@/lib/user-label";
@@ -157,6 +158,7 @@ export function AuditDetailsDialog({
   // rendered; anything else falls through to the initials.
   const avatarSrc = entry.actor?.avatar?.startsWith("http") ? entry.actor.avatar : undefined;
   const href = targetHref(entry);
+  const target = targetName(t, entry);
   const changes = entry.changes ?? [];
   const metadata = Object.entries(entry.metadata ?? {});
   const exactTime = formatDateTime(entry.createdAt);
@@ -168,7 +170,7 @@ export function AuditDetailsDialog({
           <DialogTitle>{d.title}</DialogTitle>
           <DialogDescription>
             {actionLabel(t, entry.action)}
-            {entry.targetLabel ? ` — ${entry.targetLabel}` : ""}
+            {target ? ` — ${target}` : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -234,7 +236,7 @@ export function AuditDetailsDialog({
 
           <Section title={d.target} icon={Crosshair}>
             <Field label={d.type} value={targetTypeLabel(t, entry.targetType)} />
-            <Field label={d.label} value={entry.targetLabel} full />
+            <Field label={d.label} value={target} full />
             <Field label={d.targetId} value={entry.targetId} mono full />
             {href && (
               <Field

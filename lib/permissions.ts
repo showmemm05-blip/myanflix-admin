@@ -71,6 +71,25 @@ export const PERMISSION_CATALOGUE = [
   // home settings). VIEW reads them, MANAGE changes them. Admin is granted
   // both by the backend's home_promos migration; SUPER_ADMIN holds all.
   { key: "HOME", actions: ["VIEW", "MANAGE"] },
+  // The "Advertisements" pages (pre-roll video ads, 2026-11-03). VIEW reads
+  // the list, one ad and the analytics; MANAGE creates, edits, uploads the
+  // video, switches an ad on or off and deletes it. Admin is granted both by
+  // the backend's advertisements migration; SUPER_ADMIN holds all.
+  { key: "ADS", actions: ["VIEW", "MANAGE"] },
+  // The Lottery pages. VIEW reads the dream books (and exports them), the
+  // draws, their tickets and the settings; DREAMS_MANAGE edits names/pictures
+  // and imports a spreadsheet; DRAWS_MANAGE creates, edits, opens, pauses and
+  // closes draws and sets their off-sale numbers; SETTINGS_MANAGE saves the
+  // price, per-number limit, exchange rate, closing offset and results
+  // source; RESULTS_PUBLISH fetches or enters a draw's winning numbers and
+  // publishes them, which awards the prizes (nobody is paid by publishing);
+  // CLAIMS_CONFIRM pays or rejects a customer's prize claim on the Prize
+  // claims page (VIEW reads it). Granted to Admin the same way HOME.* is;
+  // SUPER_ADMIN holds all.
+  {
+    key: "LOTTERY",
+    actions: ["VIEW", "DREAMS_MANAGE", "DRAWS_MANAGE", "SETTINGS_MANAGE", "RESULTS_PUBLISH", "CLAIMS_CONFIRM"],
+  },
   // Read-only history of important staff actions. VIEW implies seeing the
   // raw IP / user agent the backend stored — only SUPER_ADMIN holds it by
   // default (protected role = every permission), nothing seeds it elsewhere.

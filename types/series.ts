@@ -12,6 +12,8 @@ export interface Series {
   coverUrl: string | null;
   genre: string;
   language: string;
+  /** The series TYPE ("Korean", "English"… — MEDIA_TYPES), null = not set. */
+  country: string | null;
   releaseYear: number;
   /** Admin-set 0–10, same meaning as Movie.rating: 0 = not rated. */
   rating: number;
@@ -46,6 +48,8 @@ export interface SeriesFormValues {
   description: string;
   genre: string;
   language: string;
+  /** The series TYPE word; "" clears it (stored as null). Omit to leave it alone. */
+  country?: string;
   releaseYear: number;
   /** 0–10, one decimal; 0 clears it back to "not rated". */
   rating?: number;

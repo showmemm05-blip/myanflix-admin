@@ -1,9 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import { translations, type Language, type TranslationShape } from "@/lib/i18n/translations";
+import { LANGUAGE_STORAGE_KEY, translations, type Language, type TranslationShape } from "@/lib/i18n/translations";
 
-const STORAGE_KEY = "myanflix-admin-language";
 // Admins already reading this app in English shouldn't have the UI silently
 // switch on them — default stays English, Burmese is an opt-in via the
 // switcher (unlike userwebsite, which defaults to "mm" for its consumer
@@ -26,7 +25,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(DEFAULT_LANGUAGE);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
     // Reading localStorage (an external system) after mount is the point:
     // doing it during render would make the server and client HTML differ.
     // It runs once, on mount, so there is no cascade.
@@ -36,7 +35,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
   const setLanguage = useCallback((next: Language) => {
     setLanguageState(next);
-    localStorage.setItem(STORAGE_KEY, next);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
   }, []);
 
   return (

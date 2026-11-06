@@ -62,6 +62,8 @@ export interface Deposit {
   bankTransactionId: string | null;
   /** The bank's "from" name on that transaction (M-16) — shown beside the depositor's own name; null when unknown or not matched. */
   bankCounterparty: string | null;
+  /** The phone that captured that transaction (SEC-004) — the dialog's "posted by phone" line; null until matched. */
+  bankDeviceSerial: string | null;
   /** When the user says they transferred — the mobile form does not send it yet, so usually null. */
   declaredTransferAt: string | null;
   createdAt: string;

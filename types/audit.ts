@@ -19,7 +19,13 @@ import type { UserRole } from "@/types/user";
 // ---------------------------------------------------------------- enums
 
 /** Prisma `AuditCategory`, in the order the filter offers them. */
-export const AUDIT_CATEGORIES = ["CONTENT", "USERS", "FINANCE", "STAFF", "SYSTEM"] as const;
+export const AUDIT_CATEGORIES = [
+  "CONTENT",
+  "USERS",
+  "FINANCE",
+  "STAFF",
+  "SYSTEM",
+] as const;
 export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
 
 /**
@@ -58,6 +64,25 @@ export const AUDIT_TARGET_TYPES = [
   // The admin "Home promos" page: one promo, or the single settings row.
   "home_promo",
   "home_settings",
+  // The phone-monitor's bank-events token (its token-to-device pin, SEC-004).
+  "bank_events",
+  // The Lottery "Dreams" page: one row of a dream book (or, for an import,
+  // the book as a whole).
+  "lottery_dream",
+  // The Lottery "Draws" and "Settings" pages: one draw, or the single
+  // settings row.
+  "lottery_draw",
+  "lottery_settings",
+  // The results record of one draw (phase 3): fetched from the source or
+  // entered by hand. Its rows point at the draw.
+  "lottery_results",
+  // One customer's prize claim for one draw (2026-10-24): confirmed (paid),
+  // rejected, or reopened for review on the Prize claims page.
+  "lottery_claim",
+  // A pre-roll video ad on the Advertisements page (2026-11-03).
+  "advertisement",
+  // The one "Playback rules" row on the same page (2026-11-04).
+  "advertisement_settings",
 ] as const;
 export type AuditTargetType = (typeof AUDIT_TARGET_TYPES)[number];
 
@@ -125,6 +150,34 @@ export const AUDIT_ACTIONS = [
   "home_promo.delete",
   "home_promo.reorder",
   "home_settings.update",
+  // Lottery dreams page — an import is ONE row for the whole run.
+  "lottery_dream.update",
+  "lottery_dream.import",
+  // Lottery draws page — off_sale is ONE row for the whole list.
+  "lottery_draw.create",
+  "lottery_draw.update",
+  "lottery_draw.open",
+  "lottery_draw.pause",
+  "lottery_draw.close",
+  "lottery_draw.reopen",
+  "lottery_draw.off_sale",
+  // Phase 3: the publish awards the prizes (ONE row for the whole draw;
+  // since 2026-10-24 it pays nobody); the fetch is a system row (actor
+  // null) when the cron did it.
+  "lottery_draw.publish",
+  "lottery_results.fetch",
+  "lottery_results.enter",
+  // Advertisements page — the video rows are the upload (presign /
+  // multipart) and the attach that verified and kept the file; a corner
+  // ad's picture is one row of its own (2026-11-04).
+  "advertisement.create",
+  "advertisement.update",
+  "advertisement.delete",
+  "advertisement.video_attach",
+  "advertisement.image_attach",
+  "advertisement.upload_presign",
+  "advertisement.upload_multipart",
+  "advertisement_settings.update",
   // USERS
   "user.status_change",
   "user.role_change",
@@ -178,6 +231,14 @@ export const AUDIT_ACTIONS = [
   "payment_method_type.update",
   "payment_method_type.delete",
   "finance_settings.update",
+  // The Lottery settings row (price, per-number limit, exchange rate,
+  // closing offset) — money rules, so it sits with the finance settings.
+  "lottery_settings.update",
+  // Prize claims (2026-10-24): confirm pays the wallet (ONE row per claim),
+  // reject holds it with a reason, reopen puts a rejected claim back.
+  "lottery_claim.confirm",
+  "lottery_claim.reject",
+  "lottery_claim.reopen",
   "subscription_plan.create",
   "subscription_plan.update",
   // SYSTEM
@@ -185,6 +246,10 @@ export const AUDIT_ACTIONS = [
   "comment.moderate",
   "comment.delete",
   "feedback.status_change",
+  // The phone-monitor's device pin (SEC-004): a refused second PC (system
+  // row), and the super admin clearing the pin.
+  "bank_events.rejected_device",
+  "bank_events.binding_reset",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

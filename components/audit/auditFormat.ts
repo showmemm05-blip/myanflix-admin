@@ -5,7 +5,13 @@
  */
 import type { StatusTone } from "@/components/shared/StatusBadge";
 import { translations, type TranslationShape } from "@/lib/i18n/translations";
-import type { AuditAction, AuditCategory, AuditLogEntry, AuditTargetType } from "@/types/audit";
+import type {
+  AuditAction,
+  AuditCategory,
+  AuditLogEntry,
+  AuditQuery,
+  AuditTargetType,
+} from "@/types/audit";
 
 /**
  * Compile-time parity between the catalogue and the label maps: a key added
@@ -40,6 +46,50 @@ export function targetTypeLabel(t: TranslationShape, targetType: string): string
   return (t.audit.targetTypes as Record<string, string | undefined>)[targetType] ?? targetType;
 }
 
+/**
+ * What a row's target is called. The backend stores a label with each row, but
+ * the Ad settings rows all carry the retired English "Advertisement playback
+ * rules" (ad-settings.service.ts): those read as the page's own name instead,
+ * in the admin's language, which corrects the rows already written too. The
+ * server's search can't see this name; `auditSearchParams` covers that.
+ */
+export function targetName(
+  t: TranslationShape,
+  entry: Pick<AuditLogEntry, "targetType" | "targetLabel">,
+): string | null {
+  return entry.targetType === "advertisement_settings"
+    ? targetTypeLabel(t, entry.targetType)
+    : entry.targetLabel;
+}
+
+/** Case and spaces don't change which name was meant: Burmese is often typed without the space. */
+function foldName(text: string): string {
+  return text.replace(/\s+/g, "").toLowerCase();
+}
+
+/**
+ * The search box and the Target type filter as the server's query. The server
+ * searches only what a row stores, and an Ad settings row stores neither of the
+ * names `targetName` shows for it. So either name, typed whole, asks for those
+ * rows by their type, which holds even if the stored label changes one day.
+ *
+ * Only the whole name: part of it ("Ad") stays a plain search, or the admin
+ * would lose every other row with those letters. A different chosen type stays
+ * too, because these rows aren't in it.
+ */
+export function auditSearchParams(
+  search: string,
+  targetType: string,
+): Pick<AuditQuery, "search" | "targetType"> {
+  const adSettings: AuditTargetType = "advertisement_settings";
+  const isAdSettingsName = [translations.en, translations.mm].some(
+    ({ audit }) => foldName(audit.targetTypes[adSettings]) === foldName(search),
+  );
+  return isAdSettingsName && (!targetType || targetType === adSettings)
+    ? { search: undefined, targetType: adSettings }
+    : { search: search || undefined, targetType: targetType || undefined };
+}
+
 export function categoryLabel(t: TranslationShape, category: string): string {
   return (t.audit.categories as Record<string, string | undefined>)[category] ?? category;
 }
@@ -54,10 +104,31 @@ export function targetHref(entry: Pick<AuditLogEntry, "targetType" | "targetId">
   // One page holds every promo and the settings, and a reorder row has no
   // targetId — so both land on the list, id or not.
   if (targetType === "home_promo" || targetType === "home_settings") return "/home-promos";
+  // One page holds both dream books, and an import row has no targetId.
+  if (targetType === "lottery_dream") return "/lottery/dreams";
+  // The single settings row has its own page.
+  if (targetType === "lottery_settings") return "/lottery/settings";
+  // A results row's targetId is the results row's own id, not the draw's,
+  // and the sheet has no page of its own — the label names the draw.
+  if (targetType === "lottery_results") return null;
+  // The Prize claims page opens the claim's review dialog from the query
+  // string; a row without an id lands on the list.
+  if (targetType === "lottery_claim") {
+    return targetId ? `/lottery/claims?claim=${encodeURIComponent(targetId)}` : "/lottery/claims";
+  }
+  // The Advertisements list opens the ad's edit dialog from the query
+  // string; a row without an id lands on the list.
+  if (targetType === "advertisement") {
+    return targetId ? `/ads?ad=${encodeURIComponent(targetId)}` : "/ads";
+  }
+  // The Ad settings card sits on the same list page.
+  if (targetType === "advertisement_settings") return "/ads";
   if (!targetId) return null;
   switch (targetType) {
     case "user":
       return `/users/${targetId}`;
+    case "lottery_draw":
+      return `/lottery/draws/${targetId}`;
     case "series":
       return `/series/${targetId}`;
     case "payment_account":

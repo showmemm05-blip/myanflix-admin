@@ -29,7 +29,9 @@ export type BankRiskReason =
   | "AMBIGUOUS_MATCH"
   | "NO_BANK_TRANSACTION"
   | "DUPLICATE_PAYOUT_CODE"
-  | "COUNTERPARTY_MISMATCH";
+  | "COUNTERPARTY_MISMATCH"
+  // SEC-004: the bank event that claimed the deposit has no screenshot yet — soft, cleared by the upload.
+  | "NO_SCREENSHOT";
 
 /** The server-side `verification` list filter — a combination of status × matchStatus. */
 export type VerificationFilter = "all" | "awaiting_bank" | "verified" | "needs_review" | "no_bank_transaction";

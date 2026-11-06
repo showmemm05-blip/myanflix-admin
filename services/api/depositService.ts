@@ -46,6 +46,8 @@ interface BackendDeposit {
   bankTransactionId?: string | null;
   /** The bank's "from" name on that row (M-16). */
   bankCounterparty?: string | null;
+  /** The phone that captured that row (SEC-004). */
+  bankDeviceSerial?: string | null;
   declaredTransferAt?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -91,6 +93,7 @@ function mapDeposit(d: BackendDeposit): Deposit {
     riskReasons: d.riskReasons ?? [],
     hasBankScreenshot: d.hasBankScreenshot ?? false,
     bankCounterparty: d.bankCounterparty ?? null,
+    bankDeviceSerial: d.bankDeviceSerial ?? null,
     bankTransactionId: d.bankTransactionId ?? null,
     declaredTransferAt: d.declaredTransferAt ?? null,
     createdAt: d.createdAt,

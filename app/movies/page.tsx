@@ -218,7 +218,7 @@ export default function MoviesPage() {
                 </Button>
               )}
               {canCreate && (
-                <Button render={<Link href="/movies/upload" />} nativeButton={false}>
+                <Button render={<Link href="/movies/upload-external" />} nativeButton={false}>
                   <Plus className="size-4" />
                   {t.movies.uploadMovie}
                 </Button>
@@ -235,7 +235,7 @@ export default function MoviesPage() {
           description={t.movies.page.emptyDescription}
           action={
             canCreate && (
-              <Button render={<Link href="/movies/upload" />} nativeButton={false}>
+              <Button render={<Link href="/movies/upload-external" />} nativeButton={false}>
                 <Plus className="size-4" />
                 {t.movies.uploadMovie}
               </Button>
