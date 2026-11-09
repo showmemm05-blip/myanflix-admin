@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Tv } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
@@ -34,6 +35,7 @@ const PAGE_LIMIT = 25;
 function SeriesPageContent() {
   const { t } = useLanguage();
   const { can } = useRole();
+  const router = useRouter();
   const canCreate = can("SERIES.CREATE");
   const [accessTypeFilter, setAccessTypeFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
@@ -225,6 +227,9 @@ function SeriesPageContent() {
         onOpenChange={setFormOpen}
         series={editSeries}
         onSaved={() => refetch()}
+        // A show created from TMDB already has its details: straight to its
+        // own page, ready for episodes.
+        onCreatedFromTmdb={(created) => router.push(`/series/${created.id}`)}
       />
 
       <ConfirmDialog

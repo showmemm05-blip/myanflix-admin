@@ -25,17 +25,28 @@ import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import { SERIES_STATUS_TONE, getSeriesStatusLabel } from "@/components/series/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { ActorPicker } from "@/components/actors/ActorPicker";
+import {
+  DESCRIPTION_MAX_LENGTH,
+  DescriptionLanguageSection,
+  descriptionProblem,
+  isDescriptionRequiredError,
+} from "@/components/shared/DescriptionLanguageSection";
 import { MediaTypeSelect } from "@/components/shared/MediaTypeSelect";
 import { FileUploadField } from "@/components/movies/FileUploadField";
+import { TmdbTaggedField } from "@/components/tmdb/TmdbFromTag";
+import { TmdbMatchDialog, tmdbTargetOfSeries } from "@/components/tmdb/TmdbMatchDialog";
+import { TmdbStrip } from "@/components/tmdb/TmdbStrip";
+import type { TmdbAction } from "@/components/tmdb/tmdbStatus";
+import { tmdbErrorCode } from "@/components/tmdb/tmdbWords";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useObjectUrl } from "@/lib/hooks/use-object-url";
+import { useTmdbConnection } from "@/lib/hooks/use-tmdb-states";
 import { useLanguage } from "@/lib/context/language-context";
 import { useRole } from "@/lib/context/role-context";
 import {
@@ -51,6 +62,7 @@ import { GENRE_OPTIONS, LANGUAGES } from "@/lib/constants/movie-options";
 import { parseRatingInput, ratingToInput } from "@/lib/rating";
 import { movieService } from "@/services/api/movieService";
 import { seriesService } from "@/services/api/seriesService";
+import { tmdbService } from "@/services/api/tmdbService";
 import { uploadService } from "@/services/api/uploadService";
 import type { Movie } from "@/types/movie";
 import type { Series } from "@/types/series";
@@ -63,6 +75,13 @@ interface EpisodeRow {
 }
 
 const ACTIVE_JOB_STATUSES = new Set(["waiting", "uploading", "paused", "offline", "completed", "failed"]);
+
+/** Same ids, whatever the order — a cast or category list is a set. */
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const seen = new Set(a);
+  return b.every((id) => seen.has(id));
+}
 
 function SeriesManageContent() {
   const { t } = useLanguage();
@@ -80,7 +99,6 @@ function SeriesManageContent() {
 
   const {
     data: series,
-    isLoading: loadingSeries,
     error: seriesError,
     refetch: refetchSeries,
   } = useAsyncData(() => seriesService.getSeriesById(seriesId), [seriesId]);
@@ -98,6 +116,7 @@ function SeriesManageContent() {
   // ---- Series info form ----
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionMm, setDescriptionMm] = useState("");
   const [genre, setGenre] = useState("");
   const [language, setLanguage] = useState("English");
   const [country, setCountry] = useState<string | null>(null);
@@ -114,12 +133,21 @@ function SeriesManageContent() {
   const bannerPreview = useObjectUrl(bannerFile);
   const [savingInfo, setSavingInfo] = useState(false);
   const infoSeededRef = useRef(false);
+  // Set when the stored show changed under the form — a save, or details
+  // applied from TMDB — so the next load fills the form again. Any other
+  // reload (a publish, say) must leave what staff are typing alone, which
+  // is why the form is not simply re-seeded on every load.
+  const reseedInfoRef = useRef(false);
 
   useEffect(() => {
-    if (!series || infoSeededRef.current) return;
+    if (!series) return;
+    if (infoSeededRef.current && !reseedInfoRef.current) return;
     infoSeededRef.current = true;
+    reseedInfoRef.current = false;
     setTitle(series.title);
     setDescription(series.description);
+    // `?? ""`: a backend from before the Burmese description leaves the field out.
+    setDescriptionMm(series.descriptionMm ?? "");
     setGenre(series.genre);
     setLanguage(series.language);
     setCountry(series.country ?? null);
@@ -129,11 +157,70 @@ function SeriesManageContent() {
     setCategoryIds(series.categories.map((c) => c.id));
     // `?? []` guards a response cached before the cast field existed.
     setActorIds((series.actors ?? []).map((a) => a.id));
+    // The stored pictures are what the form shows from here on.
+    setThumbnailFile(null);
+    setBannerFile(null);
   }, [series]);
 
+  // ---- Details from TMDB (the show itself; episodes are not looked up) ----
+  // Filling saves pictures, so it needs MEDIA.UPLOAD on top of SERIES.EDIT.
+  // "Not connected" is only what the server itself said: its status (which
+  // asks MOVIES.VIEW), or the state route refusing for want of a key.
+  const canUseTmdb = canEdit && canUploadMedia;
+  const tmdbConnection = useTmdbConnection({ enabled: can("MOVIES.VIEW") });
+  const {
+    data: tmdbStateData,
+    error: tmdbStateError,
+    refetch: refetchTmdbState,
+  } = useAsyncData(() => tmdbService.getSeriesState(seriesId), [seriesId]);
+  const tmdbState = tmdbStateError ? null : tmdbStateData;
+  const tmdbNotConnected =
+    tmdbConnection.notConnected || tmdbErrorCode(tmdbStateError) === "TMDB_NOT_CONFIGURED";
+  // No strip when the state was refused for another reason (an older server).
+  const tmdbStripShown = tmdbNotConnected || tmdbStateError === null;
+  const [tmdbStart, setTmdbStart] = useState<"pick" | "refill" | null>(null);
+
+  const handleTmdbAction = (action: TmdbAction) => {
+    if (action === "refresh") {
+      refetchTmdbState();
+      return;
+    }
+    // Nothing looks a series up in the background: "Find details" and
+    // "Change match" open the list, "Refill" the review of the show it has.
+    setTmdbStart(action === "refill" ? "refill" : "pick");
+  };
+
+  /** The stored show changed: load it again, fill the form from it, and read what TMDB now says about it. */
+  const reloadInfo = () => {
+    reseedInfoRef.current = true;
+    refetchSeries();
+    refetchTmdbState();
+  };
+
   const handleSaveInfo = async () => {
-    if (!title.trim() || !description.trim() || !genre) {
-      toast.error(t.series.missingFieldsToast);
+    // What is missing is asked for by name, one thing at a time. A show
+    // filled from TMDB can arrive without a genre or a language word (TMDB
+    // had none that maps), and "save failed" would not say which.
+    if (!title.trim()) {
+      toast.error(t.tmdbPages.series.nameRequired);
+      return;
+    }
+    // One language is enough, but a show needs a description in at least one.
+    const problem = descriptionProblem(description, descriptionMm, { required: true });
+    if (problem === "missing") {
+      toast.error(t.tmdbPages.series.descriptionRequired);
+      return;
+    }
+    if (problem === "too_long") {
+      toast.error(t.tmdbPages.editMovie.descriptionTooLong(DESCRIPTION_MAX_LENGTH));
+      return;
+    }
+    if (!genre) {
+      toast.error(t.tmdbPages.series.genreRequired);
+      return;
+    }
+    if (!language) {
+      toast.error(t.tmdbPages.series.languageRequired);
       return;
     }
     // Empty is a value here (0 = unrated); only a malformed rating blocks the save.
@@ -145,12 +232,14 @@ function SeriesManageContent() {
     setSavingInfo(true);
     try {
       const [posterUrl, coverUrl] = await Promise.all([
-        thumbnailFile ? uploadService.uploadImage(thumbnailFile, "series").then((r) => r.url) : series?.posterUrl ?? undefined,
-        bannerFile ? uploadService.uploadImage(bannerFile, "series").then((r) => r.url) : series?.coverUrl ?? undefined,
+        thumbnailFile ? uploadService.uploadImage(thumbnailFile, "series").then((r) => r.url) : undefined,
+        bannerFile ? uploadService.uploadImage(bannerFile, "series").then((r) => r.url) : undefined,
       ]);
       await seriesService.updateSeries(seriesId, {
         title: title.trim(),
         description: description.trim(),
+        // "" clears the Burmese text (stored as none).
+        descriptionMm: descriptionMm.trim(),
         genre,
         language,
         country: country ?? "",
@@ -159,13 +248,16 @@ function SeriesManageContent() {
         accessType,
         categoryIds,
         actorIds,
-        posterUrl,
-        coverUrl,
+        // A picture goes out only when a new one was picked; otherwise the
+        // stored one — staff's own or TMDB's — is left exactly as it is.
+        ...(posterUrl ? { posterUrl } : {}),
+        ...(coverUrl ? { coverUrl } : {}),
       });
       toast.success(t.series.manage.savedToast);
-      refetchSeries();
-    } catch {
-      toast.error(t.series.saveFailedToast, { description: t.movies.pleaseTryAgain });
+      reloadInfo();
+    } catch (err) {
+      if (isDescriptionRequiredError(err)) toast.error(t.tmdbPages.series.descriptionRequired);
+      else toast.error(t.series.saveFailedToast, { description: t.movies.pleaseTryAgain });
     } finally {
       setSavingInfo(false);
     }
@@ -410,13 +502,46 @@ function SeriesManageContent() {
     );
   }
 
-  if (loadingSeries || !series) {
+  // The first load only. A later reload — after a save, a publish, details
+  // applied from TMDB — keeps the page on screen while the fresh show
+  // arrives; blanking it would also close the TMDB dialog, whose summary is
+  // still showing at that moment.
+  if (!series || series.id !== seriesId) {
     return (
       <div className="flex items-center justify-center py-24">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Whether the card holds changes that are not stored yet. The TMDB
+  // buttons wait for a save: a fill is reviewed against what is stored, not
+  // against what is typed.
+  const infoUnsaved =
+    title.trim() !== series.title.trim() ||
+    description.trim() !== (series.description ?? "").trim() ||
+    descriptionMm.trim() !== (series.descriptionMm ?? "").trim() ||
+    genre !== series.genre ||
+    language !== series.language ||
+    (country ?? "") !== (series.country ?? "") ||
+    Number(releaseYear) !== series.releaseYear ||
+    parseRatingInput(rating) !== series.rating ||
+    accessType !== series.accessType ||
+    !sameIds(categoryIds, series.categories.map((c) => c.id)) ||
+    !sameIds(actorIds, (series.actors ?? []).map((a) => a.id)) ||
+    thumbnailFile !== null ||
+    bannerFile !== null;
+
+  // A word outside the list stays choosable, so the card never loses it.
+  const languageOptions =
+    series.language && !LANGUAGES.includes(series.language) ? [...LANGUAGES, series.language] : LANGUAGES;
+
+  // The "From TMDB" marks only say where a value came from: a picked file,
+  // or a letter typed in the English box, makes its mark go.
+  const posterFromTmdb = tmdbState?.images.poster === "tmdb" && !thumbnailFile;
+  const bannerFromTmdb = tmdbState?.images.cover === "tmdb" && !bannerFile;
+  const englishFromTmdb =
+    (tmdbState?.autoFields.includes("description") ?? false) && description === series.description;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -475,14 +600,32 @@ function SeriesManageContent() {
           <CardTitle>{t.series.manage.infoCardTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {/* Not linked: Find details. Linked: the match, Refill and Change match. */}
+          {tmdbStripShown && (
+            <TmdbStrip
+              state={tmdbState}
+              notConnected={tmdbNotConnected}
+              unsaved={infoUnsaved}
+              canAct={canUseTmdb && !savingInfo}
+              onAction={handleTmdbAction}
+            />
+          )}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="series-title">{t.series.form.titleLabel}</Label>
+            <Label htmlFor="series-title">{t.tmdbPages.series.nameLabel}</Label>
             <Input id="series-title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="series-description">{t.series.form.descriptionLabel}</Label>
-            <Textarea id="series-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
+          {/* English is what TMDB fills; Burmese is typed by hand, at any time. */}
+          <DescriptionLanguageSection
+            idPrefix="series-info"
+            layout="columns"
+            rows={4}
+            english={description}
+            burmese={descriptionMm}
+            onEnglishChange={setDescription}
+            onBurmeseChange={setDescriptionMm}
+            englishFromTmdb={englishFromTmdb}
+            disabled={savingInfo}
+          />
           <div className="grid grid-cols-4 gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>{t.series.form.genreLabel}</Label>
@@ -496,9 +639,11 @@ function SeriesManageContent() {
             <div className="flex flex-col gap-1.5">
               <Label>{t.series.form.languageLabel}</Label>
               <Select value={language} onValueChange={(v) => v && setLanguage(v)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t.tmdbPages.editMovie.languagePlaceholder} />
+                </SelectTrigger>
                 <SelectContent>
-                  {LANGUAGES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                  {languageOptions.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -559,25 +704,32 @@ function SeriesManageContent() {
           </div>
           <ActorPicker value={actorIds} onChange={setActorIds} disabled={savingInfo} hint={t.actors.picker.seriesHint} />
           <div className="grid grid-cols-2 gap-4">
-            <FileUploadField
-              label={t.series.manage.thumbnailLabel}
-              accept="image/*"
-              variant="image"
-              aspect="poster"
-              file={thumbnailFile}
-              previewUrl={thumbnailPreview ?? series.posterUrl ?? undefined}
-              onChange={setThumbnailFile}
-            />
-            <FileUploadField
-              label={t.series.manage.bannerLabel}
-              accept="image/*"
-              variant="image"
-              aspect="wide"
-              file={bannerFile}
-              previewUrl={bannerPreview ?? series.coverUrl ?? undefined}
-              onChange={setBannerFile}
-            />
+            <TmdbTaggedField fromTmdb={posterFromTmdb}>
+              <FileUploadField
+                label={t.series.manage.thumbnailLabel}
+                accept="image/*"
+                variant="image"
+                aspect="poster"
+                file={thumbnailFile}
+                previewUrl={thumbnailPreview ?? series.posterUrl ?? undefined}
+                onChange={setThumbnailFile}
+              />
+            </TmdbTaggedField>
+            <TmdbTaggedField fromTmdb={bannerFromTmdb}>
+              <FileUploadField
+                label={t.series.manage.bannerLabel}
+                accept="image/*"
+                variant="image"
+                aspect="wide"
+                file={bannerFile}
+                previewUrl={bannerPreview ?? series.coverUrl ?? undefined}
+                onChange={setBannerFile}
+              />
+            </TmdbTaggedField>
           </div>
+          {(posterFromTmdb || bannerFromTmdb) && (
+            <p className="text-xs text-muted-foreground">{t.tmdbPages.editMovie.ownPictureHint}</p>
+          )}
           {canEdit && (
             <Button onClick={handleSaveInfo} disabled={savingInfo}>
               {savingInfo && <Loader2 className="size-4 animate-spin" />}
@@ -774,6 +926,23 @@ function SeriesManageContent() {
           refetchEpisodes();
           setEditMovie(null);
         }}
+      />
+
+      {/* The same two steps as for a movie — pick, then review — without
+          the length, director and age rating lines a series has no place for. */}
+      <TmdbMatchDialog
+        open={tmdbStart !== null}
+        onOpenChange={(open) => !open && setTmdbStart(null)}
+        target={tmdbStart !== null ? tmdbTargetOfSeries(series, tmdbState) : null}
+        start={tmdbStart ?? undefined}
+        onApplied={() => {
+          // The details are written; the dialog stays on its summary while
+          // the card loads the show again and fills its form from it.
+          reloadInfo();
+          toast.success(t.tmdbPages.series.appliedToast);
+        }}
+        // Refused or broken off: load the show again so nothing half-done is shown.
+        onApplyFailed={reloadInfo}
       />
 
       <ConfirmDialog

@@ -2,13 +2,16 @@
 
 import Image from "next/image";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Eye, Loader2, Pencil, RefreshCw, Rocket, Trash2 } from "lucide-react";
+import { Eye, Loader2, Pencil, RefreshCw, Rocket, ScanSearch, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { TmdbStatusLine } from "@/components/tmdb/TmdbStatusLine";
+import type { TmdbAction } from "@/components/tmdb/tmdbStatus";
 import type { TranslationShape } from "@/lib/i18n/translations";
 import type { AccessType, Movie, MovieStatus } from "@/types/movie";
+import type { TmdbMovieState } from "@/types/tmdb";
 import { formatDuration, UNKNOWN_DURATION } from "@/lib/format";
 
 export const STATUS_TONE: Record<MovieStatus, StatusTone> = {
@@ -52,6 +55,22 @@ export function getAccessTypeLabel(t: TranslationShape, accessType: AccessType):
   return accessType === "FREE" ? t.movies.accessType.free : t.movies.accessType.subscription;
 }
 
+/**
+ * What the table needs to show each movie's TMDB details (2026-11-06, the
+ * `Ready` board). The page owns the states and what a press does.
+ */
+export interface MovieColumnsTmdb {
+  /** Lookup state by movie id (lib/hooks/use-tmdb-states). A row with none yet shows an empty cell. */
+  states: ReadonlyMap<string, TmdbMovieState>;
+  /** MOVIES.EDIT + MEDIA.UPLOAD — may start a lookup or open the pick-a-match dialog. */
+  canAct: boolean;
+  /** The movie whose lookup request is on its way, if any: its button waits. */
+  busyId: string | null;
+  /** Polling stopped after 3 minutes with a row still "Finding details…": it gets Try again. */
+  timedOut: boolean;
+  onAction: (movie: Movie, action: TmdbAction) => void;
+}
+
 interface GetMovieColumnsOptions {
   t: TranslationShape;
   /** MOVIES.EDIT — the Edit button and the reprocess-video retry. */
@@ -76,6 +95,21 @@ interface GetMovieColumnsOptions {
   publishingId?: string | null;
   /** MOVIES.PUBLISH — required on top of `onPublish` for the button to show. */
   canPublish?: boolean;
+  /**
+   * Opt-in only, like `onPublish` — the Ready to Publish page passes it
+   * while TMDB is connected. It adds the "Details" column (the TMDB badge
+   * and its button) and "Find details" among the row buttons for a title
+   * that was never looked up. Omitted, the table is exactly as on the main
+   * Movies page.
+   */
+  tmdb?: MovieColumnsTmdb;
+  /**
+   * The raw folder name each upload came from, by movie id — a "Folder: …"
+   * line under the title. Apart from `tmdb` on purpose: it shows while TMDB
+   * is not connected too, when there is no Details column and no lookup to
+   * correct a title that was cut out of the folder name badly.
+   */
+  folderNames?: ReadonlyMap<string, string>;
 }
 
 export function getMovieColumns({
@@ -90,6 +124,8 @@ export function getMovieColumns({
   onPublish,
   publishingId,
   canPublish = false,
+  tmdb,
+  folderNames,
 }: GetMovieColumnsOptions): ColumnDef<Movie>[] {
   const columns: ColumnDef<Movie>[] = [
     {
@@ -97,6 +133,9 @@ export function getMovieColumns({
       header: t.movies.columns.title,
       cell: ({ row }) => {
         const movie = row.original;
+        // The upload's raw folder name, for staff only: the title may by now
+        // be TMDB's name, and the folder is how an uploader recognises it.
+        const sourceName = folderNames?.get(movie.id);
         return (
           <div className="flex items-center gap-3">
             <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -111,11 +150,39 @@ export function getMovieColumns({
             <div className="min-w-0">
               <p className="max-w-52 truncate font-medium">{movie.title}</p>
               <p className="text-xs tabular-nums text-muted-foreground">{movie.releaseYear}</p>
+              {sourceName && (
+                <p
+                  className="line-clamp-2 max-w-52 text-xs whitespace-normal text-muted-foreground [overflow-wrap:anywhere]"
+                  title={sourceName}
+                >
+                  {t.tmdb.folder(sourceName)}
+                </p>
+              )}
             </div>
           </div>
         );
       },
     },
+    ...(tmdb
+      ? [
+          {
+            id: "tmdb",
+            header: t.tmdbPages.readyToPublish.detailsColumn,
+            // The badge and the one button that goes with it; "Find details"
+            // for a title never looked up sits with the row buttons instead.
+            cell: ({ row }) => (
+              <TmdbStatusLine
+                className="max-w-64"
+                state={tmdb.states.get(row.original.id)}
+                canAct={tmdb.canAct}
+                busy={tmdb.busyId === row.original.id}
+                timedOut={tmdb.timedOut}
+                onAction={(action) => tmdb.onAction(row.original, action)}
+              />
+            ),
+          } satisfies ColumnDef<Movie>,
+        ]
+      : []),
     {
       accessorKey: "genre",
       header: t.movies.columns.genre,
@@ -191,6 +258,16 @@ export function getMovieColumns({
             {canEdit && (
               <>
                 <RowActionButton icon={Pencil} label={t.common.edit} onClick={() => onEdit(movie)} />
+                {/* A title never looked up has no badge to carry a button, so
+                    its "Find details" lives here. */}
+                {tmdb?.canAct && tmdb.states.get(movie.id)?.status === "NONE" && (
+                  <RowActionButton
+                    icon={ScanSearch}
+                    label={t.tmdb.actions.lookup}
+                    loading={tmdb.busyId === movie.id}
+                    onClick={() => tmdb.onAction(movie, "lookup")}
+                  />
+                )}
                 {movie.status === "DRAFT" && (
                   <RowActionButton
                     icon={RefreshCw}

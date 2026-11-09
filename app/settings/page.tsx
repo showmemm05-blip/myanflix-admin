@@ -6,6 +6,7 @@ import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { RoleBadge } from "@/components/shared/RoleBadge";
+import { TmdbConnectionCard } from "@/components/tmdb/TmdbConnectionCard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,6 +58,10 @@ export default function SettingsPage() {
           <TabsTrigger value="notifications">{t.settings.tabs.notifications}</TabsTrigger>
           <TabsTrigger value="appearance">{t.settings.tabs.appearance}</TabsTrigger>
           <TabsTrigger value="security">{t.settings.tabs.security}</TabsTrigger>
+          {/* For staff who can see movies: the status route asks MOVIES.VIEW. */}
+          {canManageContent && (
+            <TabsTrigger value="connections">{t.tmdbPages.settings.connectionsTab}</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="profile" className="mt-6">
@@ -185,6 +190,19 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* The one place that says whether TMDB is working (2026-11-06). The
+            key itself is never shown or typed here: the owner adds it to the
+            server's settings file. The card asks the server only once this
+            tab is opened. */}
+        {canManageContent && (
+          <TabsContent value="connections" className="mt-6">
+            <p className="mb-4 max-w-2xl text-sm text-muted-foreground">
+              {t.tmdbPages.settings.connectionsDescription}
+            </p>
+            <TmdbConnectionCard />
+          </TabsContent>
+        )}
 
       </Tabs>
       </div>

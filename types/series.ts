@@ -7,7 +7,10 @@ export type SeriesStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
 export interface Series {
   id: string;
   title: string;
+  /** The English / default description, and the fallback when there is no Burmese one. Can be "" since a show may have only a Burmese text. */
   description: string;
+  /** The Burmese description, typed by staff; null = none. */
+  descriptionMm: string | null;
   posterUrl: string | null;
   coverUrl: string | null;
   genre: string;
@@ -46,6 +49,8 @@ export interface AdminEpisode extends Movie {
 export interface SeriesFormValues {
   title: string;
   description: string;
+  /** The Burmese description; "" clears it (stored as null). Omit to leave it alone. */
+  descriptionMm?: string;
   genre: string;
   language: string;
   /** The series TYPE word; "" clears it (stored as null). Omit to leave it alone. */

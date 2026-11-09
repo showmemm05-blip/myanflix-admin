@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { format } from "date-fns";
-import { Clock, Crown, Film, Globe, Star } from "lucide-react";
+import { Clapperboard, Clock, Crown, Film, Globe, ShieldCheck, Star } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -19,8 +19,13 @@ import {
   getStatusLabel,
   STATUS_TONE,
 } from "@/components/movies/columns";
+import { tmdbMatchLabel } from "@/components/tmdb/tmdbWords";
+import { AGE_RATING_LABELS } from "@/lib/constants/movie-options";
 import { formatDuration } from "@/lib/format";
+import { useAsyncData } from "@/lib/hooks/use-async-data";
 import { useLanguage } from "@/lib/context/language-context";
+import { useRole } from "@/lib/context/role-context";
+import { tmdbService } from "@/services/api/tmdbService";
 import type { Movie } from "@/types/movie";
 
 /** Local "no image" placeholder (public/placeholder-poster.svg) — never a third-party image host. */
@@ -36,8 +41,28 @@ export function MovieDetailsSheet({
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useLanguage();
+  const { can } = useRole();
   // null when the runtime was never measured — the separator goes with it.
   const runtime = movie ? formatDuration(movie.duration) : null;
+
+  // Which TMDB entry the details came from, for the one line under the
+  // descriptions. Asked only while the sheet is open, only for a standalone
+  // movie (episodes are never looked up) and only by staff who may read it;
+  // a refusal — TMDB not connected, an older server — simply shows no line.
+  const tmdbMovieId = open && movie && movie.seriesId === null && can("MOVIES.VIEW") ? movie.id : null;
+  const { data: tmdbStates } = useAsyncData(
+    () => (tmdbMovieId ? tmdbService.getMovieStates([tmdbMovieId]) : Promise.resolve([])),
+    [tmdbMovieId],
+  );
+  // The answer of the movie on screen only: the previous movie's answer is
+  // still held for a moment after another row is opened.
+  const tmdbState = tmdbStates?.find((state) => state.movieId === tmdbMovieId) ?? null;
+  const tmdbMatch = tmdbState?.tmdbId != null ? tmdbMatchLabel(t, tmdbState.match) : "";
+
+  const descriptionEn = movie?.description?.trim() ?? "";
+  // `?.`: a backend from before the Burmese description leaves the field out.
+  const descriptionMm = movie?.descriptionMm?.trim() ?? "";
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto scrollbar-thin sm:max-w-md">
@@ -78,7 +103,36 @@ export function MovieDetailsSheet({
                 ))}
               </div>
 
-              <p className="text-sm text-muted-foreground">{movie.description}</p>
+              {/* Both texts, each under its language: viewers get the one of
+                  their app language, staff need to see which exist. */}
+              {descriptionEn || descriptionMm ? (
+                <div className="flex flex-col gap-3">
+                  {descriptionEn && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-muted-foreground">{t.tmdbPages.detailsSheet.descriptionEnglish}</p>
+                      <p lang="en" className="text-sm whitespace-pre-line [overflow-wrap:anywhere]">
+                        {descriptionEn}
+                      </p>
+                    </div>
+                  )}
+                  {descriptionMm && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs text-muted-foreground">{t.tmdbPages.detailsSheet.descriptionBurmese}</p>
+                      <p lang="my" className="text-sm leading-relaxed whitespace-pre-line [overflow-wrap:anywhere]">
+                        {descriptionMm}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t.tmdbPages.detailsSheet.noDescription}</p>
+              )}
+
+              {tmdbMatch && (
+                <p className="text-xs text-muted-foreground [overflow-wrap:anywhere]">
+                  {t.tmdbPages.detailsSheet.detailsFromTmdb(tmdbMatch)}
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="glass-card rounded-lg p-3">
@@ -113,6 +167,22 @@ export function MovieDetailsSheet({
                   </div>
                   <p className="mt-1 text-lg font-semibold tabular-nums">
                     {movie.rating > 0 ? movie.rating.toFixed(1) : "—"}
+                  </p>
+                </div>
+                <div className="glass-card rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Clapperboard className="size-3.5" />
+                    {t.tmdbPages.detailsSheet.director}
+                  </div>
+                  <p className="mt-1 text-lg font-semibold [overflow-wrap:anywhere]">{movie.director || "—"}</p>
+                </div>
+                <div className="glass-card rounded-lg p-3">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <ShieldCheck className="size-3.5" />
+                    {t.tmdbPages.detailsSheet.ageRating}
+                  </div>
+                  <p className="mt-1 text-lg font-semibold">
+                    {movie.ageRating ? (AGE_RATING_LABELS[movie.ageRating] ?? movie.ageRating) : "—"}
                   </p>
                 </div>
               </div>

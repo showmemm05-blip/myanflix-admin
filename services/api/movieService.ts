@@ -10,6 +10,9 @@ export interface MovieQuery extends PaginationParams {
   search?: string;
 }
 
+/** The API's limit for `sourceName` on POST /movies/upload-placeholder (`@MaxLength(255)`). */
+const SOURCE_NAME_MAX_LENGTH = 255;
+
 export const movieService = {
   getMovies(query: MovieQuery = {}) {
     return apiClient.get<PaginatedResponse<Movie>>("/movies", { params: query });
@@ -48,16 +51,32 @@ export const movieService = {
    * `options.duration` is whole minutes and is only sent when >= 1: 0 is the
    * API's unknown sentinel and the DTO rejects it, so an unmeasured bundle
    * simply omits the field and the row is born with 0.
+   *
+   * `options.sourceName` is the raw folder name of a standalone movie
+   * (2026-11-06, the TMDB details): the server keeps it for staff, reads the
+   * title and year the row is born with out of it, and later searches TMDB
+   * with it — so the title in the answer can differ from the `title` sent
+   * (`Inception 2010 1080p BluRay` comes back as `Inception`). Never sent for
+   * an episode. It is cut to the API's 255 characters on whole characters: a
+   * longer one would have the whole placeholder refused.
    */
   createUploadPlaceholder(
     title: string,
     series?: { seriesId: string; seasonNumber: number; episodeNumber: number },
-    options?: { duration?: number },
+    options?: { duration?: number; sourceName?: string },
     signal?: AbortSignal,
   ) {
+    const sourceName = series
+      ? ""
+      : Array.from(options?.sourceName?.trim() ?? "").slice(0, SOURCE_NAME_MAX_LENGTH).join("");
     return apiClient.post<Movie>(
       "/movies/upload-placeholder",
-      { title, ...series, ...(options?.duration ? { duration: options.duration } : {}) },
+      {
+        title,
+        ...series,
+        ...(options?.duration ? { duration: options.duration } : {}),
+        ...(sourceName ? { sourceName } : {}),
+      },
       { signal },
     );
   },

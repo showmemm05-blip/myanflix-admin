@@ -4978,6 +4978,336 @@ const en = {
       noChanges: "Nothing recorded as changed for this entry.",
     },
   },
+  /**
+   * Movie and series details from TMDB (2026-11-06,
+   * docs/movie-details-tmdb-2026-11-06) — the words of the shared pieces:
+   * components/tmdb/ (the status badge, the strip, the two-step "Pick a
+   * match" → "Review details" dialog, the connection card) and
+   * components/shared/DescriptionLanguageSection.tsx. What the pages
+   * themselves newly say is in `tmdbPages` below. "TMDB" is the service's
+   * own name and is never translated.
+   */
+  tmdb: {
+    /** The status badge — components/tmdb/tmdbStatus.ts picks the key; the last five are why a lookup failed. */
+    badge: {
+      finding: "Finding details…",
+      matched: "Details from TMDB",
+      needsPick: "Several matches",
+      notFound: "Not found on TMDB",
+      unreachable: "Couldn’t reach TMDB",
+      busy: "TMDB is busy",
+      keyRejected: "TMDB key not accepted",
+      interrupted: "Interrupted",
+      failed: "Couldn’t get details",
+    },
+    /** The button beside the badge, the strip's buttons and the row menu (tmdbStatus.ts `TmdbAction`). */
+    actions: {
+      lookup: "Find details",
+      retry: "Try again",
+      pick: "Pick a match",
+      search: "Search TMDB",
+      change: "Change match",
+      refill: "Refill",
+      refresh: "Try again",
+    },
+    /** The sentence beside the badge on an upload card and in the strip. */
+    notes: {
+      finding: "This takes a few seconds.",
+      needsPick: "More than one movie has this name.",
+      notFound: "Search with other words, or type the details by hand.",
+      unreachable: "The server couldn’t get to TMDB. Try again in a moment.",
+      busy: "TMDB had too many requests for a moment. Try again shortly.",
+      keyRejected: "TMDB refused the key. See Settings › Connections.",
+      interrupted: "The server restarted while it was looking. Try again.",
+      failed: "Something went wrong while getting the details. Try again.",
+      none: "No details from TMDB yet.",
+      /** Polling stopped after 3 minutes with the row still "Finding details…". */
+      timedOut: "This is taking longer than usual.",
+    },
+    /** "Inception (2010)"; a match with no known year is just its name. */
+    matchWithYear: (title: string, year: number) => `${title} (${year})`,
+    /** After the match in the strip: "Inception (2010) · fetched 6 Nov 2026". */
+    fetchedOn: (date: string) => `fetched ${date}`,
+    /** The small tag on a poster or banner that came from TMDB, and under an unchanged TMDB description. */
+    fromTmdb: "From TMDB",
+    /** The raw folder name of the upload, shown to staff only. */
+    folder: (name: string) => `Folder: ${name}`,
+    strip: {
+      /** Names the strip for screen readers. */
+      label: "Details from TMDB",
+      checking: "Checking TMDB…",
+      notConnected: "TMDB is not connected, so details are typed by hand.",
+      /** Why the buttons are greyed while the form has unsaved changes. */
+      saveFirst: "Save your changes first",
+    },
+    /** Step 1 of the dialog. */
+    pick: {
+      title: "Pick a match",
+      stepMovie: "Step 1 of 2 · Choose the right movie",
+      stepSeries: "Step 1 of 2 · Choose the right series",
+      /** The same list when picking is all there is (a new series found on TMDB). */
+      chooseMovie: "Choose the right movie",
+      chooseSeries: "Choose the right series",
+      folderName: "Folder name:",
+      movieName: "Movie name",
+      seriesName: "Series name",
+      year: "Year",
+      yearInvalid: "Enter a year from 1888 to 2100, or leave it empty.",
+      nameRequired: "Type a name to search for.",
+      search: "Search",
+      searching: "Searching TMDB…",
+      results: "Results",
+      originalTitle: (title: string) => `Original title: ${title}`,
+      noStory: "No description on TMDB.",
+      usedBy: (title: string) => `Already used by: ${title}`,
+      /** On the entry this title is linked to now (Change match). */
+      currentMatch: "The match in use now",
+      yearIgnored: "No year match, showing all years.",
+      nothingFoundTitle: "Nothing found",
+      nothingFoundHint: "Try a shorter name or remove the year.",
+      cantSeeIt: "Can’t see it? Try a shorter name, or remove the year.",
+      startHint: "Type the name, then press Search.",
+      continue: "Continue",
+    },
+    /** Step 2 of the dialog. */
+    review: {
+      title: "Review details",
+      step: "Step 2 of 2 · Choose what to fill in",
+      pickedMatch: "The match you picked",
+      currentMatch: "The match in use now",
+      loading: "Getting the details from TMDB…",
+      columns: {
+        detail: "Detail",
+        now: "Now",
+        fromTmdb: "From TMDB",
+        use: "Use",
+      },
+      /** One per `TmdbField` (types/tmdb.ts). */
+      fields: {
+        title: "Name",
+        description: "Description",
+        releaseYear: "Year",
+        duration: "Length",
+        genre: "Genre",
+        language: "Language",
+        country: "Type",
+        director: "Director",
+        ageRating: "Age rating",
+        poster: "Poster",
+        cover: "Banner",
+        categories: "Categories",
+        cast: "Actors",
+      },
+      /** The switch's name for screen readers. */
+      useFromTmdb: (name: string) => `Use ${name} from TMDB`,
+      /** What "Now" says when nothing is there: text, the age rating, a picture. */
+      empty: "Empty",
+      notSet: "Not set",
+      noPicture: "None",
+      /** "Now" for a picture staff uploaded themselves. */
+      yourUpload: "Your upload",
+      posterFromTmdb: "Poster from TMDB",
+      bannerFromTmdb: "Banner from TMDB",
+      /** The type word as viewers read it: "Korean movie" / "Korean series". */
+      typeMovie: (word: string) => `${word} movie`,
+      typeSeries: (word: string) => `${word} series`,
+      notes: {
+        hand: "You changed this. Switch on to replace it.",
+        same: "Already the same.",
+        none: "TMDB has nothing for this.",
+        /** TMDB has nothing for it and what is there came from the match being replaced: Apply takes it back. */
+        clears: "TMDB has nothing for this. Apply removes the old value.",
+        measured: "Measured from your video. It stays.",
+      },
+      categories: {
+        willAdd: (names: string) => `Will add: ${names}`,
+        unmatched: (names: string) => `No category for: ${names}`,
+        nothing: "No categories to add.",
+      },
+      cast: {
+        title: "Actors (top 10)",
+        reuse: "Already in MyanFlix",
+        create: "New, created with photo",
+        createNoPhoto: "New, no photo on TMDB",
+        skipSameName: "Same name as another actor, skipped",
+        skipNoPermission: "You cannot create actors",
+        more: (n: number) => `+ ${n} more`,
+        showFewer: "Show fewer",
+        none: "TMDB lists no actors.",
+      },
+      back: "Back",
+      apply: "Apply",
+      applying: "Saving pictures and cast…",
+      nothingSelected: "Switch on at least one detail to apply.",
+      applyFailed: "The details were not saved.",
+    },
+    /** The short summary after Apply. */
+    done: {
+      title: "Details filled in",
+      filled: (names: string) => `Filled in: ${names}`,
+      nothingFilled: "Nothing was changed.",
+      /** Details of the previous match that were taken back: this TMDB entry has none of them. */
+      removed: (names: string) => `Removed, because TMDB has no value: ${names}`,
+      actors: (reused: number, created: number) =>
+        `Actors: ${reused} already in MyanFlix, ${created} created`,
+      skippedTitle: "Skipped",
+      skippedHand: (name: string) => `${name}: you changed it, so it stays`,
+      skippedNoValue: (name: string) => `${name}: TMDB has no value`,
+      skippedImageFailed: (name: string) => `${name}: the picture could not be saved`,
+      actorSameName: (name: string) => `${name}: same name as another actor`,
+      actorNoPermission: (name: string) => `${name}: you cannot create actors`,
+      categoriesAdded: (names: string) => `Categories added: ${names}`,
+      categoriesUnmatched: (names: string) => `No category for: ${names}`,
+      close: "Done",
+    },
+    /** Settings › Connections › the TMDB card. */
+    connection: {
+      cardTitle: "TMDB",
+      cardDescription: "Whether movie and series details can be filled in from TMDB.",
+      checkAgain: "Check again",
+      checking: "Checking…",
+      /** Keyed by the server's connection state (types/tmdb.ts `TmdbConnectionState`). */
+      states: {
+        connected: {
+          name: "Connected",
+          text: "Movie details, posters and actors can be filled in from TMDB.",
+        },
+        off: {
+          name: "Not connected",
+          text: "The TMDB key is missing. Add TMDB_API_KEY to the server settings file, then restart the server.",
+        },
+        key_rejected: {
+          name: "Key not accepted",
+          text: "TMDB refused the key. Check that it was copied in full.",
+        },
+        unreachable: {
+          name: "Can’t reach TMDB",
+          text: "The server can’t get to TMDB. Check the server’s internet, then press Check again.",
+        },
+        rate_limited: {
+          name: "TMDB is busy",
+          text: "Too many requests for a moment. Wait a little, then press Check again.",
+        },
+      },
+      /** The admin could not even ask its own server. */
+      unknown: {
+        name: "Couldn’t check",
+        text: "The server did not answer about TMDB. Press Check again.",
+      },
+      lastChecked: (when: string) => `Last checked ${when}`,
+      nothingBreaks:
+        "If TMDB is not connected, nothing breaks. Uploads still work and details are typed by hand.",
+      earningTitle: "Before you start earning money",
+      earningText:
+        "The free TMDB plan is for projects that don’t earn money. Get TMDB’s written OK before MyanFlix has real paying viewers.",
+      /** TMDB's own sentence — their terms want it word for word, so it stays in English in both languages. */
+      credit:
+        "This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.",
+    },
+    /** The backend's refusals of the /tmdb routes, by `ApiError.code` (types/tmdb.ts `TMDB_ERROR_CODES`). */
+    errors: {
+      TMDB_NOT_CONFIGURED: "TMDB is not connected. Add TMDB_API_KEY to the server settings.",
+      TMDB_UNREACHABLE: "Couldn’t reach TMDB. Try again in a moment.",
+      TMDB_KEY_REJECTED: "TMDB did not accept the key. Check it in the server settings.",
+      TMDB_RATE_LIMITED: "TMDB is busy. Wait a little, then try again.",
+      TMDB_TITLE_NOT_FOUND: "TMDB no longer has this title. Pick another match.",
+      TMDB_BUSY: "Details are being fetched for this title. Wait a moment, then try again.",
+      TMDB_ALREADY_MATCHED: "This title already has details from TMDB. Use Refill or Change match.",
+      TMDB_SERIES_EXISTS: "You already have this series.",
+      TMDB_NOT_A_MOVIE: "Episodes are not looked up on TMDB. Open the series instead.",
+    },
+    /** "Description in each language" — components/shared/DescriptionLanguageSection.tsx. */
+    description: {
+      title: "Description in each language",
+      hint: "Viewers see the one that matches their app language.",
+      // The two languages are named in their own script in both admin
+      // languages, like a language switcher's options.
+      english: "English",
+      burmese: "မြန်မာ",
+      counter: (used: number, max: number) => `${used} / ${max}`,
+      englishPlaceholder: "Type the English description here.",
+      burmesePlaceholder: "Type the Burmese description here. You can add it any time.",
+      burmeseEmpty: "Empty for now, so the Burmese app shows the English one.",
+      englishEmpty: "Empty for now, so the English app shows the Burmese one.",
+      tooLong: (max: number) => `Too long. Keep it within ${max} characters.`,
+    },
+  },
+  /**
+   * What the pages newly say for the TMDB details (the same build as `tmdb`
+   * above): Ready to publish, Upload Movie, the Edit movie dialog, the movie
+   * details sheet, the two series forms and Settings › Connections. Written
+   * together with the shared pieces, so wiring a page never touches this
+   * file.
+   */
+  tmdbPages: {
+    /** The one quiet line above a list while the server has no TMDB key; no TMDB buttons show with it. */
+    notConnected: "TMDB is not connected, so details are typed by hand.",
+    readyToPublish: {
+      detailsColumn: "Details",
+      publishNeverBlocked: "Publish is never blocked. You can publish first and fix the details later.",
+      lookupStartedToast: "Finding details…",
+      lookupStartedDescription: (title: string) => `Looking for "${title}" on TMDB.`,
+      lookupFailedToast: "Couldn’t start finding details",
+      appliedToast: "Movie details filled in",
+    },
+    upload: {
+      pageDescription:
+        "Drop your transcoded folders. When an upload finishes, the system looks for the movie on TMDB.",
+      whileUploading: "The system looks for details when the upload finishes.",
+    },
+    editMovie: {
+      loading: "Loading the movie…",
+      loadFailed: "Couldn’t load this movie.",
+      /** While the lookup runs the form waits, then reloads itself. */
+      waitingForDetails: "Finding details on TMDB. The form opens again when they arrive.",
+      detailsArrivedToast: "Details filled in from TMDB",
+      nameLabel: "Name",
+      languageLabel: "Language",
+      languagePlaceholder: "Select language",
+      directorLabel: "Director",
+      directorPlaceholder: "e.g. Bong Joon-ho",
+      ageRatingLabel: "Age rating",
+      ageRatingNotSet: "Not set",
+      ownPictureHint: "Upload your own picture to replace one from TMDB.",
+      descriptionTooLong: (max: number) => `A description is longer than ${max} characters.`,
+    },
+    detailsSheet: {
+      descriptionEnglish: "Description (English)",
+      descriptionBurmese: "Description (မြန်မာ)",
+      noDescription: "No description yet.",
+      detailsFromTmdb: (match: string) => `Details from TMDB: ${match}`,
+      director: "Director",
+      ageRating: "Age rating",
+    },
+    /** The Create / Edit Series dialog and the "Series information" card. */
+    series: {
+      nameLabel: "Series name",
+      findOnTmdb: "Find on TMDB",
+      findHint: "Type the name, then press Find on TMDB. Or fill in everything by hand.",
+      confirmTitle: "Create this series from TMDB?",
+      confirmText:
+        "Name, description, year, genre, type, poster, banner and actors will be filled in. It stays a draft until you publish.",
+      pickAnother: "Pick another",
+      create: "Create series",
+      creating: "Creating the series…",
+      createdToast: "Series created from TMDB",
+      createdDescription: (title: string) => `"${title}" is a draft, ready for episodes.`,
+      createFailedToast: "Couldn’t create the series",
+      existsTitle: "You already have this show",
+      existsText: (title: string) => `"${title}" is already in MyanFlix.`,
+      openIt: "Open it",
+      appliedToast: "Series details filled in",
+      /** Save asks for what is missing by name, one sentence each. */
+      nameRequired: "Type the series name.",
+      descriptionRequired: "Add a description in English or Burmese.",
+      genreRequired: "Choose a genre.",
+      languageRequired: "Choose a language.",
+    },
+    settings: {
+      connectionsTab: "Connections",
+      connectionsDescription: "One place that tells you whether TMDB is working.",
+    },
+  },
 };
 
 const mm = {
@@ -9898,6 +10228,288 @@ const mm = {
       userAgent: "User agent",
       snapshot: "မှတ်တမ်းပုံရိပ်",
       noChanges: "ဤမှတ်တမ်းတွင် ပြောင်းလဲမှု မှတ်တမ်းမရှိပါ။",
+    },
+  },
+  tmdb: {
+    badge: {
+      finding: "အသေးစိတ် ရှာနေသည်…",
+      matched: "TMDB မှ အသေးစိတ်",
+      needsPick: "ကိုက်ညီသည့်အရာ များစွာ",
+      notFound: "TMDB တွင် မတွေ့ပါ",
+      unreachable: "TMDB သို့ ချိတ်ဆက်၍မရပါ",
+      busy: "TMDB အလုပ်များနေသည်",
+      keyRejected: "TMDB ကီးကို လက်မခံပါ",
+      interrupted: "ပြတ်တောက်သွားသည်",
+      failed: "အသေးစိတ် မရရှိပါ",
+    },
+    actions: {
+      lookup: "အသေးစိတ် ရှာမည်",
+      retry: "ထပ်ကြိုးစားမည်",
+      pick: "ကိုက်ညီသည့်အရာ ရွေးမည်",
+      search: "TMDB တွင် ရှာမည်",
+      change: "ကိုက်ညီသည့်အရာ ပြောင်းမည်",
+      refill: "ပြန်ဖြည့်မည်",
+      refresh: "ထပ်ကြိုးစားမည်",
+    },
+    notes: {
+      finding: "စက္ကန့်အနည်းငယ် ကြာပါမည်။",
+      needsPick: "ဤအမည်ဖြင့် ရုပ်ရှင် တစ်ကားထက်ပို၍ ရှိပါသည်။",
+      notFound: "အခြားစကားလုံးများဖြင့် ရှာပါ၊ သို့မဟုတ် အသေးစိတ်ကို ကိုယ်တိုင် ရိုက်ထည့်ပါ။",
+      unreachable: "ဆာဗာမှ TMDB သို့ ချိတ်ဆက်၍မရပါ။ ခဏအကြာတွင် ထပ်ကြိုးစားပါ။",
+      busy: "TMDB သို့ တောင်းဆိုမှု များနေပါသည်။ ခဏအကြာတွင် ထပ်ကြိုးစားပါ။",
+      keyRejected: "TMDB က ကီးကို လက်မခံပါ။ ဆက်တင်များ › ချိတ်ဆက်မှုများ တွင် ကြည့်ပါ။",
+      interrupted: "ရှာနေစဉ် ဆာဗာ ပြန်စသွားပါသည်။ ထပ်ကြိုးစားပါ။",
+      failed: "အသေးစိတ် ရယူရာတွင် တစ်ခုခု မှားယွင်းသွားပါသည်။ ထပ်ကြိုးစားပါ။",
+      none: "TMDB မှ အသေးစိတ် မရှိသေးပါ။",
+      timedOut: "ပုံမှန်ထက် ပိုကြာနေပါသည်။",
+    },
+    matchWithYear: (title: string, year: number) => `${title} (${year})`,
+    fetchedOn: (date: string) => `${date} တွင် ရယူခဲ့သည်`,
+    fromTmdb: "TMDB မှ",
+    folder: (name: string) => `ဖိုင်တွဲ: ${name}`,
+    strip: {
+      label: "TMDB မှ အသေးစိတ်",
+      checking: "TMDB ကို စစ်ဆေးနေသည်…",
+      notConnected: "TMDB နှင့် ချိတ်ဆက်မထားသဖြင့် အသေးစိတ်ကို ကိုယ်တိုင် ရိုက်ထည့်ရပါမည်။",
+      saveFirst: "ပြောင်းလဲမှုများကို အရင်သိမ်းပါ",
+    },
+    pick: {
+      title: "ကိုက်ညီသည့်အရာ ရွေးပါ",
+      stepMovie: "အဆင့် 1 / 2 · မှန်ကန်သည့် ရုပ်ရှင်ကို ရွေးပါ",
+      stepSeries: "အဆင့် 1 / 2 · မှန်ကန်သည့် စီးရီးကို ရွေးပါ",
+      chooseMovie: "မှန်ကန်သည့် ရုပ်ရှင်ကို ရွေးပါ",
+      chooseSeries: "မှန်ကန်သည့် စီးရီးကို ရွေးပါ",
+      folderName: "ဖိုင်တွဲအမည်:",
+      movieName: "ရုပ်ရှင်အမည်",
+      seriesName: "စီးရီးအမည်",
+      year: "နှစ်",
+      yearInvalid: "1888 မှ 2100 အတွင်း နှစ်တစ်ခု ထည့်ပါ၊ သို့မဟုတ် ဗလာထားပါ။",
+      nameRequired: "ရှာရန် အမည်တစ်ခု ရိုက်ထည့်ပါ။",
+      search: "ရှာမည်",
+      searching: "TMDB တွင် ရှာနေသည်…",
+      results: "ရလဒ်များ",
+      originalTitle: (title: string) => `မူရင်းအမည်: ${title}`,
+      noStory: "TMDB တွင် ဖော်ပြချက် မရှိပါ။",
+      usedBy: (title: string) => `အသုံးပြုထားပြီး: ${title}`,
+      currentMatch: "ယခု အသုံးပြုနေသည့်အရာ",
+      yearIgnored: "ထိုနှစ်တွင် မတွေ့သဖြင့် နှစ်အားလုံးကို ပြထားပါသည်။",
+      nothingFoundTitle: "ဘာမှ မတွေ့ပါ",
+      nothingFoundHint: "အမည်ကို ပိုတိုအောင် ရိုက်ကြည့်ပါ၊ သို့မဟုတ် နှစ်ကို ဖယ်ကြည့်ပါ။",
+      cantSeeIt: "မတွေ့ဘူးလား။ အမည်ကို ပိုတိုအောင် ရိုက်ကြည့်ပါ၊ သို့မဟုတ် နှစ်ကို ဖယ်ကြည့်ပါ။",
+      startHint: "အမည်ကို ရိုက်ထည့်ပြီး ရှာမည် ကို နှိပ်ပါ။",
+      continue: "ဆက်လုပ်မည်",
+    },
+    review: {
+      title: "အသေးစိတ်ကို စစ်ဆေးပါ",
+      step: "အဆင့် 2 / 2 · ဖြည့်မည့်အရာများကို ရွေးပါ",
+      pickedMatch: "သင်ရွေးထားသည့်အရာ",
+      currentMatch: "ယခု အသုံးပြုနေသည့်အရာ",
+      loading: "TMDB မှ အသေးစိတ်ကို ရယူနေသည်…",
+      columns: {
+        detail: "အချက်အလက်",
+        now: "ယခု",
+        fromTmdb: "TMDB မှ",
+        use: "သုံးမည်",
+      },
+      fields: {
+        title: "အမည်",
+        description: "ဖော်ပြချက်",
+        releaseYear: "နှစ်",
+        duration: "ကြာချိန်",
+        genre: "ဂျန်ရာ",
+        language: "ဘာသာစကား",
+        country: "အမျိုးအစား",
+        director: "ဒါရိုက်တာ",
+        ageRating: "အသက်အရွယ် အဆင့်",
+        poster: "ပိုစတာ",
+        cover: "ဘန်နာ",
+        categories: "အမျိုးအစားများ",
+        cast: "သရုပ်ဆောင်များ",
+      },
+      useFromTmdb: (name: string) => `TMDB မှ ${name} ကို သုံးမည်`,
+      empty: "ဗလာ",
+      notSet: "မသတ်မှတ်ရသေးပါ",
+      noPicture: "မရှိပါ",
+      yourUpload: "သင်တင်ထားသည့်ပုံ",
+      posterFromTmdb: "TMDB မှ ပိုစတာ",
+      bannerFromTmdb: "TMDB မှ ဘန်နာ",
+      typeMovie: (word: string) => `${word} ရုပ်ရှင်`,
+      typeSeries: (word: string) => `${word} စီးရီး`,
+      notes: {
+        hand: "ဤအရာကို သင် ပြင်ထားပါသည်။ အစားထိုးလိုပါက ခလုတ်ကို ဖွင့်ပါ။",
+        same: "တူညီပြီးသား ဖြစ်ပါသည်။",
+        none: "TMDB တွင် ဤအချက်အလက် မရှိပါ။",
+        clears: "TMDB တွင် ဤအချက်အလက် မရှိပါ။ ဖြည့်သွင်းမည် ကို နှိပ်လျှင် ယခင်တန်ဖိုးကို ဖယ်ရှားပါမည်။",
+        measured: "သင့်ဗီဒီယိုမှ တိုင်းတာထားပါသည်။ မပြောင်းလဲပါ။",
+      },
+      categories: {
+        willAdd: (names: string) => `ထည့်မည်: ${names}`,
+        unmatched: (names: string) => `ကိုက်ညီသည့် အမျိုးအစား မရှိပါ: ${names}`,
+        nothing: "ထည့်ရန် အမျိုးအစား မရှိပါ။",
+      },
+      cast: {
+        title: "သရုပ်ဆောင်များ (ထိပ်ဆုံး 10 ဦး)",
+        reuse: "MyanFlix တွင် ရှိပြီးသား",
+        create: "အသစ်၊ ဓာတ်ပုံနှင့်အတူ ဖန်တီးမည်",
+        createNoPhoto: "အသစ်၊ TMDB တွင် ဓာတ်ပုံ မရှိပါ",
+        skipSameName: "အခြားသရုပ်ဆောင်နှင့် အမည်တူသဖြင့် ကျော်ထားသည်",
+        skipNoPermission: "သင် သရုပ်ဆောင် ဖန်တီးခွင့် မရှိပါ",
+        more: (n: number) => `+ နောက်ထပ် ${n} ဦး`,
+        showFewer: "လျှော့ပြမည်",
+        none: "TMDB တွင် သရုပ်ဆောင်စာရင်း မရှိပါ။",
+      },
+      back: "နောက်သို့",
+      apply: "ဖြည့်သွင်းမည်",
+      applying: "ပုံများနှင့် သရုပ်ဆောင်များကို သိမ်းနေသည်…",
+      nothingSelected: "ဖြည့်သွင်းရန် အချက်အလက် အနည်းဆုံးတစ်ခုကို ဖွင့်ပါ။",
+      applyFailed: "အသေးစိတ်ကို မသိမ်းနိုင်ခဲ့ပါ။",
+    },
+    done: {
+      title: "အသေးစိတ် ဖြည့်ပြီးပါပြီ",
+      filled: (names: string) => `ဖြည့်ပြီး: ${names}`,
+      nothingFilled: "ဘာမှ မပြောင်းလဲခဲ့ပါ။",
+      removed: (names: string) => `TMDB တွင် တန်ဖိုး မရှိသဖြင့် ဖယ်ရှားလိုက်သည်: ${names}`,
+      actors: (reused: number, created: number) =>
+        `သရုပ်ဆောင်များ: MyanFlix တွင် ရှိပြီးသား ${reused} ဦး၊ အသစ်ဖန်တီး ${created} ဦး`,
+      skippedTitle: "ကျော်ထားသည်များ",
+      skippedHand: (name: string) => `${name}: သင် ပြင်ထားသဖြင့် မပြောင်းပါ`,
+      skippedNoValue: (name: string) => `${name}: TMDB တွင် တန်ဖိုး မရှိပါ`,
+      skippedImageFailed: (name: string) => `${name}: ပုံကို သိမ်း၍မရခဲ့ပါ`,
+      actorSameName: (name: string) => `${name}: အခြားသရုပ်ဆောင်နှင့် အမည်တူနေသည်`,
+      actorNoPermission: (name: string) => `${name}: သင် သရုပ်ဆောင် ဖန်တီးခွင့် မရှိပါ`,
+      categoriesAdded: (names: string) => `ထည့်ပြီးသော အမျိုးအစားများ: ${names}`,
+      categoriesUnmatched: (names: string) => `ကိုက်ညီသည့် အမျိုးအစား မရှိပါ: ${names}`,
+      close: "ပြီးပါပြီ",
+    },
+    connection: {
+      cardTitle: "TMDB",
+      cardDescription: "ရုပ်ရှင်နှင့် စီးရီး အသေးစိတ်များကို TMDB မှ ဖြည့်နိုင်၊ မဖြည့်နိုင် ပြပါသည်။",
+      checkAgain: "ပြန်စစ်မည်",
+      checking: "စစ်ဆေးနေသည်…",
+      states: {
+        connected: {
+          name: "ချိတ်ဆက်ထားသည်",
+          text: "ရုပ်ရှင်အသေးစိတ်၊ ပိုစတာနှင့် သရုပ်ဆောင်များကို TMDB မှ ဖြည့်နိုင်ပါသည်။",
+        },
+        off: {
+          name: "ချိတ်ဆက်မထားပါ",
+          text: "TMDB ကီး မရှိပါ။ ဆာဗာဆက်တင်ဖိုင်တွင် TMDB_API_KEY ကို ထည့်ပြီး ဆာဗာကို ပြန်စပါ။",
+        },
+        key_rejected: {
+          name: "ကီးကို လက်မခံပါ",
+          text: "TMDB က ကီးကို ငြင်းပယ်ခဲ့ပါသည်။ ကီးကို အပြည့်အစုံ ကူးထားခြင်း ရှိ၊ မရှိ စစ်ဆေးပါ။",
+        },
+        unreachable: {
+          name: "TMDB သို့ ချိတ်ဆက်၍မရပါ",
+          text: "ဆာဗာမှ TMDB သို့ မရောက်နိုင်ပါ။ ဆာဗာ၏ အင်တာနက်ကို စစ်ဆေးပြီး ပြန်စစ်မည် ကို နှိပ်ပါ။",
+        },
+        rate_limited: {
+          name: "TMDB အလုပ်များနေသည်",
+          text: "ခဏတာ တောင်းဆိုမှု များနေပါသည်။ အနည်းငယ်စောင့်ပြီး ပြန်စစ်မည် ကို နှိပ်ပါ။",
+        },
+      },
+      unknown: {
+        name: "စစ်ဆေး၍မရပါ",
+        text: "TMDB အကြောင်း ဆာဗာက မဖြေကြားခဲ့ပါ။ ပြန်စစ်မည် ကို နှိပ်ပါ။",
+      },
+      lastChecked: (when: string) => `နောက်ဆုံးစစ်ဆေးချိန် ${when}`,
+      nothingBreaks:
+        "TMDB နှင့် ချိတ်ဆက်မထားလျှင်လည်း ဘာမှ မပျက်ပါ။ တင်ခြင်းများ ဆက်လုပ်နိုင်ပြီး အသေးစိတ်ကို ကိုယ်တိုင် ရိုက်ထည့်ရပါမည်။",
+      earningTitle: "ဝင်ငွေ မရှာမီ သိထားရန်",
+      earningText:
+        "TMDB အခမဲ့အစီအစဉ်သည် ဝင်ငွေမရှာသော ပရောဂျက်များအတွက်သာ ဖြစ်ပါသည်။ MyanFlix တွင် ငွေပေးကြည့်သူများ မရှိမီ TMDB ထံမှ စာဖြင့် ခွင့်ပြုချက် ရယူပါ။",
+      // TMDB's own sentence: word for word, in English in both languages.
+      credit:
+        "This application uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.",
+    },
+    errors: {
+      TMDB_NOT_CONFIGURED: "TMDB နှင့် ချိတ်ဆက်မထားပါ။ ဆာဗာဆက်တင်တွင် TMDB_API_KEY ကို ထည့်ပါ။",
+      TMDB_UNREACHABLE: "TMDB သို့ ချိတ်ဆက်၍မရပါ။ ခဏအကြာတွင် ထပ်ကြိုးစားပါ။",
+      TMDB_KEY_REJECTED: "TMDB က ကီးကို လက်မခံပါ။ ဆာဗာဆက်တင်တွင် စစ်ဆေးပါ။",
+      TMDB_RATE_LIMITED: "TMDB အလုပ်များနေပါသည်။ ခဏစောင့်ပြီး ထပ်ကြိုးစားပါ။",
+      TMDB_TITLE_NOT_FOUND: "TMDB တွင် ဤခေါင်းစဉ် မရှိတော့ပါ။ အခြားတစ်ခုကို ရွေးပါ။",
+      TMDB_BUSY: "ဤခေါင်းစဉ်အတွက် အသေးစိတ်ကို ရယူနေဆဲ ဖြစ်ပါသည်။ ခဏစောင့်ပြီး ထပ်ကြိုးစားပါ။",
+      TMDB_ALREADY_MATCHED:
+        "ဤခေါင်းစဉ်တွင် TMDB မှ အသေးစိတ် ရှိပြီးသား ဖြစ်ပါသည်။ ပြန်ဖြည့်မည် သို့မဟုတ် ကိုက်ညီသည့်အရာ ပြောင်းမည် ကို သုံးပါ။",
+      TMDB_SERIES_EXISTS: "ဤစီးရီးသည် သင့်ထံတွင် ရှိပြီးသား ဖြစ်ပါသည်။",
+      TMDB_NOT_A_MOVIE: "အပိုင်းများကို TMDB တွင် မရှာပါ။ စီးရီးကို ဖွင့်၍ ရှာပါ။",
+    },
+    description: {
+      title: "ဘာသာစကားအလိုက် ဖော်ပြချက်",
+      hint: "ကြည့်သူများသည် ၎င်းတို့၏ အက်ပ်ဘာသာစကားနှင့် ကိုက်ညီသည့် ဖော်ပြချက်ကို မြင်ရပါမည်။",
+      english: "English",
+      burmese: "မြန်မာ",
+      counter: (used: number, max: number) => `${used} / ${max}`,
+      englishPlaceholder: "အင်္ဂလိပ်ဘာသာ ဖော်ပြချက်ကို ဤနေရာတွင် ရိုက်ထည့်ပါ။",
+      burmesePlaceholder: "မြန်မာဘာသာ ဖော်ပြချက်ကို ဤနေရာတွင် ရိုက်ထည့်ပါ။ အချိန်မရွေး ထည့်နိုင်ပါသည်။",
+      burmeseEmpty: "ယခု ဗလာဖြစ်နေသဖြင့် မြန်မာအက်ပ်တွင် အင်္ဂလိပ်ဖော်ပြချက်ကို ပြပါမည်။",
+      englishEmpty: "ယခု ဗလာဖြစ်နေသဖြင့် အင်္ဂလိပ်အက်ပ်တွင် မြန်မာဖော်ပြချက်ကို ပြပါမည်။",
+      tooLong: (max: number) => `ရှည်လွန်းပါသည်။ စာလုံး ${max} လုံးအတွင်း ထားပါ။`,
+    },
+  },
+  tmdbPages: {
+    notConnected: "TMDB နှင့် ချိတ်ဆက်မထားသဖြင့် အသေးစိတ်ကို ကိုယ်တိုင် ရိုက်ထည့်ရပါမည်။",
+    readyToPublish: {
+      detailsColumn: "အသေးစိတ်",
+      publishNeverBlocked: "ထုတ်ပြန်ခြင်းကို ဘယ်တော့မှ မတားပါ။ အရင်ထုတ်ပြန်ပြီး အသေးစိတ်ကို နောက်မှ ပြင်နိုင်ပါသည်။",
+      lookupStartedToast: "အသေးစိတ် ရှာနေသည်…",
+      lookupStartedDescription: (title: string) => `"${title}" ကို TMDB တွင် ရှာနေပါသည်။`,
+      lookupFailedToast: "အသေးစိတ် ရှာဖွေမှုကို စ၍မရပါ",
+      appliedToast: "ရုပ်ရှင်အသေးစိတ် ဖြည့်ပြီးပါပြီ",
+    },
+    upload: {
+      pageDescription:
+        "ကုဒ်ပြောင်းပြီးသား ရုပ်ရှင်ဖိုင်တွဲများကို ဆွဲချပါ။ တင်ခြင်း ပြီးဆုံးသည့်အခါ စနစ်က ရုပ်ရှင်ကို TMDB တွင် ရှာပါမည်။",
+      whileUploading: "တင်ခြင်း ပြီးဆုံးသည့်အခါ စနစ်က အသေးစိတ်ကို ရှာပါမည်။",
+    },
+    editMovie: {
+      loading: "ရုပ်ရှင်ကို ဖွင့်နေသည်…",
+      loadFailed: "ဤရုပ်ရှင်ကို ဖွင့်၍မရပါ။",
+      waitingForDetails: "TMDB တွင် အသေးစိတ် ရှာနေပါသည်။ ရောက်လာသည့်အခါ ဖောင်ကို ပြန်ဖွင့်ပေးပါမည်။",
+      detailsArrivedToast: "TMDB မှ အသေးစိတ် ဖြည့်ပြီးပါပြီ",
+      nameLabel: "အမည်",
+      languageLabel: "ဘာသာစကား",
+      languagePlaceholder: "ဘာသာစကား ရွေးပါ",
+      directorLabel: "ဒါရိုက်တာ",
+      directorPlaceholder: "ဥပမာ Bong Joon-ho",
+      ageRatingLabel: "အသက်အရွယ် အဆင့်",
+      ageRatingNotSet: "မသတ်မှတ်ရသေးပါ",
+      ownPictureHint: "TMDB မှ ပုံကို အစားထိုးလိုပါက သင့်ကိုယ်ပိုင်ပုံကို တင်ပါ။",
+      descriptionTooLong: (max: number) => `ဖော်ပြချက်တစ်ခုသည် စာလုံး ${max} လုံးထက် ရှည်နေပါသည်။`,
+    },
+    detailsSheet: {
+      descriptionEnglish: "ဖော်ပြချက် (English)",
+      descriptionBurmese: "ဖော်ပြချက် (မြန်မာ)",
+      noDescription: "ဖော်ပြချက် မရှိသေးပါ။",
+      detailsFromTmdb: (match: string) => `TMDB မှ အသေးစိတ်: ${match}`,
+      director: "ဒါရိုက်တာ",
+      ageRating: "အသက်အရွယ် အဆင့်",
+    },
+    series: {
+      nameLabel: "စီးရီးအမည်",
+      findOnTmdb: "TMDB တွင် ရှာမည်",
+      findHint: "အမည်ကို ရိုက်ထည့်ပြီး TMDB တွင် ရှာမည် ကို နှိပ်ပါ။ သို့မဟုတ် အားလုံးကို ကိုယ်တိုင် ဖြည့်ပါ။",
+      confirmTitle: "ဤစီးရီးကို TMDB မှ ဖန်တီးမည်လား။",
+      confirmText:
+        "အမည်၊ ဖော်ပြချက်၊ နှစ်၊ ဂျန်ရာ၊ အမျိုးအစား၊ ပိုစတာ၊ ဘန်နာနှင့် သရုပ်ဆောင်များကို ဖြည့်ပေးပါမည်။ သင် ထုတ်ပြန်သည်အထိ မူကြမ်းအဖြစ် ရှိနေပါမည်။",
+      pickAnother: "အခြားတစ်ခု ရွေးမည်",
+      create: "စီးရီး ဖန်တီးမည်",
+      creating: "စီးရီးကို ဖန်တီးနေသည်…",
+      createdToast: "စီးရီးကို TMDB မှ ဖန်တီးပြီးပါပြီ",
+      createdDescription: (title: string) => `"${title}" သည် မူကြမ်းဖြစ်ပြီး အပိုင်းများ ထည့်ရန် အသင့်ဖြစ်ပါပြီ။`,
+      createFailedToast: "စီးရီးကို ဖန်တီး၍မရပါ",
+      existsTitle: "ဤရှိုးသည် သင့်ထံတွင် ရှိပြီးသား ဖြစ်ပါသည်",
+      existsText: (title: string) => `"${title}" သည် MyanFlix တွင် ရှိပြီးသား ဖြစ်ပါသည်။`,
+      openIt: "ဖွင့်မည်",
+      appliedToast: "စီးရီးအသေးစိတ် ဖြည့်ပြီးပါပြီ",
+      nameRequired: "စီးရီးအမည်ကို ရိုက်ထည့်ပါ။",
+      descriptionRequired: "အင်္ဂလိပ် သို့မဟုတ် မြန်မာဘာသာဖြင့် ဖော်ပြချက်တစ်ခု ထည့်ပါ။",
+      genreRequired: "ဂျန်ရာတစ်ခု ရွေးပါ။",
+      languageRequired: "ဘာသာစကားတစ်ခု ရွေးပါ။",
+    },
+    settings: {
+      connectionsTab: "ချိတ်ဆက်မှုများ",
+      connectionsDescription: "TMDB အလုပ်လုပ်၊ မလုပ် ဤတစ်နေရာတည်းတွင် ကြည့်နိုင်ပါသည်။",
     },
   },
 } satisfies typeof en;

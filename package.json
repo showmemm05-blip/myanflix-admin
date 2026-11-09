@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3002",
     "lint": "eslint",
-    "test": "node --test next.config.spec.mjs services/api/apiClient.test.ts lib/upload/bundle-upload.test.ts components/ads/breakSchedule.test.ts components/ads/adHealth.test.ts components/ads/adSteps.test.ts components/audit/auditFormat.test.ts"
+    "test": "node --test next.config.spec.mjs services/api/apiClient.test.ts lib/upload/bundle-upload.test.ts components/ads/breakSchedule.test.ts components/ads/adHealth.test.ts components/ads/adSteps.test.ts components/audit/auditFormat.test.ts lib/upload/changed-fields.test.ts components/tmdb/tmdbStatus.test.ts components/tmdb/tmdbPolling.test.ts components/tmdb/tmdbReview.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

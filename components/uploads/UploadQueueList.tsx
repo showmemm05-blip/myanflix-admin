@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { TmdbStatusLine } from "@/components/tmdb/TmdbStatusLine";
+import type { TmdbAction } from "@/components/tmdb/tmdbStatus";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -27,6 +29,7 @@ import { useLanguage } from "@/lib/context/language-context";
 import { foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { formatBytes, formatEta, formatSpeed } from "@/lib/upload/format";
 import type { TranslationShape } from "@/lib/i18n/translations";
+import type { TmdbMovieState } from "@/types/tmdb";
 import { toast } from "sonner";
 
 function getStatusMeta(t: TranslationShape): Record<MovieUploadStatus, { label: string; tone: StatusTone }> {
@@ -51,6 +54,31 @@ function isFinalizing(job: MovieUploadJob) {
   return active.length > 0 && active.every((a) => a.status === "finalizing");
 }
 
+/**
+ * What the list needs to show each movie's TMDB line (2026-11-06, the
+ * `Upload` board): once a card reaches "Ready to publish", the badge, the
+ * match or what to do next, and the button that goes with it. The page owns
+ * the states and what a press does; the list only draws them.
+ */
+export interface UploadQueueTmdb {
+  /** Lookup state by movie id (lib/hooks/use-tmdb-states). A card with none yet shows no line. */
+  states: ReadonlyMap<string, TmdbMovieState>;
+  /** MOVIES.EDIT + MEDIA.UPLOAD — may start a lookup or open the pick-a-match dialog. */
+  canAct: boolean;
+  /** The movie whose lookup request is on its way, if any: its button waits. */
+  busyId: string | null;
+  /** Polling stopped after 3 minutes with a card still "Finding details…": it gets Try again. */
+  timedOut: boolean;
+  /**
+   * The server said it has a TMDB key, so a finished upload really is
+   * looked up: a card still uploading may promise it. False while that is
+   * not known.
+   */
+  looksUpAfterUpload: boolean;
+  /** Must be a stable reference, like the other card callbacks. */
+  onAction: (job: MovieUploadJob, action: TmdbAction) => void;
+}
+
 interface UploadJobCardProps {
   job: MovieUploadJob;
   position: number | undefined;
@@ -71,6 +99,15 @@ interface UploadJobCardProps {
   /** MOVIES.PUBLISH — the inline publish button on a finished job. */
   canPublish: boolean;
   onAttachClick: (key: string) => void;
+  /** The list was given `tmdb`: this card says what TMDB found once it is ready. */
+  tmdbShown: boolean;
+  /** Say, while the card uploads, that the details are looked up when it finishes. */
+  tmdbPromised: boolean;
+  tmdbState: TmdbMovieState | undefined;
+  tmdbCanAct: boolean;
+  tmdbBusy: boolean;
+  tmdbTimedOut: boolean;
+  onTmdbAction: ((job: MovieUploadJob, action: TmdbAction) => void) | undefined;
 }
 
 /**
@@ -97,6 +134,13 @@ const UploadJobCard = memo(function UploadJobCard({
   canEdit,
   canPublish,
   onAttachClick,
+  tmdbShown,
+  tmdbPromised,
+  tmdbState,
+  tmdbCanAct,
+  tmdbBusy,
+  tmdbTimedOut,
+  onTmdbAction,
 }: UploadJobCardProps) {
   const { t } = useLanguage();
   const finalizing = isFinalizing(job);
@@ -107,6 +151,12 @@ const UploadJobCard = memo(function UploadJobCard({
   const uploaded = uploadedBytes(job);
   const percent = total > 0 ? Math.round((uploaded / total) * 100) : 0;
   const subtitle = job.subtitle;
+  // A movie's title is the server's cleaned name, and later TMDB's: two
+  // folders can read the same ("Dune.1984…" and "Dune.2021…" are both
+  // "Dune"), so the folder itself is named too — it is what ties the card to
+  // a folder on disk, above all when one has to be attached again. An
+  // episode's title is still its folder name, so it needs no second line.
+  const folderLine = subtitle === null && job.folderName && job.folderName !== job.title ? job.folderName : null;
 
   return (
     <Card
@@ -131,6 +181,11 @@ const UploadJobCard = memo(function UploadJobCard({
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold">{job.title}</p>
+            {folderLine && (
+              <p className="truncate text-xs text-muted-foreground" title={folderLine}>
+                {t.tmdb.folder(folderLine)}
+              </p>
+            )}
             <p className="truncate text-xs text-muted-foreground">
               {subtitle ? `${subtitle} · ` : ""}
               {t.uploads.filesCount(job.assets.length)} · {formatBytes(total)}
@@ -159,6 +214,9 @@ const UploadJobCard = memo(function UploadJobCard({
                 {job.status === "uploading" && !finalizing ? formatEta(job.etaSeconds) : `${percent}%`}
               </span>
             </div>
+            {tmdbPromised && (
+              <p className="text-xs text-muted-foreground">{t.tmdbPages.upload.whileUploading}</p>
+            )}
           </div>
         )}
 
@@ -178,6 +236,21 @@ const UploadJobCard = memo(function UploadJobCard({
               {t.uploads.attachFolder}
             </Button>
           </div>
+        )}
+
+        {/* What TMDB found for a finished movie. The upload itself never waits
+            for it: this line arrives on its own a few seconds later. */}
+        {tmdbShown && job.status === "ready_to_publish" && (
+          <TmdbStatusLine
+            className="border-t border-border pt-3"
+            state={tmdbState}
+            withNote
+            offerLookup
+            canAct={tmdbCanAct}
+            busy={tmdbBusy}
+            timedOut={tmdbTimedOut}
+            onAction={(action) => onTmdbAction?.(job, action)}
+          />
         )}
 
         <div className="flex items-center justify-end gap-2">
@@ -251,6 +324,12 @@ interface UploadQueueListProps {
   onPublish: (job: MovieUploadJob) => void;
   canEdit: boolean;
   canPublish: boolean;
+  /**
+   * The TMDB line of each finished movie. Leave it out where there is none
+   * to show — an episode queue (episodes are not looked up), or while TMDB
+   * is not connected — and the cards are exactly as before.
+   */
+  tmdb?: UploadQueueTmdb;
 }
 
 /**
@@ -274,6 +353,7 @@ export function UploadQueueList({
   onPublish,
   canEdit,
   canPublish,
+  tmdb,
 }: UploadQueueListProps) {
   const { t } = useLanguage();
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
@@ -362,6 +442,15 @@ export function UploadQueueList({
           canEdit={canEdit}
           canPublish={canPublish}
           onAttachClick={handleAttachClick}
+          // Per-card values, not the `tmdb` object itself: a progress tick or
+          // another card's lookup must not re-render this one.
+          tmdbShown={tmdb !== undefined}
+          tmdbPromised={tmdb?.looksUpAfterUpload ?? false}
+          tmdbState={tmdb?.states.get(job.movieId)}
+          tmdbCanAct={tmdb?.canAct ?? false}
+          tmdbBusy={tmdb?.busyId === job.movieId}
+          tmdbTimedOut={tmdb?.timedOut ?? false}
+          onTmdbAction={tmdb?.onAction}
         />
       ))}
     </div>

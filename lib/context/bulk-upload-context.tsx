@@ -729,12 +729,18 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
         const title = extractTitleFromFolderName(folder.folderName);
         const duration = secondsToMinutes(probedSeconds[index]);
         try {
+          // A standalone movie also sends the raw folder name: the server
+          // keeps it and reads the row's first title and year out of it, and
+          // it is what TMDB is later searched with. An episode never does.
           const movie = await movieService.createUploadPlaceholder(
             title,
             series
               ? { seriesId: series.seriesId, seasonNumber: series.seasonNumber, episodeNumber: series.episodeNumbers[index] }
               : undefined,
-            duration !== null ? { duration } : undefined,
+            {
+              ...(duration !== null ? { duration } : {}),
+              ...(series ? {} : { sourceName: folder.folderName }),
+            },
           );
           const assets: BulkAsset[] = folder.files.map((f) => ({
             relativePath: mapLocalPathToRelativePath(f.relativePath),
@@ -750,7 +756,10 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
             queueKey,
             movieId: movie.id,
             folderName: folder.folderName,
-            title,
+            // The title the server answered, not the one sent: for a movie
+            // it is the name cleaned out of the folder name (`Inception`,
+            // not `Inception 2010 1080p BluRay`); an episode's comes back as sent.
+            title: movie.title,
             subtitle: series ? `Season ${series.seasonNumber} · Episode ${series.episodeNumbers[index]}` : null,
             assets,
             status: "waiting",
@@ -892,8 +901,13 @@ export function BulkUploadProvider({ children }: { children: ReactNode }) {
     setJobs((prev) => prev.filter((j) => j.movieId !== movieId));
   }, []);
 
+  /** The movie's name changed on the server — staff edited it, or a TMDB fill replaced the folder's name — so its card says the new one. Same name = same jobs, so nothing re-renders. */
   const patchJobTitle = useCallback((movieId: string, title: string) => {
-    setJobs((prev) => prev.map((j) => (j.movieId === movieId ? { ...j, title } : j)));
+    setJobs((prev) =>
+      prev.some((j) => j.movieId === movieId && j.title !== title)
+        ? prev.map((j) => (j.movieId === movieId ? { ...j, title } : j))
+        : prev,
+    );
   }, []);
 
   const value = useMemo<BulkUploadContextValue>(
