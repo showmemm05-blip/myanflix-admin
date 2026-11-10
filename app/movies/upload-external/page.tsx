@@ -2,9 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { UploadCloud, WifiOff } from "lucide-react";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RequirePermission } from "@/components/shared/RequirePermission";
 import { EditMovieDialog, type EditMovieTarget } from "@/components/movies/EditMovieDialog";
+import {
+  createAnswerOrder,
+  missingMovieDetailsOrNull,
+  publishQuestionWords,
+  sameMissingDetails,
+  type MissingDetails,
+  type PublishQuestionWords,
+} from "@/components/movies/missingDetails";
 import { TmdbMatchDialog, tmdbTargetOfMovie } from "@/components/tmdb/TmdbMatchDialog";
 import { tmdbActionOpensDialog, type TmdbAction } from "@/components/tmdb/tmdbStatus";
 import { tmdbErrorCode, tmdbErrorMessage } from "@/components/tmdb/tmdbWords";
@@ -21,7 +30,11 @@ import { useTmdbConnection, useTmdbStates } from "@/lib/hooks/use-tmdb-states";
 import { readDroppedFolders, foldersFromFileList, type DroppedFolder } from "@/lib/upload/read-dropped-folders";
 import { movieService } from "@/services/api/movieService";
 import { tmdbService } from "@/services/api/tmdbService";
+import type { Movie } from "@/types/movie";
 import { toast } from "sonner";
+
+const NOTHING_KNOWN: ReadonlyMap<string, MissingDetails | null> = new Map();
+const NO_IDS: ReadonlySet<string> = new Set();
 
 /**
  * Upload Movie: one transcoded folder = one movie. Since 2026-11-06
@@ -30,6 +43,11 @@ import { toast } from "sonner";
  * TMDB found, and the button for when a person has to choose. The upload
  * itself never waits for TMDB and never fails because of it; while TMDB is
  * not connected the cards are exactly as before, under one quiet line.
+ *
+ * Since 2026-11-09 a finished card also says what the movie still needs
+ * before it is published — "Still needed: Poster" — and its Publish asks
+ * first while a poster, a description or a category is missing. Publishing
+ * is never blocked (components/movies/missingDetails.ts).
  */
 export default function BulkUploadExternalPage() {
   const { t } = useLanguage();
@@ -54,6 +72,59 @@ export default function BulkUploadExternalPage() {
   // The dialog loads the movie itself, so a card only has to name it.
   const [editMovie, setEditMovie] = useState<EditMovieTarget | null>(null);
 
+  // ---- What each finished movie still needs ----
+  // A card only knows its movie's id and name, so the movies are read: by
+  // movie id, what each one lacks. Kept as the lists themselves, each one
+  // the same object for as long as it says the same — they go to the
+  // memoized cards. No entry = not known: no line, and Publish does not ask.
+  const [missingByMovie, setMissingByMovie] = useState(NOTHING_KNOWN);
+  // Which answer about each movie is the newest. A movie is read more than
+  // once (the first read, again when TMDB has filled it in, a Save's own
+  // answer) and the answers can land in another order than they were asked:
+  // every read takes a number when it is sent, and an answer that a newer
+  // one has overtaken is dropped.
+  const answersRef = useRef(createAnswerOrder());
+
+  // The movie as the server has it now: its card takes the name, and the
+  // line what is still needed. `sent` is the number its read took when it
+  // was sent; left out, the movie is news of this moment (a Save, an Apply)
+  // and wins over every read still on its way. Stable — it is called from
+  // effects.
+  const noteMovie = useCallback(
+    (movie: Movie, sent?: number) => {
+      const answers = answersRef.current;
+      if (!answers.accept(movie.id, sent ?? answers.send())) return;
+      patchJobTitle(movie.id, movie.title);
+      const missing = missingMovieDetailsOrNull(movie);
+      setMissingByMovie((prev) =>
+        prev.has(movie.id) && sameMissingDetails(prev.get(movie.id), missing)
+          ? prev
+          : new Map(prev).set(movie.id, missing),
+      );
+    },
+    [patchJobTitle],
+  );
+
+  // One movie read again, after something changed it on the server. A
+  // failed read is silent: the card keeps what it showed. The promise ends
+  // when the read has, whichever way.
+  const readMovie = useCallback(
+    (movieId: string) => {
+      const sent = answersRef.current.send();
+      return movieService.getMovieById(movieId).then(
+        (movie) => noteMovie(movie, sent),
+        () => {},
+      );
+    },
+    [noteMovie],
+  );
+
+  // Movies TMDB has just filled in, until they have been read again. The
+  // badge turns green a moment before that read lands, and for that moment
+  // the card would say "Still needed: Poster" about a poster that has
+  // arrived — so its line keeps saying that the list is coming.
+  const [missingPending, setMissingPending] = useState(NO_IDS);
+
   // ---- Details from TMDB ----
   // The status and the states both ask MOVIES.VIEW. `lookupsRun` is only
   // what the server itself said: it has a key, so a finished upload is
@@ -75,13 +146,23 @@ export default function BulkUploadExternalPage() {
   const tmdb = useTmdbStates(readyIds, {
     enabled: canSeeTmdb && connectionAnswered && !connection.notConnected,
     // "Finding details…" ended with a match: the movie now carries TMDB's
-    // name, so its card does too.
+    // name and details, so its card does too. Without a match nothing
+    // changed — the movie is read only if it never was (the first read of
+    // it failed), because the card said its list would appear now.
     onSettled: (state) => {
-      if (state.status !== "MATCHED") return;
-      movieService.getMovieById(state.movieId).then(
-        (movie) => patchJobTitle(movie.id, movie.title),
-        () => {},
-      );
+      const { movieId } = state;
+      if (state.status === "MATCHED") {
+        setMissingPending((prev) => new Set(prev).add(movieId));
+        void readMovie(movieId).then(() =>
+          setMissingPending((prev) => {
+            const next = new Set(prev);
+            next.delete(movieId);
+            return next;
+          }),
+        );
+      } else if (!answersRef.current.has(movieId)) {
+        void readMovie(movieId);
+      }
     },
   });
   const { markPending, refresh: refreshTmdb } = tmdb;
@@ -107,6 +188,24 @@ export default function BulkUploadExternalPage() {
     }
     previousStatusRef.current = new Map(jobs.map((j) => [j.movieId, j.status]));
   }, [jobs, lookupsRun, markPending]);
+
+  // The first read of each finished card's movie, in one request: the cards
+  // already finished when the page opens, and every upload as it finishes.
+  // Asked once per card. A failed read is silent — those cards show no line
+  // and publish without a question, exactly as before.
+  const askedRef = useRef(new Set<string>());
+  useEffect(() => {
+    const ids = readyIds.filter((id) => !askedRef.current.has(id));
+    if (ids.length === 0) return;
+    for (const id of ids) askedRef.current.add(id);
+    const sent = answersRef.current.send();
+    movieService.getMoviesByIds(ids).then(
+      (movies) => {
+        for (const movie of movies) noteMovie(movie, sent);
+      },
+      () => {},
+    );
+  }, [readyIds, noteMovie]);
 
   const [lookupBusyId, setLookupBusyId] = useState<string | null>(null);
   const [tmdbDialog, setTmdbDialog] = useState<{ job: MovieUploadJob; start: "pick" | "refill" } | null>(null);
@@ -136,11 +235,13 @@ export default function BulkUploadExternalPage() {
         // already running, or the movie is matched by now.
         const code = tmdbErrorCode(err);
         if (code === "TMDB_BUSY" || code === "TMDB_ALREADY_MATCHED") refreshTmdb();
+        // Matched by a lookup this page never saw end: its details are news too.
+        if (code === "TMDB_ALREADY_MATCHED") void readMovie(job.movieId);
       } finally {
         setLookupBusyId(null);
       }
     },
-    [markPending, refreshTmdb, t],
+    [markPending, readMovie, refreshTmdb, t],
   );
 
   const queueTmdb = useMemo<UploadQueueTmdb | undefined>(
@@ -192,7 +293,7 @@ export default function BulkUploadExternalPage() {
     setEditMovie({ id: job.movieId, title: job.title });
   }, []);
 
-  const handlePublish = useCallback(
+  const publishMovie = useCallback(
     async (job: MovieUploadJob) => {
       try {
         await movieService.updateMovie(job.movieId, { status: "PUBLISHED" });
@@ -203,6 +304,34 @@ export default function BulkUploadExternalPage() {
       }
     },
     [markPublished, t],
+  );
+
+  // Publish asks first while the movie still needs a poster, a description
+  // or a category; with nothing needed, or nothing known, it goes straight
+  // through as before. What is needed is read from a ref at the press, so
+  // the callback stays the same for the cards. The question's words stay
+  // while it closes; only `publishQuestionOpen` goes.
+  const missingRef = useRef(missingByMovie);
+  useEffect(() => {
+    missingRef.current = missingByMovie;
+  });
+  const [publishQuestion, setPublishQuestion] = useState<{
+    job: MovieUploadJob;
+    words: PublishQuestionWords;
+  } | null>(null);
+  const [publishQuestionOpen, setPublishQuestionOpen] = useState(false);
+
+  const handlePublish = useCallback(
+    (job: MovieUploadJob) => {
+      const words = publishQuestionWords(t, "movie", job.title, missingRef.current.get(job.movieId));
+      if (!words) {
+        void publishMovie(job);
+        return;
+      }
+      setPublishQuestion({ job, words });
+      setPublishQuestionOpen(true);
+    },
+    [publishMovie, t],
   );
 
   return (
@@ -298,6 +427,25 @@ export default function BulkUploadExternalPage() {
         onEdit={handleEdit}
         onPublish={handlePublish}
         tmdb={queueTmdb}
+        missing={missingByMovie}
+        missingPending={missingPending}
+      />
+
+      {/* "Go back" closes it and nothing happens; "Publish anyway" publishes as the button always did. */}
+      <ConfirmDialog
+        open={publishQuestionOpen}
+        onOpenChange={(o) => !o && setPublishQuestionOpen(false)}
+        title={publishQuestion?.words.title ?? ""}
+        description={publishQuestion?.words.description ?? ""}
+        confirmLabel={publishQuestion?.words.confirmLabel}
+        cancelLabel={publishQuestion?.words.cancelLabel}
+        onConfirm={() => {
+          // The dialog takes a moment to fade: a second press in that
+          // moment must not publish twice.
+          if (!publishQuestionOpen || !publishQuestion) return;
+          setPublishQuestionOpen(false);
+          void publishMovie(publishQuestion.job);
+        }}
       />
 
       <TmdbMatchDialog
@@ -314,11 +462,16 @@ export default function BulkUploadExternalPage() {
         start={tmdbDialog?.start}
         onApplied={(result) => {
           // The details are written; the dialog stays on its summary.
-          if (result.kind === "movie") patchJobTitle(result.movie.id, result.movie.title);
+          if (result.kind === "movie") noteMovie(result.movie);
           refreshTmdb();
           toast.success(t.tmdbPages.readyToPublish.appliedToast);
         }}
-        onApplyFailed={refreshTmdb}
+        // Refused or broken off: read the movie again, so the card does not
+        // say something half-done.
+        onApplyFailed={() => {
+          refreshTmdb();
+          if (tmdbDialog) void readMovie(tmdbDialog.job.movieId);
+        }}
       />
 
       <EditMovieDialog
@@ -332,9 +485,13 @@ export default function BulkUploadExternalPage() {
           // while the TMDB lines are hidden because a read failed — this is
           // what brings them back. (Nothing is asked while TMDB is off.)
           refreshTmdb();
+          // Details can also arrive in there without the dialog saying so
+          // (a lookup ended while the form held unsaved changes, then
+          // Cancel), so the card's movie is read once more.
+          if (editMovie) void readMovie(editMovie.id);
         }}
         onSaved={(updated) => {
-          patchJobTitle(updated.id, updated.title);
+          noteMovie(updated);
           if (updated.status === "PUBLISHED") markPublished(updated.id);
         }}
       />

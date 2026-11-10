@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
 import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getSeriesColumns } from "@/components/series/columns";
+import { missingSeriesDetails, seriesPublishDescription } from "@/components/movies/missingDetails";
 import { SeriesFormDialog } from "@/components/series/SeriesFormDialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -240,11 +241,13 @@ function SeriesPageContent() {
             ? t.series.unpublishConfirmTitle
             : t.series.publishConfirmTitle
         }
+        // Publishing a show that has no poster, description or category
+        // yet gets one more sentence: "Still needed: Poster · Category."
         description={
           statusTarget
             ? statusTarget.status === "PUBLISHED"
               ? t.series.unpublishConfirmDescription(statusTarget.title)
-              : t.series.publishConfirmDescription(statusTarget.title)
+              : seriesPublishDescription(t, statusTarget.title, missingSeriesDetails(statusTarget))
             : ""
         }
         confirmLabel={statusTarget?.status === "PUBLISHED" ? t.series.unpublish : t.movies.publish}

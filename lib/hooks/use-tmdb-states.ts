@@ -31,11 +31,12 @@ export interface UseTmdbStatesOptions {
   /** False asks nothing — for a member who may not read the states, or while the rows themselves still load. Default true. */
   enabled?: boolean;
   /**
-   * Also keep reading the rows that were never looked up, every 4 seconds
-   * for as long as the page is open — for a title whose upload is still
-   * running: the server starts its lookup the moment the upload finishes,
-   * which this page cannot see. A result that turns up on such a row is
-   * reported through `onSettled` like any lookup that ended. Default false.
+   * Also keep reading the rows that are not being looked up — never, or
+   * the last lookup failed or found nothing — every 4 seconds for as long
+   * as the page is open: for a title whose upload is still running. The
+   * server starts its lookup the moment the upload finishes, which this
+   * page cannot see. A result that turns up on such a row is reported
+   * through `onSettled` like any lookup that ended. Default false.
    */
   watchUnstarted?: boolean;
   /**

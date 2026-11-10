@@ -431,6 +431,73 @@ const en = {
       emptyDescription:
         "Movies show up here once a bulk or pre-transcoded upload finishes and passes validation.",
     },
+    /**
+     * What a title still lacks before it is published (2026-11-09; the rule
+     * and the sentences built from these words are in
+     * components/movies/missingDetails.ts): the line on Ready to publish and
+     * on the upload card, the box at the top of Edit movie and of Series
+     * information, the empty picture slots, and the question Publish asks
+     * when a poster, a description or a category is missing. Publishing is
+     * never blocked. A `list` is names joined with " · ".
+     */
+    missing: {
+      /**
+       * One per `MissingKey`, short and fixed. The same things as
+       * `tmdb.review.fields`: the Burmese names are the same words, so a
+       * name on the line is the name of its row in the review. Only the
+       * English "Category" is the singular here.
+       */
+      items: {
+        poster: "Poster",
+        description: "Description",
+        categories: "Category",
+        cover: "Banner",
+        cast: "Actors",
+        director: "Director",
+        ageRating: "Age rating",
+      },
+      stillNeeded: (list: string) => `Still needed: ${list}`,
+      goodToHave: (list: string) => `Good to have: ${list}`,
+      ready: "Ready",
+      /** Instead of the line while the TMDB lookup of the title is still running. */
+      appearsWhenTmdbDone: "The list appears when TMDB has finished.",
+      stillNeededBeforePublishing: (list: string) => `Still needed before publishing: ${list}`,
+      listGetsShorter: "The list gets shorter as you fill things in.",
+      /** The box's second line when both are said. */
+      goodToHaveThenShorter: (list: string) =>
+        `Good to have: ${list}. The list gets shorter as you fill things in.`,
+      /** An empty poster slot in Edit movie. */
+      posterNeeded: "Poster needed",
+      /** "Refill" is the TMDB strip's button (`tmdb.actions.refill`). */
+      uploadOneOrRefill: "Upload one, or press Refill",
+      uploadOne: "Upload one",
+      /** An empty banner slot in Edit movie, with `goodToHaveShort` under it. */
+      noBannerYet: "No banner yet",
+      goodToHaveShort: "Good to have",
+      /** The accessible name of the amber box that stands in for a missing poster in a list. */
+      noPosterYet: "No poster yet",
+      /** Opens the review of the TMDB entry the title is linked to — what "Refill" does in Edit movie. */
+      getFromTmdb: "Get from TMDB",
+      /** The question's title when exactly one thing is missing, by `MustHaveKey`. */
+      questionTitleOne: {
+        poster: "Publish without a poster?",
+        description: "Publish without a description?",
+        categories: "Publish without a category?",
+      },
+      questionTitleSeveral: "Publish with details missing?",
+      questionBodyMovieOne: (title: string, list: string) =>
+        `“${title}” still needs: ${list}. Viewers will see the movie without it. You can go back and add it first.`,
+      questionBodyMovieSeveral: (title: string, list: string) =>
+        `“${title}” still needs: ${list}. Viewers will see the movie without them. You can go back and add them first.`,
+      questionBodySeriesOne: (title: string, list: string) =>
+        `“${title}” still needs: ${list}. Viewers will see the series without it. You can go back and add it first.`,
+      questionBodySeriesSeveral: (title: string, list: string) =>
+        `“${title}” still needs: ${list}. Viewers will see the series without them. You can go back and add them first.`,
+      goBack: "Go back",
+      publishAnyway: "Publish anyway",
+      /** One more sentence at the end of the "Publish this series?" dialog. */
+      seriesPublishStillNeeded: (list: string) => `Still needed: ${list}.`,
+    },
     upload: {
       description: "Add a new title to the MyanFlix catalog.",
       stage: {
@@ -760,7 +827,6 @@ const en = {
         "Everything about this show — details, seasons, and episode uploads — in one place.",
       infoCardTitle: "Series information",
       categoriesLabel: "Categories",
-      thumbnailLabel: "Thumbnail",
       bannerLabel: "Banner",
       saveInfo: "Save series information",
       savedToast: "Series saved",
@@ -5244,7 +5310,7 @@ const en = {
     notConnected: "TMDB is not connected, so details are typed by hand.",
     readyToPublish: {
       detailsColumn: "Details",
-      publishNeverBlocked: "Publish is never blocked. You can publish first and fix the details later.",
+      publishNeverBlocked: "Publish is never blocked. If something is still needed, Publish asks you first.",
       lookupStartedToast: "Finding details…",
       lookupStartedDescription: (title: string) => `Looking for "${title}" on TMDB.`,
       lookupFailedToast: "Couldn’t start finding details",
@@ -5261,6 +5327,8 @@ const en = {
       /** While the lookup runs the form waits, then reloads itself. */
       waitingForDetails: "Finding details on TMDB. The form opens again when they arrive.",
       detailsArrivedToast: "Details filled in from TMDB",
+      /** Under that toast when the form holds unsaved changes: it is not reloaded, so the new details are not on screen yet. */
+      detailsArrivedUnsavedHint: "Save or undo your changes to see them.",
       nameLabel: "Name",
       languageLabel: "Language",
       languagePlaceholder: "Select language",
@@ -5720,6 +5788,49 @@ const mm = {
       emptyDescription:
         "အစုလိုက် သို့မဟုတ် ကြိုတင်ကုဒ်ပြောင်းထားသော တင်ခြင်းတစ်ခု ပြီးစီးပြီး အတည်ပြုပြီးသည့်အခါ ဤနေရာတွင် ရုပ်ရှင်များ ပေါ်လာပါမည်။",
     },
+    missing: {
+      items: {
+        poster: "ပိုစတာ",
+        description: "ဖော်ပြချက်",
+        categories: "အမျိုးအစားများ",
+        cover: "ဘန်နာ",
+        cast: "သရုပ်ဆောင်များ",
+        director: "ဒါရိုက်တာ",
+        ageRating: "အသက်အရွယ် အဆင့်",
+      },
+      stillNeeded: (list: string) => `လိုအပ်နေသေးသည်: ${list}`,
+      goodToHave: (list: string) => `ရှိလျှင် ပိုကောင်းသည်: ${list}`,
+      ready: "အသင့်ဖြစ်ပြီ",
+      appearsWhenTmdbDone: "TMDB ရှာပြီးသည့်အခါ ဤစာရင်း ပေါ်လာပါမည်။",
+      stillNeededBeforePublishing: (list: string) => `မထုတ်ပြန်မီ လိုအပ်နေသေးသည်: ${list}`,
+      listGetsShorter: "သင် ဖြည့်သွားသည်နှင့်အမျှ ဤစာရင်း တိုသွားပါမည်။",
+      goodToHaveThenShorter: (list: string) =>
+        `ရှိလျှင် ပိုကောင်းသည်: ${list}။ သင် ဖြည့်သွားသည်နှင့်အမျှ ဤစာရင်း တိုသွားပါမည်။`,
+      posterNeeded: "ပိုစတာ လိုအပ်သည်",
+      uploadOneOrRefill: "ပုံတစ်ပုံ တင်ပါ၊ သို့မဟုတ် ပြန်ဖြည့်မည် ကို နှိပ်ပါ",
+      uploadOne: "ပုံတစ်ပုံ တင်ပါ",
+      noBannerYet: "ဘန်နာ မရှိသေးပါ",
+      goodToHaveShort: "ရှိလျှင် ပိုကောင်းသည်",
+      noPosterYet: "ပိုစတာ မရှိသေးပါ",
+      getFromTmdb: "TMDB မှ ရယူမည်",
+      questionTitleOne: {
+        poster: "ပိုစတာ မပါဘဲ ထုတ်ပြန်မည်လား?",
+        description: "ဖော်ပြချက် မပါဘဲ ထုတ်ပြန်မည်လား?",
+        categories: "အမျိုးအစားများ မပါဘဲ ထုတ်ပြန်မည်လား?",
+      },
+      questionTitleSeveral: "အချက်အလက် မစုံသေးဘဲ ထုတ်ပြန်မည်လား?",
+      questionBodyMovieOne: (title: string, list: string) =>
+        `“${title}” တွင် လိုအပ်နေသေးသည်: ${list}။ ကြည့်သူများသည် ရုပ်ရှင်ကို ၎င်းမပါဘဲ မြင်ရပါမည်။ ပြန်သွားပြီး အရင်ထည့်နိုင်ပါသည်။`,
+      questionBodyMovieSeveral: (title: string, list: string) =>
+        `“${title}” တွင် လိုအပ်နေသေးသည်: ${list}။ ကြည့်သူများသည် ရုပ်ရှင်ကို ၎င်းတို့မပါဘဲ မြင်ရပါမည်။ ပြန်သွားပြီး အရင်ထည့်နိုင်ပါသည်။`,
+      questionBodySeriesOne: (title: string, list: string) =>
+        `“${title}” တွင် လိုအပ်နေသေးသည်: ${list}။ ကြည့်သူများသည် စီးရီးကို ၎င်းမပါဘဲ မြင်ရပါမည်။ ပြန်သွားပြီး အရင်ထည့်နိုင်ပါသည်။`,
+      questionBodySeriesSeveral: (title: string, list: string) =>
+        `“${title}” တွင် လိုအပ်နေသေးသည်: ${list}။ ကြည့်သူများသည် စီးရီးကို ၎င်းတို့မပါဘဲ မြင်ရပါမည်။ ပြန်သွားပြီး အရင်ထည့်နိုင်ပါသည်။`,
+      goBack: "ပြန်သွားမည်",
+      publishAnyway: "ဤအတိုင်း ထုတ်ပြန်မည်",
+      seriesPublishStillNeeded: (list: string) => `လိုအပ်နေသေးသည်: ${list}။`,
+    },
     upload: {
       description: "MyanFlix စာရင်းသို့ ခေါင်းစဉ်အသစ်တစ်ခု ထည့်ပါ။",
       stage: {
@@ -6053,7 +6164,6 @@ const mm = {
         "ဤရှိုးနှင့်ပတ်သက်သည့် အရာအားလုံး — အသေးစိတ်၊ ရာသီများနှင့် အပိုင်းတင်ခြင်းများ — တစ်နေရာတည်းတွင်။",
       infoCardTitle: "စီးရီးအချက်အလက်",
       categoriesLabel: "အမျိုးအစားများ",
-      thumbnailLabel: "ပုံသေး",
       bannerLabel: "ဘန်နာ",
       saveInfo: "စီးရီးအချက်အလက် သိမ်းမည်",
       savedToast: "စီးရီး သိမ်းပြီးပါပြီ",
@@ -10451,7 +10561,7 @@ const mm = {
     notConnected: "TMDB နှင့် ချိတ်ဆက်မထားသဖြင့် အသေးစိတ်ကို ကိုယ်တိုင် ရိုက်ထည့်ရပါမည်။",
     readyToPublish: {
       detailsColumn: "အသေးစိတ်",
-      publishNeverBlocked: "ထုတ်ပြန်ခြင်းကို ဘယ်တော့မှ မတားပါ။ အရင်ထုတ်ပြန်ပြီး အသေးစိတ်ကို နောက်မှ ပြင်နိုင်ပါသည်။",
+      publishNeverBlocked: "ထုတ်ပြန်ခြင်းကို ဘယ်တော့မှ မတားပါ။ တစ်ခုခု လိုအပ်နေသေးပါက မထုတ်ပြန်မီ သင့်ကို အရင်မေးပါမည်။",
       lookupStartedToast: "အသေးစိတ် ရှာနေသည်…",
       lookupStartedDescription: (title: string) => `"${title}" ကို TMDB တွင် ရှာနေပါသည်။`,
       lookupFailedToast: "အသေးစိတ် ရှာဖွေမှုကို စ၍မရပါ",
@@ -10467,6 +10577,7 @@ const mm = {
       loadFailed: "ဤရုပ်ရှင်ကို ဖွင့်၍မရပါ။",
       waitingForDetails: "TMDB တွင် အသေးစိတ် ရှာနေပါသည်။ ရောက်လာသည့်အခါ ဖောင်ကို ပြန်ဖွင့်ပေးပါမည်။",
       detailsArrivedToast: "TMDB မှ အသေးစိတ် ဖြည့်ပြီးပါပြီ",
+      detailsArrivedUnsavedHint: "မြင်ရန် သင့်ပြောင်းလဲမှုများကို သိမ်းပါ သို့မဟုတ် မူလအတိုင်း ပြန်ထားပါ။",
       nameLabel: "အမည်",
       languageLabel: "ဘာသာစကား",
       languagePlaceholder: "ဘာသာစကား ရွေးပါ",

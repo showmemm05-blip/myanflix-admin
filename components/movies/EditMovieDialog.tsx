@@ -14,8 +14,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileUploadField } from "./FileUploadField";
+import { FileUploadField, type FileUploadEmptyState } from "./FileUploadField";
+import { MissingDetailsBox } from "./MissingDetailsLine";
+import {
+  missingAfterSave,
+  missingFormDetails,
+  missingMovieDetails,
+  publishQuestionWords,
+  saveWillPublish,
+  type PublishQuestionWords,
+} from "./missingDetails";
 import { ActorPicker } from "@/components/actors/ActorPicker";
+import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   DESCRIPTION_MAX_LENGTH,
   DescriptionLanguageSection,
@@ -28,7 +38,7 @@ import { TmdbTaggedField } from "@/components/tmdb/TmdbFromTag";
 import { TmdbMatchDialog, tmdbTargetOfMovie } from "@/components/tmdb/TmdbMatchDialog";
 import { TmdbStrip } from "@/components/tmdb/TmdbStrip";
 import { tmdbStatesUse } from "@/components/tmdb/tmdbPolling";
-import { tmdbActionOpensDialog, type TmdbAction } from "@/components/tmdb/tmdbStatus";
+import { pictureTagShown, tmdbActionOpensDialog, type TmdbAction } from "@/components/tmdb/tmdbStatus";
 import { tmdbErrorCode, tmdbErrorMessage } from "@/components/tmdb/tmdbWords";
 import { movieService } from "@/services/api/movieService";
 import { tmdbService } from "@/services/api/tmdbService";
@@ -86,6 +96,13 @@ interface EditMovieFormProps {
   categories: MovieCategory[] | null;
   /** Null = no strip: an episode (episodes are not looked up), or nothing to show. */
   tmdb: EditMovieTmdb | null;
+  /**
+   * Details from TMDB were stored while this form held unsaved changes, so
+   * the form does not show them: `movie` is behind the server until the
+   * form is loaded again. What is still needed is then not what the form
+   * says, and a publish asks the server first.
+   */
+  behindServer: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: (movie: Movie) => void;
   /** Publish was pressed inside the dialog and went through. */
@@ -98,6 +115,7 @@ function EditMovieForm({
   movie,
   categories,
   tmdb,
+  behindServer,
   onOpenChange,
   onSaved,
   onPublished,
@@ -137,6 +155,35 @@ function EditMovieForm({
   const posterPreview = useObjectUrl(posterFile);
   const coverPreview = useObjectUrl(coverFile);
   const thumbnailPreview = useObjectUrl(thumbnailFile);
+
+  // What the movie still needs before it is published (missingDetails.ts),
+  // by what the form holds NOW — which is what Save stores — so the list at
+  // the top gets shorter as staff type and pick files. An episode needs
+  // nothing: it uses the show's pictures.
+  const missing = isEpisode
+    ? null
+    : missingFormDetails("movie", {
+        posterUrl: movie.posterUrl,
+        posterFile,
+        coverUrl: movie.coverUrl,
+        coverFile,
+        description,
+        descriptionMm,
+        categoryIds,
+        actorIds,
+        director,
+        ageRating,
+      });
+  // Publish asks first while a poster, a description or a category is
+  // missing; it is never blocked. The dialog has two ways to publish — its
+  // Publish button, and Save with the Status field moved to Published — so
+  // the question remembers which one waits for the answer. Its words stay
+  // while it closes; only `publishQuestionOpen` goes.
+  const [publishQuestion, setPublishQuestion] = useState<{
+    via: "publish" | "save";
+    words: PublishQuestionWords;
+  } | null>(null);
+  const [publishQuestionOpen, setPublishQuestionOpen] = useState(false);
 
   // A video only exists once something has actually been uploaded for this
   // movie — getProcessingStatus() 404s otherwise, which useAsyncData already
@@ -196,7 +243,12 @@ function EditMovieForm({
     return () => onUnsavedChange(false);
   }, [unsaved, onUnsavedChange]);
 
-  const handleSave = async () => {
+  // The movie as the server has it now, for a publish from a form that is
+  // behind it. Null when the read fails: the caller judges as usual.
+  const readStored = () => movieService.getMovieById(movie.id).catch(() => null);
+
+  /** `publishConfirmed`: "Publish anyway" was pressed on the question this save asked. */
+  const handleSave = async (publishConfirmed = false) => {
     // Unlike duration, an empty rating IS a value (0 = unrated), so only a
     // malformed one blocks the save.
     if (ratingValue === null) {
@@ -223,6 +275,55 @@ function EditMovieForm({
     if (!filePicked && !hasChanges(typed)) {
       onOpenChange(false);
       return;
+    }
+    // The Status field was moved to Published, so this save is what
+    // publishes: it asks first, like Publish, when something is still
+    // needed — judged by what the form holds, which is what the save
+    // stores. "Go back" only closes the question: nothing is sent and the
+    // form keeps everything.
+    if (!publishConfirmed && saveWillPublish(movie.status, status)) {
+      let judged = missing;
+      let judgedTitle = title.trim();
+      if (behindServer) {
+        // Not so while the form is behind the server: the save sends only
+        // what staff changed, so the name, the poster and the categories
+        // TMDB stored meanwhile stay. One read says what the movie holds
+        // after this save; if it fails, the form is judged as usual.
+        setSaving(true);
+        const fresh = await readStored();
+        if (fresh) {
+          judgedTitle = typed.title ?? fresh.title;
+          judged = missingAfterSave(fresh, {
+            description: typed.description,
+            descriptionMm: typed.descriptionMm,
+            director: typed.director,
+            ageRating: typed.ageRating,
+            categoryIds:
+              typed.categoryIds &&
+              rebaseIds(
+                movie.categories.map((c) => c.id),
+                typed.categoryIds,
+                fresh.categories.map((c) => c.id),
+              ),
+            actorIds:
+              typed.actorIds &&
+              rebaseIds(
+                movie.actors.map((a) => a.id),
+                typed.actorIds,
+                fresh.actors.map((a) => a.id),
+              ),
+            posterFile,
+            coverFile,
+          });
+        }
+      }
+      const words = publishQuestionWords(t, "movie", judgedTitle, judged);
+      if (words) {
+        setSaving(false);
+        setPublishQuestion({ via: "save", words });
+        setPublishQuestionOpen(true);
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -289,6 +390,37 @@ function EditMovieForm({
     }
   };
 
+  // The Publish button only sends the status, so it is judged by the movie
+  // as it is STORED: a poster picked here and not saved yet is not published
+  // with it. Nothing needed (and every episode): straight through, as before.
+  // `movie` is the stored movie as this form was loaded — except while the
+  // form is behind the server, when it is read once more first.
+  const handlePublishPress = async () => {
+    let stored = movie;
+    if (behindServer) {
+      setPublishing(true);
+      stored = (await readStored()) ?? movie;
+    }
+    const words = publishQuestionWords(t, "movie", stored.title, missingMovieDetails(stored));
+    if (!words) {
+      void handlePublish();
+      return;
+    }
+    setPublishing(false);
+    setPublishQuestion({ via: "publish", words });
+    setPublishQuestionOpen(true);
+  };
+
+  // "Publish anyway": what was asked about goes on exactly as it would have.
+  // The question takes a moment to fade: a second press in that moment must
+  // not publish (or save) twice.
+  const handlePublishAnyway = () => {
+    if (!publishQuestionOpen) return;
+    setPublishQuestionOpen(false);
+    if (publishQuestion?.via === "publish") void handlePublish();
+    else if (publishQuestion?.via === "save") void handleSave(true);
+  };
+
   // A word outside the list (an older title, or one typed elsewhere) stays
   // choosable, so opening the dialog never loses it.
   const languageOptions =
@@ -298,15 +430,51 @@ function EditMovieForm({
   for (const value of AGE_RATINGS) ageRatingItems[value] = AGE_RATING_LABELS[value];
 
   // The "From TMDB" marks only say where a value came from: a picked file,
-  // or a letter typed in the English box, makes its mark go.
-  const posterFromTmdb = tmdb?.state?.images.poster === "tmdb" && !posterFile;
-  const coverFromTmdb = tmdb?.state?.images.cover === "tmdb" && !coverFile;
+  // or a letter typed in the English box, makes its mark go. A picture's
+  // mark also needs the picture: the state can be newer than this form.
+  const posterFromTmdb = pictureTagShown(tmdb?.state?.images.poster, movie.posterUrl, posterFile !== null);
+  const coverFromTmdb = pictureTagShown(tmdb?.state?.images.cover, movie.coverUrl, coverFile !== null);
   const englishFromTmdb =
     (tmdb?.state?.autoFields.includes("description") ?? false) && description === movie.description;
+
+  // What an empty poster or banner slot says (movies only). "Refill" is
+  // named only while the strip above really has that button. Behind the
+  // server an empty slot proves nothing — TMDB's picture may be stored by
+  // now — so it is the plain "Click to upload" again.
+  const refillOffered =
+    tmdb !== null && !tmdb.notConnected && tmdb.canAct && tmdb.state?.status === "MATCHED";
+  const slotsSayMissing = !isEpisode && !behindServer;
+  const posterEmptyState: FileUploadEmptyState | undefined = slotsSayMissing
+    ? {
+        title: t.movies.missing.posterNeeded,
+        hint: refillOffered ? t.movies.missing.uploadOneOrRefill : t.movies.missing.uploadOne,
+        tone: "warning",
+      }
+    : undefined;
+  const coverEmptyState: FileUploadEmptyState | undefined = slotsSayMissing
+    ? { title: t.movies.missing.noBannerYet, hint: t.movies.missing.goodToHaveShort }
+    : undefined;
 
   return (
     <>
       <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto pr-1">
+        {/* What is still needed before publishing, above everything else
+            (the `MissingEdit` board). It draws nothing for an episode, and
+            nothing once nothing is missing. A movie that is live already
+            (as stored, not the Status field) is not told "before
+            publishing". */}
+        {behindServer ? (
+          // The form does not show what TMDB has just stored, so a list
+          // made from it would name things the movie has by now. It says
+          // what the toast said, until the form is loaded again.
+          <div className="flex flex-col gap-0.5 text-[13px] text-muted-foreground" role="status">
+            <p className="font-medium text-foreground/80">{t.tmdbPages.editMovie.detailsArrivedToast}</p>
+            <p>{t.tmdbPages.editMovie.detailsArrivedUnsavedHint}</p>
+          </div>
+        ) : (
+          <MissingDetailsBox missing={missing} published={movie.status === "PUBLISHED"} />
+        )}
+
         {tmdb && (
           <TmdbStrip
             state={tmdb.state}
@@ -551,6 +719,7 @@ function EditMovieForm({
                 file={posterFile}
                 previewUrl={posterPreview ?? movie.posterUrl ?? undefined}
                 onChange={setPosterFile}
+                emptyState={posterEmptyState}
               />
             </TmdbTaggedField>
             <TmdbTaggedField fromTmdb={coverFromTmdb}>
@@ -562,6 +731,7 @@ function EditMovieForm({
                 file={coverFile}
                 previewUrl={coverPreview ?? movie.coverUrl ?? undefined}
                 onChange={setCoverFile}
+                emptyState={coverEmptyState}
               />
             </TmdbTaggedField>
             <FileUploadField
@@ -585,7 +755,7 @@ function EditMovieForm({
               <p className="text-sm font-medium">{t.movies.editDialog.readyToPublishTitle}</p>
               <p className="text-xs text-muted-foreground">{t.movies.editDialog.readyToPublishDescription}</p>
             </div>
-            <Button size="sm" onClick={handlePublish} disabled={publishing}>
+            <Button size="sm" onClick={() => void handlePublishPress()} disabled={publishing}>
               {publishing ? <Loader2 className="size-4 animate-spin" /> : <Rocket className="size-4" />}
               {t.movies.publish}
             </Button>
@@ -598,11 +768,23 @@ function EditMovieForm({
         <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving || replacingVideo}>
           {t.common.cancel}
         </Button>
-        <Button onClick={handleSave} disabled={saving || replacingVideo || !title.trim()}>
+        <Button onClick={() => handleSave()} disabled={saving || replacingVideo || !title.trim()}>
           {saving && <Loader2 className="size-4 animate-spin" />}
           {t.movies.editDialog.saveChanges}
         </Button>
       </DialogFooter>
+
+      {/* Inside this dialog, so it opens on top of it. "Go back" closes it
+          and nothing else happens. */}
+      <ConfirmDialog
+        open={publishQuestionOpen}
+        onOpenChange={(open) => !open && setPublishQuestionOpen(false)}
+        title={publishQuestion?.words.title ?? ""}
+        description={publishQuestion?.words.description ?? ""}
+        confirmLabel={publishQuestion?.words.confirmLabel}
+        cancelLabel={publishQuestion?.words.cancelLabel}
+        onConfirm={handlePublishAnyway}
+      />
     </>
   );
 }
@@ -631,8 +813,11 @@ interface LoadedMovie {
  *    form waits: there is nothing sensible to edit a moment before the
  *    details arrive. A movie opened while its folder still uploads is
  *    watched for the lookup that starts when the upload finishes; a form
- *    staff have typed into is never taken away or re-seeded, and Save
- *    rebuilds a changed cast or category list on the server's copy.
+ *    staff have typed into is never taken away or re-seeded (it is loaded
+ *    again once nothing in it is unsaved any more), and Save rebuilds a
+ *    changed cast or category list on the server's copy. Until that load
+ *    the form is told it is behind the server (`behindServer`): it stops
+ *    saying what is still needed, and a publish reads the movie first.
  *
  * Episodes are never looked up, so they get no strip and no TMDB request —
  * for them the dialog is the form it always was, with the Burmese box added.
@@ -686,11 +871,20 @@ function EditMovieSession({
     announceRef.current = false;
     onSavedRef.current(fetched);
   }, [fetched]);
-  const reloadChangedMovie = () => {
+  // A lookup ended while the form held unsaved changes, so its reload was
+  // skipped: the form is behind the server until it is loaded again.
+  const [arrivedUnseen, setArrivedUnseen] = useState(false);
+  // …and that lookup filled the movie in: the form lacks a poster, a cast
+  // and categories that are stored by now. The form is told, so it does not
+  // call them missing (`behindServer`).
+  const [filledUnseen, setFilledUnseen] = useState(false);
+  const reloadChangedMovie = useCallback(() => {
     announceRef.current = true;
+    setArrivedUnseen(false);
+    setFilledUnseen(false);
     setReloading(true);
     refetch();
-  };
+  }, [refetch]);
 
   // Whether the form holds unsaved changes right now (the form reports it):
   // the ref for a callback that lands later, the state for what is drawn.
@@ -700,6 +894,17 @@ function EditMovieSession({
     unsavedRef.current = unsaved;
     setFormUnsaved(unsaved);
   }, []);
+  // Staff undid what they had typed, and details arrived meanwhile: the
+  // skipped reload happens now, so the form shows the filled-in movie. It
+  // follows the state, not the form's report itself: the form also reports
+  // "nothing unsaved" for an instant whenever its effect runs again, and a
+  // reload at that instant would wipe what is typed.
+  useEffect(() => {
+    // Asking for the reload is the answer to two things that happened (the
+    // details arrived, the edit was undone) — not state derived from state.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (arrivedUnseen && !formUnsaved) reloadChangedMovie();
+  }, [arrivedUnseen, formUnsaved, reloadChangedMovie]);
 
   // ---- Details from TMDB (standalone movies) ----
   // The status and the state both ask MOVIES.VIEW. "Not connected" is only
@@ -717,18 +922,32 @@ function EditMovieSession({
   // its upload finishes — which this dialog cannot see. So where the server
   // really looks titles up, the state of such a movie is read again every
   // few seconds for as long as the dialog is open, and the lookup's result
-  // arrives like one the dialog watched (`onSettled`).
-  const uploadRunning = movie !== null && movie.status === "UPLOADING";
+  // arrives like one the dialog watched (`onSettled`). FAILED counts as
+  // still uploading: an upload whose last step was refused is tried again
+  // from its card, and ends in the same lookup.
+  const uploadRunning = movie !== null && (movie.status === "UPLOADING" || movie.status === "FAILED");
   const tmdb = useTmdbStates(standalone ? [movie.id] : [], {
     enabled: statesUse !== "none",
     watchUnstarted: uploadRunning && connection.status?.configured === true,
     onSettled: (state) => {
       // A lookup ended. The form was waiting (or had nothing typed into
       // it), so it starts again from the filled-in movie — unless staff
-      // have typed into it: then their edits stay, and Save still sends
-      // only what they changed.
-      if (!unsavedRef.current) reloadChangedMovie();
-      if (state.status === "MATCHED") toast.success(t.tmdbPages.editMovie.detailsArrivedToast);
+      // have typed into it: then their edits stay, Save still sends only
+      // what they changed, and the form is loaded again as soon as nothing
+      // is unsaved any more (the effect above). The toast says which.
+      const filled = state.status === "MATCHED";
+      if (!unsavedRef.current) {
+        reloadChangedMovie();
+        if (filled) toast.success(t.tmdbPages.editMovie.detailsArrivedToast);
+        return;
+      }
+      setArrivedUnseen(true);
+      if (filled) {
+        setFilledUnseen(true);
+        toast.success(t.tmdbPages.editMovie.detailsArrivedToast, {
+          description: t.tmdbPages.editMovie.detailsArrivedUnsavedHint,
+        });
+      }
     },
   });
   const tmdbState = standalone ? (tmdb.states.get(movie.id) ?? null) : null;
@@ -842,6 +1061,7 @@ function EditMovieSession({
           movie={loaded.movie}
           categories={categories}
           tmdb={stripProps}
+          behindServer={filledUnseen}
           onOpenChange={onOpenChange}
           onSaved={onSaved}
           onPublished={(updated) => {

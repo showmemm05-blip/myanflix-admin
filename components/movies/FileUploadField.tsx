@@ -2,11 +2,26 @@
 
 import { useRef } from "react";
 import Image from "next/image";
-import { CheckCircle2, FileText, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, FileText, ImageIcon, UploadCloud, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useLanguage } from "@/lib/context/language-context";
 import { cn } from "@/lib/utils";
+
+/**
+ * Other words for the empty slot of a field, in place of "Click to upload"
+ * (2026-11-09, the `MissingEdit` board): the Edit movie dialog says "Poster
+ * needed" in amber and "No banner yet" in grey there. The slot is the same
+ * button — a click still opens the picker.
+ */
+export interface FileUploadEmptyState {
+  /** "Poster needed", "No banner yet". */
+  title: string;
+  /** The smaller line under it: "Upload one, or press Refill", "Good to have". */
+  hint: string;
+  /** `warning` = amber: the title needs this picture before it is published. Default `neutral`. */
+  tone?: "warning" | "neutral";
+}
 
 interface FileUploadFieldProps {
   label: string;
@@ -19,6 +34,8 @@ interface FileUploadFieldProps {
   aspect?: "poster" | "wide";
   onChange: (file: File | null) => void;
   disabled?: boolean;
+  /** What the empty slot says instead of "Click to upload". Leave it out and the field is exactly as before. */
+  emptyState?: FileUploadEmptyState;
 }
 
 export function FileUploadField({
@@ -32,6 +49,7 @@ export function FileUploadField({
   aspect = "wide",
   onChange,
   disabled = false,
+  emptyState,
 }: FileUploadFieldProps) {
   const { t } = useLanguage();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -118,11 +136,38 @@ export function FileUploadField({
           onClick={() => inputRef.current?.click()}
           className={cn(
             "flex flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed border-input bg-secondary/20 px-4 py-6 text-center transition-colors hover:border-primary/50 hover:bg-primary/[0.04] disabled:cursor-not-allowed disabled:opacity-50",
-            aspect === "poster" ? "aspect-2/3 max-w-40" : "aspect-video w-full"
+            aspect === "poster" ? "aspect-2/3 max-w-40" : "aspect-video w-full",
+            // Three lines instead of two: less padding, so the wide slot keeps its shape.
+            emptyState && "gap-1 p-2",
+            emptyState?.tone === "warning" && "border-warning/50 bg-warning/10"
           )}
         >
-          <UploadCloud className="size-5 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground">{t.movies.fileUpload.clickToUpload}</span>
+          {emptyState ? (
+            // The colour is never the only signal: the words say what is missing.
+            <>
+              <ImageIcon
+                className={cn("size-5", emptyState.tone === "warning" ? "text-warning" : "text-muted-foreground")}
+                aria-hidden
+              />
+              <span
+                className={cn(
+                  "text-[13px] leading-snug [overflow-wrap:anywhere]",
+                  emptyState.tone === "warning" ? "font-semibold text-warning" : "font-medium text-foreground/80"
+                )}
+              >
+                {emptyState.title}
+              </span>
+              <span className="text-xs text-muted-foreground [overflow-wrap:anywhere]">{emptyState.hint}</span>
+              {/* The words above say what is missing, not what a press does:
+                  the button's name still ends with "Click to upload". */}
+              <span className="sr-only">{t.movies.fileUpload.clickToUpload}</span>
+            </>
+          ) : (
+            <>
+              <UploadCloud className="size-5 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">{t.movies.fileUpload.clickToUpload}</span>
+            </>
+          )}
         </button>
       )}
 

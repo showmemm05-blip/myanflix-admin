@@ -13,6 +13,8 @@ import {
   Rocket,
   X,
 } from "lucide-react";
+import { MissingDetailsLine } from "@/components/movies/MissingDetailsLine";
+import type { MissingDetails } from "@/components/movies/missingDetails";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
 import { TmdbStatusLine } from "@/components/tmdb/TmdbStatusLine";
 import type { TmdbAction } from "@/components/tmdb/tmdbStatus";
@@ -108,6 +110,12 @@ interface UploadJobCardProps {
   tmdbBusy: boolean;
   tmdbTimedOut: boolean;
   onTmdbAction: ((job: MovieUploadJob, action: TmdbAction) => void) | undefined;
+  /** The list was given `missing`: a finished movie says what it still needs. */
+  missingShown: boolean;
+  /** What this movie still needs; undefined while it is not known (not read yet, or the read failed) — then no line. */
+  missing: MissingDetails | null | undefined;
+  /** TMDB has just filled this movie in and `missing` is being read again: the line still says the list is coming. */
+  missingPending: boolean;
 }
 
 /**
@@ -141,6 +149,9 @@ const UploadJobCard = memo(function UploadJobCard({
   tmdbBusy,
   tmdbTimedOut,
   onTmdbAction,
+  missingShown,
+  missing,
+  missingPending,
 }: UploadJobCardProps) {
   const { t } = useLanguage();
   const finalizing = isFinalizing(job);
@@ -253,6 +264,16 @@ const UploadJobCard = memo(function UploadJobCard({
           />
         )}
 
+        {/* What the movie still needs before it is published, right above
+            its Publish button (2026-11-09, the `MissingEdit` board). While
+            TMDB is still looking the movie up — or has just filled it in and
+            the page is reading it again — the list would change under
+            staff's eyes, so the line only says that it is coming. An episode
+            gets none: it uses the show's pictures. */}
+        {missingShown && job.status === "ready_to_publish" && subtitle === null && (
+          <MissingDetailsLine missing={missing} pending={tmdbState?.status === "PENDING" || missingPending} />
+        )}
+
         <div className="flex items-center justify-end gap-2">
           {canPublish && job.status === "ready_to_publish" && (
             <Button size="sm" onClick={() => onPublish(job)}>
@@ -330,6 +351,21 @@ interface UploadQueueListProps {
    * is not connected — and the cards are exactly as before.
    */
   tmdb?: UploadQueueTmdb;
+  /**
+   * What each finished movie still needs before it is published
+   * (components/movies/missingDetails.ts), by movie id. The page reads the
+   * movies and asks before publishing; the list only draws the line. A
+   * movie with no entry shows none. Each value must keep its reference
+   * while it says the same, like `job` — it goes to the memoized cards.
+   * Leave it out — an episode queue — and the cards are exactly as before.
+   */
+  missing?: ReadonlyMap<string, MissingDetails | null>;
+  /**
+   * Movies TMDB has just filled in whose entry in `missing` the page is
+   * reading again. Until the fresh one is here their card keeps the line of
+   * a lookup still running, instead of what the movie lacked a moment ago.
+   */
+  missingPending?: ReadonlySet<string>;
 }
 
 /**
@@ -354,6 +390,8 @@ export function UploadQueueList({
   canEdit,
   canPublish,
   tmdb,
+  missing,
+  missingPending,
 }: UploadQueueListProps) {
   const { t } = useLanguage();
   const [draggingKey, setDraggingKey] = useState<string | null>(null);
@@ -451,6 +489,9 @@ export function UploadQueueList({
           tmdbBusy={tmdb?.busyId === job.movieId}
           tmdbTimedOut={tmdb?.timedOut ?? false}
           onTmdbAction={tmdb?.onAction}
+          missingShown={missing !== undefined}
+          missing={missing?.get(job.movieId)}
+          missingPending={missingPending?.has(job.movieId) ?? false}
         />
       ))}
     </div>

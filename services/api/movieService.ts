@@ -8,14 +8,44 @@ export interface MovieQuery extends PaginationParams {
   genre?: string;
   categoryId?: string;
   search?: string;
+  /** Only these movies: ids joined with commas, at most `MOVIE_IDS_PER_REQUEST` of them. */
+  ids?: string;
 }
 
 /** The API's limit for `sourceName` on POST /movies/upload-placeholder (`@MaxLength(255)`). */
 const SOURCE_NAME_MAX_LENGTH = 255;
 
+/** GET /movies takes at most 100 `ids`, which is also its largest page; a longer list is asked in slices of this size. */
+export const MOVIE_IDS_PER_REQUEST = 100;
+
 export const movieService = {
   getMovies(query: MovieQuery = {}) {
     return apiClient.get<PaginatedResponse<Movie>>("/movies", { params: query });
+  },
+
+  /**
+   * These movies as they are stored now, whatever their status, in one read
+   * per 100 ids (GET /movies?ids=…) — for a page that only holds ids, like
+   * the upload cards. The list is standalone movies only, so an episode's id
+   * is simply not answered, and neither is a movie deleted meanwhile: the
+   * answer can be shorter than the question, and is in no particular order.
+   */
+  async getMoviesByIds(movieIds: readonly string[], signal?: AbortSignal): Promise<Movie[]> {
+    const ids = [...new Set(movieIds)];
+    if (ids.length === 0) return [];
+    const slices: string[][] = [];
+    for (let i = 0; i < ids.length; i += MOVIE_IDS_PER_REQUEST) {
+      slices.push(ids.slice(i, i + MOVIE_IDS_PER_REQUEST));
+    }
+    const answers = await Promise.all(
+      slices.map((slice) =>
+        apiClient.get<PaginatedResponse<Movie>>("/movies", {
+          params: { ids: slice.join(","), limit: MOVIE_IDS_PER_REQUEST } satisfies MovieQuery,
+          signal,
+        }),
+      ),
+    );
+    return answers.flatMap((answer) => answer.items);
   },
 
   getMovieById(id: string) {

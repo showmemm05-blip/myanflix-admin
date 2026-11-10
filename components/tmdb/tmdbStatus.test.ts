@@ -14,7 +14,7 @@ import type { TmdbAction } from "./tmdbStatus";
 // Node loads a relative TypeScript file only when the path carries its full
 // extension, which tsc does not allow in an `import` — so load it this way.
 const load = createRequire(import.meta.url);
-const { tmdbActionOpensDialog, tmdbBadgeOf } = load("./tmdbStatus.ts") as typeof import("./tmdbStatus");
+const { pictureTagShown, tmdbActionOpensDialog, tmdbBadgeOf } = load("./tmdbStatus.ts") as typeof import("./tmdbStatus");
 
 describe("tmdbBadgeOf — the six looks", () => {
   it("PENDING: blue 'Finding details…', nothing to press", () => {
@@ -95,5 +95,31 @@ describe("tmdbActionOpensDialog", () => {
     const background: TmdbAction[] = ["lookup", "retry", "refresh"];
     for (const action of opens) assert.equal(tmdbActionOpensDialog(action), true, action);
     for (const action of background) assert.equal(tmdbActionOpensDialog(action), false, action);
+  });
+});
+
+describe("pictureTagShown — the 'From TMDB' tag on a picture slot", () => {
+  const stored = "http://cache.local/movies/images/movie/tmdb-poster.jpg";
+
+  it("a stored picture that came from TMDB is tagged", () => {
+    assert.equal(pictureTagShown("tmdb", stored, false), true);
+  });
+
+  it("details arrived under a form that was not loaded again: the slot is still empty, so no tag", () => {
+    // The state is the new one (poster from TMDB); the form still shows the movie from before the fill.
+    assert.equal(pictureTagShown("tmdb", null, false), false);
+    assert.equal(pictureTagShown("tmdb", undefined, false), false);
+    assert.equal(pictureTagShown("tmdb", "", false), false);
+  });
+
+  it("a newly picked file makes the tag go", () => {
+    assert.equal(pictureTagShown("tmdb", stored, true), false);
+  });
+
+  it("staff's own picture, no picture, or no state at all: never tagged", () => {
+    assert.equal(pictureTagShown("own", stored, false), false);
+    assert.equal(pictureTagShown("none", null, false), false);
+    assert.equal(pictureTagShown(undefined, stored, false), false);
+    assert.equal(pictureTagShown(null, stored, false), false);
   });
 });

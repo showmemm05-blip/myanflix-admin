@@ -2,8 +2,10 @@
  * Reading TMDB lookup states for a list (components/tmdb/tmdbPolling.ts):
  * which rows keep the 4-second poll alive, when the 3 minutes are up, how
  * a lookup the page just started stays "Finding details…" until the server
- * has claimed the row, which failed reads are asked again, and what a page
- * takes from the states while TMDB is not connected (the folder names).
+ * has claimed the row, which failed reads are asked again, what a page
+ * takes from the states while TMDB is not connected (the folder names),
+ * when a list row is older than the details TMDB filled in for it, and how
+ * a list swaps or drops one row without losing what another answer changed.
  *
  * Runs on Node's own test runner: `npm test`.
  */
@@ -26,6 +28,9 @@ const {
   pendingIdsOf,
   pendingPlaceholder,
   pollingExpired,
+  rowBehindItsDetails,
+  rowRemoved,
+  rowReplaced,
   settledBetween,
   stateReadWorthRetrying,
   tmdbStatesUse,
@@ -236,6 +241,125 @@ describe("settledBetween — a page that watches a title whose upload is still r
     const before = new Map([["a", state("a", "PENDING")]]);
     assert.equal(settledBetween(before, new Map([["a", state("a", "MATCHED")]]), true).length, 1);
   });
+
+  it("a failed or not-found row the server looked up again by itself is reported with its new result", () => {
+    // The upload finished: the server's own lookup also starts from FAILED and NOT_FOUND.
+    const failed = new Map([["a", state("a", "FAILED")]]);
+    const notFound = new Map([["a", state("a", "NOT_FOUND")]]);
+    assert.equal(settledBetween(failed, new Map([["a", state("a", "MATCHED")]]), true)[0]?.status, "MATCHED");
+    assert.equal(settledBetween(failed, new Map([["a", state("a", "NOT_FOUND")]]), true)[0]?.status, "NOT_FOUND");
+    assert.equal(settledBetween(notFound, new Map([["a", state("a", "NEEDS_PICK")]]), true)[0]?.status, "NEEDS_PICK");
+  });
+
+  it("the same failed or not-found status again is no news: the form must not reload every 4 seconds", () => {
+    const failed = new Map([["a", state("a", "FAILED")]]);
+    const notFound = new Map([["a", state("a", "NOT_FOUND")]]);
+    assert.deepEqual(settledBetween(failed, new Map([["a", state("a", "FAILED")]]), true), []);
+    // Failed for another reason is still "failed": nothing was filled in.
+    assert.deepEqual(settledBetween(failed, new Map([["a", state("a", "FAILED", { error: "interrupted" })]]), true), []);
+    assert.deepEqual(settledBetween(notFound, new Map([["a", state("a", "NOT_FOUND")]]), true), []);
+    // A lookup that only just started on such a row is not an end either.
+    assert.deepEqual(settledBetween(failed, new Map([["a", state("a", "PENDING")]]), true), []);
+  });
+
+  it("a row with a result of its own (several matches, matched) is not watched: nothing starts on it by itself", () => {
+    const needsPick = new Map([["a", state("a", "NEEDS_PICK")]]);
+    assert.deepEqual(settledBetween(needsPick, new Map([["a", state("a", "MATCHED")]]), true), []);
+  });
+
+  it("a page that does not watch never hears of a failed row that got filled", () => {
+    const failed = new Map([["a", state("a", "FAILED")]]);
+    assert.deepEqual(settledBetween(failed, new Map([["a", state("a", "MATCHED")]])), []);
+  });
+});
+
+describe("rowBehindItsDetails — a row older than what TMDB filled in for it", () => {
+  // The fill of the `state` helper: 2026-11-06T07:00:00.000Z.
+  const matched = state("a", "MATCHED");
+
+  it("a row last written before the fill is behind: it is read again", () => {
+    assert.equal(rowBehindItsDetails("2026-11-06T06:59:59.999Z", matched), true);
+    assert.equal(rowBehindItsDetails("2026-11-05T12:00:00.000Z", matched), true);
+  });
+
+  it("a row written by the fill itself, or after it, is not", () => {
+    assert.equal(rowBehindItsDetails("2026-11-06T07:00:00.000Z", matched), false);
+    assert.equal(rowBehindItsDetails("2026-11-06T07:00:00.004Z", matched), false);
+    assert.equal(rowBehindItsDetails("2026-11-06T09:30:00.000Z", matched), false);
+  });
+
+  it("only a linked title has details to be behind", () => {
+    for (const status of ["NONE", "PENDING", "NEEDS_PICK", "NOT_FOUND", "FAILED"] as const) {
+      const other = state("a", status, { fetchedAt: "2026-11-06T07:00:00.000Z" });
+      assert.equal(rowBehindItsDetails("2026-11-06T06:00:00.000Z", other), false, status);
+    }
+  });
+
+  it("nothing to compare: no state yet, no fill time, no row time, or a date that cannot be read", () => {
+    assert.equal(rowBehindItsDetails("2026-11-06T06:00:00.000Z", undefined), false);
+    assert.equal(rowBehindItsDetails("2026-11-06T06:00:00.000Z", null), false);
+    assert.equal(rowBehindItsDetails("2026-11-06T06:00:00.000Z", state("a", "MATCHED", { fetchedAt: null })), false);
+    assert.equal(rowBehindItsDetails(undefined, matched), false);
+    assert.equal(rowBehindItsDetails("", matched), false);
+    assert.equal(rowBehindItsDetails("not a date", matched), false);
+  });
+});
+
+describe("rowReplaced / rowRemoved — each change to a list is made on the list as the one before left it", () => {
+  interface Row {
+    id: string;
+    posterUrl: string | null;
+  }
+  const old = (id: string): Row => ({ id, posterUrl: null });
+  const fresh = (id: string): Row => ({ id, posterUrl: `http://cache.example/images/movie/${id}.jpg` });
+  // The page as it was drawn, before any row was read again.
+  const drawn: readonly Row[] = [old("a"), old("b"), old("c")];
+
+  it("three rows read again at the same moment: every one keeps its fresh copy, in any order of the answers", () => {
+    // What the page does: each answer is applied to the result of the one before.
+    const inOrder = [fresh("a"), fresh("b"), fresh("c")].reduce<Row[]>(rowReplaced, [...drawn]);
+    assert.deepEqual(inOrder, [fresh("a"), fresh("b"), fresh("c")]);
+
+    const shuffled = [fresh("c"), fresh("a"), fresh("b")].reduce<Row[]>(rowReplaced, [...drawn]);
+    assert.deepEqual(shuffled, [fresh("a"), fresh("b"), fresh("c")]);
+  });
+
+  it("only the one row changes: the others are the very same rows, in the same order, and the list given is left alone", () => {
+    const next = rowReplaced(drawn, fresh("b"));
+    assert.deepEqual(next, [old("a"), fresh("b"), old("c")]);
+    assert.equal(next[0], drawn[0]);
+    assert.equal(next[2], drawn[2]);
+    assert.notEqual(next, drawn);
+    assert.deepEqual(drawn, [old("a"), old("b"), old("c")]);
+  });
+
+  it("a removal made after another row's fresh copy keeps that copy and drops only its own row", () => {
+    // Row b was read again while the Publish of row a was on its way.
+    const afterReread = rowReplaced(drawn, fresh("b"));
+    assert.deepEqual(rowRemoved(afterReread, "a"), [fresh("b"), old("c")]);
+    // The other way round ends the same.
+    assert.deepEqual(rowReplaced(rowRemoved(drawn, "a"), fresh("b")), [fresh("b"), old("c")]);
+  });
+
+  it("two rows leaving one after the other are both gone: the second does not bring the first back", () => {
+    assert.deepEqual(rowRemoved(rowRemoved(drawn, "a"), "c"), [old("b")]);
+    assert.deepEqual(rowRemoved(rowRemoved(drawn, "c"), "a"), [old("b")]);
+  });
+
+  it("a fresh copy of a row that just left the list does not put it back", () => {
+    assert.deepEqual(rowReplaced(rowRemoved(drawn, "a"), fresh("a")), [old("b"), old("c")]);
+  });
+
+  it("a row that is not in the list leaves the list as it is", () => {
+    assert.deepEqual(rowReplaced(drawn, fresh("z")), drawn);
+    assert.deepEqual(rowRemoved(drawn, "z"), drawn);
+    assert.deepEqual(rowReplaced([], fresh("a")), []);
+    assert.deepEqual(rowRemoved([], "a"), []);
+  });
+
+  it("removing the last row leaves an empty list: the page then loads the next batch", () => {
+    assert.deepEqual(rowRemoved([old("a")], "a"), []);
+  });
 });
 
 describe("stateReadWorthRetrying — which failed reads are asked again", () => {
@@ -305,6 +429,26 @@ describe("nextReadOf — what is asked again in 4 seconds", () => {
       unanswered: [],
       unstarted: [],
     });
+  });
+
+  // The three statuses the server's lookup after an upload starts from.
+  const ended = new Map([
+    ["f", state("f", "FAILED")],
+    ["n", state("n", "NOT_FOUND")],
+    ["p", state("p", "NEEDS_PICK")],
+    ["m", state("m", "MATCHED")],
+  ]);
+
+  it("a watching page also keeps asking about a failed and a not-found row, never about one with a result", () => {
+    assert.deepEqual(nextReadOf(ended, ["f", "n", "p", "m"], { ...plain, watchUnstarted: true }), {
+      pending: [],
+      unanswered: [],
+      unstarted: ["f", "n"],
+    });
+  });
+
+  it("a page that does not watch stops at a failed or not-found row, as before", () => {
+    assert.deepEqual(nextReadOf(ended, ["f", "n", "p", "m"], plain), { pending: [], unanswered: [], unstarted: [] });
   });
 });
 

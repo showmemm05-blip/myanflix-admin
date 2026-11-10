@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { RowActionButton, RowActions } from "@/components/tables/RowActions";
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge";
+import { MissingDetailsLine, MissingPosterThumb } from "@/components/movies/MissingDetailsLine";
+import { getFromTmdbOffered, missingMovieDetailsOrNull } from "@/components/movies/missingDetails";
 import { TmdbStatusLine } from "@/components/tmdb/TmdbStatusLine";
 import type { TmdbAction } from "@/components/tmdb/tmdbStatus";
 import type { TranslationShape } from "@/lib/i18n/translations";
@@ -62,12 +64,18 @@ export function getAccessTypeLabel(t: TranslationShape, accessType: AccessType):
 export interface MovieColumnsTmdb {
   /** Lookup state by movie id (lib/hooks/use-tmdb-states). A row with none yet shows an empty cell. */
   states: ReadonlyMap<string, TmdbMovieState>;
-  /** MOVIES.EDIT + MEDIA.UPLOAD — may start a lookup or open the pick-a-match dialog. */
+  /** MOVIES.EDIT + MEDIA.UPLOAD — may start a lookup, open the pick-a-match dialog, or the review ("Get from TMDB"). */
   canAct: boolean;
   /** The movie whose lookup request is on its way, if any: its button waits. */
   busyId: string | null;
   /** Polling stopped after 3 minutes with a row still "Finding details…": it gets Try again. */
   timedOut: boolean;
+  /**
+   * Movies TMDB has just filled in whose row the page is reading again.
+   * Until the fresh row is here they count as still being looked up for
+   * the `missingDetails` line: what the old row lacked is not news any more.
+   */
+  refreshingIds?: ReadonlySet<string>;
   onAction: (movie: Movie, action: TmdbAction) => void;
 }
 
@@ -110,6 +118,18 @@ interface GetMovieColumnsOptions {
    * correct a title that was cut out of the folder name badly.
    */
   folderNames?: ReadonlyMap<string, string>;
+  /**
+   * Opt-in only, like `folderNames` — the Ready to Publish page passes true
+   * (2026-11-09, the `Missing` board; the rule is missingDetails.ts). Each
+   * movie then says what it still needs before it goes live: a line under
+   * the Folder line ("Still needed: Poster · Description", or "Ready"), an
+   * amber "No poster yet" box where the thumbnail goes, and — with `tmdb` —
+   * "Get from TMDB" beside the green badge of a linked title that still
+   * lacks something. Apart from `tmdb` on purpose: the line shows while
+   * TMDB is not connected too. Omitted, the table is exactly as on the main
+   * Movies page.
+   */
+  missingDetails?: boolean;
 }
 
 export function getMovieColumns({
@@ -126,7 +146,13 @@ export function getMovieColumns({
   canPublish = false,
   tmdb,
   folderNames,
+  missingDetails = false,
 }: GetMovieColumnsOptions): ColumnDef<Movie>[] {
+  // TMDB is still looking the title up, or has just filled it in and the
+  // fresh row is on its way: what the row on screen lacks is about to change.
+  const detailsOnTheWay = (movie: Movie) =>
+    tmdb?.states.get(movie.id)?.status === "PENDING" || (tmdb?.refreshingIds?.has(movie.id) ?? false);
+
   const columns: ColumnDef<Movie>[] = [
     {
       accessorKey: "title",
@@ -136,17 +162,28 @@ export function getMovieColumns({
         // The upload's raw folder name, for staff only: the title may by now
         // be TMDB's name, and the folder is how an uploader recognises it.
         const sourceName = folderNames?.get(movie.id);
+        // What the title still needs before it goes live. Null without the
+        // option, and for an episode: it uses the show's pictures.
+        const missing = missingDetails ? missingMovieDetailsOrNull(movie) : null;
+        // TMDB is still looking the title up: the list would change under
+        // staff's eyes when the details arrive, so the line only says that,
+        // and the thumbnail stays the plain placeholder until then.
+        const tmdbPending = missing !== null && detailsOnTheWay(movie);
         return (
           <div className="flex items-center gap-3">
-            <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
-              <Image
-                src={movie.posterUrl ?? FALLBACK_POSTER}
-                alt={movie.title}
-                fill
-                className="object-cover"
-                sizes="40px"
-              />
-            </div>
+            {missing?.mustHave.includes("poster") && !tmdbPending ? (
+              <MissingPosterThumb />
+            ) : (
+              <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
+                <Image
+                  src={movie.posterUrl ?? FALLBACK_POSTER}
+                  alt={movie.title}
+                  fill
+                  className="object-cover"
+                  sizes="40px"
+                />
+              </div>
+            )}
             <div className="min-w-0">
               <p className="max-w-52 truncate font-medium">{movie.title}</p>
               <p className="text-xs tabular-nums text-muted-foreground">{movie.releaseYear}</p>
@@ -158,6 +195,7 @@ export function getMovieColumns({
                   {t.tmdb.folder(sourceName)}
                 </p>
               )}
+              {missing && <MissingDetailsLine className="mt-1 max-w-52" missing={missing} pending={tmdbPending} />}
             </div>
           </div>
         );
@@ -170,16 +208,37 @@ export function getMovieColumns({
             header: t.tmdbPages.readyToPublish.detailsColumn,
             // The badge and the one button that goes with it; "Find details"
             // for a title never looked up sits with the row buttons instead.
-            cell: ({ row }) => (
-              <TmdbStatusLine
-                className="max-w-64"
-                state={tmdb.states.get(row.original.id)}
-                canAct={tmdb.canAct}
-                busy={tmdb.busyId === row.original.id}
-                timedOut={tmdb.timedOut}
-                onAction={(action) => tmdb.onAction(row.original, action)}
-              />
-            ),
+            cell: ({ row }) => {
+              const movie = row.original;
+              const state = tmdb.states.get(movie.id);
+              const statusLine = (
+                <TmdbStatusLine
+                  className="max-w-64"
+                  state={state}
+                  canAct={tmdb.canAct}
+                  busy={tmdb.busyId === movie.id}
+                  timedOut={tmdb.timedOut}
+                  onAction={(action) => tmdb.onAction(movie, action)}
+                />
+              );
+              // A linked title that still lacks something: the green badge
+              // has no button of its own, so "Get from TMDB" joins it. It
+              // opens the review of the entry the title has — the Edit
+              // dialog's "Refill" — where a missing poster is one click.
+              const offerGet =
+                missingDetails &&
+                !detailsOnTheWay(movie) &&
+                getFromTmdbOffered(state?.status, missingMovieDetailsOrNull(movie), tmdb.canAct);
+              if (!offerGet) return statusLine;
+              return (
+                <div className="flex max-w-64 flex-wrap items-center gap-x-2.5 gap-y-1.5 whitespace-normal">
+                  {statusLine}
+                  <Button variant="outline" size="sm" onClick={() => tmdb.onAction(movie, "refill")}>
+                    {t.movies.missing.getFromTmdb}
+                  </Button>
+                </div>
+              );
+            },
           } satisfies ColumnDef<Movie>,
         ]
       : []),

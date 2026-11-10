@@ -10,10 +10,21 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { DataTable } from "@/components/tables/DataTable";
 import { ServerPagination } from "@/components/tables/ServerPagination";
 import { getMovieColumns } from "@/components/movies/columns";
+import {
+  missingMovieDetails,
+  publishQuestionNeeded,
+  publishQuestionWords,
+} from "@/components/movies/missingDetails";
 import { MovieDetailsSheet } from "@/components/movies/MovieDetailsSheet";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
 import { TmdbMatchDialog, tmdbTargetOfMovie } from "@/components/tmdb/TmdbMatchDialog";
-import { folderNamesOf, tmdbStatesUse } from "@/components/tmdb/tmdbPolling";
+import {
+  folderNamesOf,
+  rowBehindItsDetails,
+  rowRemoved,
+  rowReplaced,
+  tmdbStatesUse,
+} from "@/components/tmdb/tmdbPolling";
 import { tmdbActionOpensDialog, type TmdbAction } from "@/components/tmdb/tmdbStatus";
 import { tmdbErrorCode, tmdbErrorMessage } from "@/components/tmdb/tmdbWords";
 import { useAsyncData } from "@/lib/hooks/use-async-data";
@@ -40,9 +51,18 @@ import { toast } from "sonner";
  * Pick a match, Search TMDB, Try again. Publish is never blocked by it, and
  * while TMDB is not connected the page is the table it always was, under
  * one quiet line — plus the folder each upload came from, under its title.
+ *
+ * Since 2026-11-09 each row also says what it still needs before it goes
+ * live (components/movies/missingDetails.ts, the `Missing` board): "Still
+ * needed: Poster · Description" or "Ready" under the title, with or without
+ * TMDB. Publish asks first when a poster, a description or a category is
+ * missing — "Publish anyway" then publishes exactly as before — and goes
+ * straight through otherwise. Publishing is still never blocked.
  */
 /** Rows per server page (H-24): the queue is paged and searched on the server. */
 const PAGE_LIMIT = 25;
+
+const NO_IDS: ReadonlySet<string> = new Set();
 
 export default function ReadyToPublishPage() {
   const { t } = useLanguage();
@@ -83,13 +103,34 @@ export default function ReadyToPublishPage() {
     setPage(next);
   };
 
+  // The rows on screen right now, for a change that lands some time after
+  // the render that asked for it (a lookup can end many seconds later; a
+  // Publish, a Delete or a Reprocess waits for its request). Empty while a
+  // page loads: the rows still held then belong to the page being left, and
+  // writing them back would show them under the new page.
+  const rowsRef = useRef<Movie[]>([]);
+  useEffect(() => {
+    rowsRef.current = isLoading ? [] : activeMovies;
+  });
+  // Every change to the list is made on the rows as they are when React
+  // applies it (`prev`), never on a copy held since the click or the last
+  // render: a row read again while another answer was on its way keeps its
+  // fresh copy, and a row that just left is not put back. `prev` is null
+  // while the list is still the one the server sent; the rows on screen
+  // stand in for it then.
+
   // A title leaves the queue once published, reprocessed, deleted or edited
   // out of READY_TO_PUBLISH. Emptying the page by hand reloads (or steps
   // back one page) so the next batch shows instead of a false "all done".
   const removeFromQueue = (id: string) => {
-    const remaining = activeMovies.filter((m) => m.id !== id);
-    if (remaining.length > 0) {
-      setMovies(remaining);
+    // Judged by the rows on screen now, not the ones of the click: the
+    // request took a while. A row that is not on screen any more (it is
+    // gone already, or another page is showing or loading) leaves nothing
+    // to take out.
+    const shown = rowsRef.current;
+    if (!shown.some((m) => m.id === id)) return;
+    if (rowRemoved(shown, id).length > 0) {
+      setMovies((prev) => rowRemoved(prev ?? shown, id));
       return;
     }
     setMovies(null);
@@ -123,20 +164,39 @@ export default function ReadyToPublishPage() {
   // set of ids changes, so a new array each render costs nothing.
   const tmdbIds = activeMovies.filter((m) => m.seriesId === null).map((m) => m.id);
 
-  // The rows on screen right now, for a reload that lands long after the
-  // render that asked for it (a lookup can end many seconds later). Empty
-  // while a page loads: the rows still held then belong to the page being
-  // left, and writing them back would show them under the new page.
-  const rowsRef = useRef<Movie[]>([]);
-  useEffect(() => {
-    rowsRef.current = isLoading ? [] : activeMovies;
-  });
   /** Swaps one row for its fresh copy — if it is still on this page and still waiting to be published. */
   const replaceRow = (updated: Movie) => {
     if (updated.status !== "READY_TO_PUBLISH") return;
-    if (!rowsRef.current.some((m) => m.id === updated.id)) return;
-    setMovies(rowsRef.current.map((m) => (m.id === updated.id ? updated : m)));
+    const shown = rowsRef.current;
+    if (!shown.some((m) => m.id === updated.id)) return;
+    // Two rows are often read again at the same moment (one states read
+    // reports both lookups as ended): each answer swaps its own row in the
+    // list the other has already changed.
+    setMovies((prev) => rowReplaced(prev ?? shown, updated));
   };
+
+  // Rows TMDB has just filled in, until their fresh copy is here. The badge
+  // turns green a moment before the row is read again, and for that moment
+  // the old row would say "Still needed: Poster" about a poster that has
+  // arrived — so its line keeps saying that the list is coming.
+  const [refreshingIds, setRefreshingIds] = useState(NO_IDS);
+  /** Reads one row again: TMDB changed its name, its poster and more on the server. A failed read leaves the row as it is. */
+  const rereadRow = (movieId: string) => {
+    const done = () =>
+      setRefreshingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(movieId);
+        return next;
+      });
+    setRefreshingIds((prev) => new Set(prev).add(movieId));
+    movieService.getMovieById(movieId).then((fresh) => {
+      replaceRow(fresh);
+      done();
+    }, done);
+  };
+  // The fills a row was already read again for (movie id + when it was
+  // filled): each is asked once, so a read that fails is not asked for ever.
+  const rereadForRef = useRef(new Set<string>());
 
   const tmdb = useTmdbStates(tmdbIds, {
     enabled: statesUse !== "none",
@@ -144,8 +204,26 @@ export default function ReadyToPublishPage() {
     // more on the server, so the row is read again.
     onSettled: (state) => {
       if (state.status !== "MATCHED") return;
-      movieService.getMovieById(state.movieId).then(replaceRow, () => {});
+      rereadForRef.current.add(`${state.movieId}:${state.fetchedAt}`);
+      rereadRow(state.movieId);
     },
+  });
+  // A row can also turn "Details from TMDB" without this page having
+  // watched the lookup end: someone else picked its match (this page's own
+  // "Try again" is then refused as already matched, and only the states are
+  // read again), or the rows were read a moment before the fill and the
+  // states a moment after. The row on screen is then older than its
+  // details, and its line, its thumbnail and its Publish question would
+  // speak of a poster the movie has by now — so it is read again, once.
+  useEffect(() => {
+    for (const movie of rowsRef.current) {
+      const state = tmdb.states.get(movie.id);
+      if (!rowBehindItsDetails(movie.updatedAt, state)) continue;
+      const fill = `${movie.id}:${state?.fetchedAt}`;
+      if (rereadForRef.current.has(fill)) continue;
+      rereadForRef.current.add(fill);
+      rereadRow(movie.id);
+    }
   });
   const tmdbNotConnected = statesUse === "folders";
   // No column while there is nothing to put in it: TMDB is off or not
@@ -162,6 +240,8 @@ export default function ReadyToPublishPage() {
       return;
     }
     if (tmdbActionOpensDialog(action)) {
+      // "refill" is a linked row's "Get from TMDB": straight to the review
+      // of the entry it has, where a missing poster is one switch.
       setTmdbDialog({ movie, start: action === "refill" ? "refill" : "pick" });
       return;
     }
@@ -176,7 +256,9 @@ export default function ReadyToPublishPage() {
     } catch (err) {
       toast.error(t.tmdbPages.readyToPublish.lookupFailedToast, { description: tmdbErrorMessage(err, t) });
       // Refused because the row is not what this page shows any more —
-      // another staff member started it, or it is matched by now.
+      // another staff member started it, or it is matched by now. Matched
+      // by now: the fresh states say the row is older than its details,
+      // and it is read again (the effect above).
       const code = tmdbErrorCode(err);
       if (code === "TMDB_BUSY" || code === "TMDB_ALREADY_MATCHED") tmdb.refresh();
     } finally {
@@ -227,6 +309,29 @@ export default function ReadyToPublishPage() {
     }
   };
 
+  // ---- Publish asks first when something is still needed ----
+  // The movie the question is about. It stays after the answer, so the
+  // words are still there while the dialog fades out.
+  const [publishAsk, setPublishAsk] = useState<Movie | null>(null);
+  const [publishAskOpen, setPublishAskOpen] = useState(false);
+  const publishQuestion = publishAsk
+    ? publishQuestionWords(t, "movie", publishAsk.title, missingMovieDetails(publishAsk))
+    : null;
+
+  /**
+   * The row's Publish button. Judged by the row as it is: only the status
+   * is sent, so the movie goes live as stored. With a poster, a description
+   * and a category it is published at once, exactly as before.
+   */
+  const handlePublishClick = (movie: Movie) => {
+    if (!publishQuestionNeeded(missingMovieDetails(movie))) {
+      void handlePublish(movie);
+      return;
+    }
+    setPublishAsk(movie);
+    setPublishAskOpen(true);
+  };
+
   const columns = getMovieColumns({
     t,
     canEdit: can("MOVIES.EDIT"),
@@ -237,7 +342,7 @@ export default function ReadyToPublishPage() {
     onDelete: setDeleteMovie,
     onReprocess: handleReprocess,
     reprocessingId,
-    onPublish: handlePublish,
+    onPublish: handlePublishClick,
     publishingId,
     tmdb: tmdbOff
       ? undefined
@@ -246,10 +351,13 @@ export default function ReadyToPublishPage() {
           canAct: canUseTmdb,
           busyId: lookupBusyId,
           timedOut: tmdb.timedOut,
+          refreshingIds,
           onAction: handleTmdbAction,
         },
     // Connected or not: the folder is how an uploader recognises the title.
     folderNames: folderNamesOf(tmdb.states),
+    // Connected or not: what each title still needs before it goes live.
+    missingDetails: true,
   });
 
   return (
@@ -297,9 +405,8 @@ export default function ReadyToPublishPage() {
               {!isLoading && (
                 <ServerPagination page={page} pageSize={PAGE_LIMIT} total={total} onPageChange={handlePageChange} />
               )}
-              {!tmdbOff && (
-                <p className="mt-4 text-sm text-muted-foreground">{t.tmdbPages.readyToPublish.publishNeverBlocked}</p>
-              )}
+              {/* Goes with the "Still needed" lines, which show with or without TMDB. */}
+              <p className="mt-4 text-sm text-muted-foreground">{t.tmdbPages.readyToPublish.publishNeverBlocked}</p>
             </>
           )}
 
@@ -337,11 +444,26 @@ export default function ReadyToPublishPage() {
               // Editing (or publishing from inside the dialog) can move the
               // movie out of READY_TO_PUBLISH — either way it no longer belongs
               // on this page's list once its status has changed.
-              if (updated.status === "READY_TO_PUBLISH") {
-                setMovies(activeMovies.map((m) => (m.id === updated.id ? updated : m)));
-              } else {
-                removeFromQueue(updated.id);
-              }
+              if (updated.status === "READY_TO_PUBLISH") replaceRow(updated);
+              else removeFromQueue(updated.id);
+            }}
+          />
+
+          {/* "Go back" closes and nothing happens; "Publish anyway" is the
+              Publish it always was — the row's own button shows the wait. */}
+          <ConfirmDialog
+            open={publishAskOpen && publishQuestion !== null}
+            onOpenChange={setPublishAskOpen}
+            title={publishQuestion?.title ?? ""}
+            description={publishQuestion?.description ?? ""}
+            confirmLabel={publishQuestion?.confirmLabel}
+            cancelLabel={publishQuestion?.cancelLabel}
+            onConfirm={() => {
+              // The dialog takes a moment to fade: a second press in that
+              // moment must not publish twice.
+              if (!publishAskOpen || !publishAsk) return;
+              setPublishAskOpen(false);
+              void handlePublish(publishAsk);
             }}
           />
 

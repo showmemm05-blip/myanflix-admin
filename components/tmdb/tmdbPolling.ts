@@ -6,9 +6,10 @@
  *
  * lib/hooks/use-tmdb-states.ts does the timing; the decisions are here, pure
  * and with type imports only, so Node's test runner loads the file as it is
- * (tmdbPolling.test.ts).
+ * (tmdbPolling.test.ts). So are the two changes a list makes to its rows
+ * when one was read again or left it (`rowReplaced`, `rowRemoved`).
  */
-import type { TmdbMovieState } from "@/types/tmdb";
+import type { TmdbLookupStatus, TmdbMovieState } from "@/types/tmdb";
 
 /** How often the states are read again while a row is still being looked up. */
 export const TMDB_POLL_INTERVAL_MS = 4_000;
@@ -114,14 +115,26 @@ export function pendingIdsOf(states: ReadonlyMap<string, TmdbMovieState>): strin
 }
 
 /**
+ * The statuses the server's own lookup starts from when an upload finishes:
+ * never looked up, or an earlier lookup that came to nothing (the backend's
+ * CLAIMABLE_AFTER_UPLOAD). A row in one of them can still be looked up
+ * without anyone on this page asking for it.
+ */
+function awaitsUploadLookup(status: TmdbLookupStatus): boolean {
+  return status === "NONE" || status === "FAILED" || status === "NOT_FOUND";
+}
+
+/**
  * The lookups that ended between two reads: rows that were "Finding
  * details…" and now carry something else — a result, or the NONE of a
  * lookup that never started. A page reloads those titles, because their
  * details may have changed on the server while it was looking at them.
  *
  * With `watchUnstarted` (a page that keeps reading a title whose upload is
- * still running) a row that was never looked up and now carries a result
- * counts too: its lookup started and ended between two reads.
+ * still running) a row the server could still look up by itself — never
+ * looked up, failed, not found — that now carries another status counts
+ * too: its lookup started and ended between two reads. The same status
+ * again is no end of anything, or the page would reload every 4 seconds.
  */
 export function settledBetween(
   previous: ReadonlyMap<string, TmdbMovieState>,
@@ -133,9 +146,54 @@ export function settledBetween(
     const after = next.get(movieId);
     if (!after || after.status === "PENDING") continue;
     if (before.status === "PENDING") settled.push(after);
-    else if (watchUnstarted && before.status === "NONE" && after.status !== "NONE") settled.push(after);
+    else if (watchUnstarted && awaitsUploadLookup(before.status) && after.status !== before.status) settled.push(after);
   }
   return settled;
+}
+
+/**
+ * Whether a list row is older than the details TMDB filled in for it: its
+ * state says MATCHED since `fetchedAt`, and the row was last written before
+ * that. The fill stores the details and that time in one write, so a row
+ * read after it is never behind.
+ *
+ * `settledBetween` only reports a lookup the page watched end. A row can
+ * also turn "Details from TMDB" without that — someone else picked its
+ * match, or the list was read a moment before the fill and the states a
+ * moment after — and then the row on screen still lacks the poster the
+ * movie has by now. A page reads such a row again.
+ */
+export function rowBehindItsDetails(
+  rowUpdatedAt: string | null | undefined,
+  state: Pick<TmdbMovieState, "status" | "fetchedAt"> | null | undefined,
+): boolean {
+  if (!rowUpdatedAt || state?.status !== "MATCHED" || !state.fetchedAt) return false;
+  // An unreadable date compares false: the row is left alone.
+  return Date.parse(state.fetchedAt) > Date.parse(rowUpdatedAt);
+}
+
+/**
+ * A list with one row swapped for its fresh copy: the same rows in the same
+ * order. A row that is not in the list is not added — it left the list a
+ * moment before, and its copy must not put it back.
+ *
+ * A page applies it to the rows as they are when the change is made
+ * (`setRows((rows) => rowReplaced(rows, fresh))`), never to the rows it drew
+ * some time ago: two rows read again at the same moment then each keep
+ * their fresh copy, and the second answer cannot write the first row's old
+ * copy back.
+ */
+export function rowReplaced<Row extends { id: string }>(rows: readonly Row[], updated: Row): Row[] {
+  return rows.map((row) => (row.id === updated.id ? updated : row));
+}
+
+/**
+ * A list without one row; every other row stays as it is in `rows`. Applied
+ * the same way as `rowReplaced`, so a row that was read again while another
+ * was being published or deleted keeps its fresh copy.
+ */
+export function rowRemoved<Row extends { id: string }>(rows: readonly Row[], id: string): Row[] {
+  return rows.filter((row) => row.id !== id);
 }
 
 /** True once a stretch of polling has run its 3 minutes. */
@@ -164,7 +222,7 @@ export interface TmdbNextRead {
   pending: string[];
   /** The read failed before the server had said anything about them. Asked again for the same 3 minutes. */
   unanswered: string[];
-  /** Never looked up, on a page that watches for a lookup to start by itself. Asked again for as long as the page is open. */
+  /** Not being looked up (never, or the last lookup failed or found nothing), on a page that watches for a lookup to start by itself. Asked again for as long as the page is open. */
   unstarted: string[];
 }
 
@@ -175,9 +233,9 @@ export interface TmdbNextRead {
  * - After a failed read, so is a row the server has not answered about yet:
  *   otherwise one lost first read would leave the page without its TMDB
  *   parts until it is opened again.
- * - With `watchUnstarted`, so is a row that was never looked up: the upload
- *   of that title is still running, and its lookup starts by itself the
- *   moment it finishes.
+ * - With `watchUnstarted`, so is a row that was never looked up, or whose
+ *   last lookup failed or found nothing: the upload of that title is still
+ *   running, and the server looks it up by itself the moment it finishes.
  */
 export function nextReadOf(
   states: ReadonlyMap<string, TmdbMovieState>,
@@ -191,7 +249,7 @@ export function nextReadOf(
       if (options.failed) next.unanswered.push(movieId);
     } else if (state.status === "PENDING") {
       next.pending.push(movieId);
-    } else if (state.status === "NONE" && options.watchUnstarted) {
+    } else if (options.watchUnstarted && awaitsUploadLookup(state.status)) {
       next.unstarted.push(movieId);
     }
   }

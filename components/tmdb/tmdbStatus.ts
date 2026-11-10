@@ -16,7 +16,7 @@
  * (tmdbStatus.test.ts).
  */
 import type { StatusTone } from "@/components/shared/StatusBadge";
-import type { TmdbLookupError, TmdbLookupStatus } from "@/types/tmdb";
+import type { TmdbImageSource, TmdbLookupError, TmdbLookupStatus } from "@/types/tmdb";
 
 /** The six looks of the badge; `none` draws nothing. */
 export type TmdbBadgeLook = "finding" | "matched" | "needsPick" | "notFound" | "failed" | "none";
@@ -89,4 +89,20 @@ export function tmdbBadgeOf(status: TmdbLookupStatus, error: TmdbLookupError | n
 /** Whether pressing this starts a dialog (pick / review) rather than a background lookup or a re-read. */
 export function tmdbActionOpensDialog(action: TmdbAction): action is "pick" | "search" | "change" | "refill" {
   return action === "pick" || action === "search" || action === "change" || action === "refill";
+}
+
+/**
+ * Whether a picture slot of a form carries the "From TMDB" tag: the state
+ * says the stored picture came from TMDB, the form really shows a stored
+ * picture, and no new file has been picked. The state can be newer than the
+ * movie the form was loaded from (details arrived while staff were typing,
+ * so the form was not loaded again): a tag over an empty slot would say
+ * TMDB gave a picture that is not there to see.
+ */
+export function pictureTagShown(
+  source: TmdbImageSource | null | undefined,
+  storedUrl: string | null | undefined,
+  filePicked: boolean,
+): boolean {
+  return source === "tmdb" && Boolean(storedUrl) && !filePicked;
 }

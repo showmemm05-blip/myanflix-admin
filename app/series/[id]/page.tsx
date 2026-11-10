@@ -24,6 +24,12 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { STATUS_TONE, getStatusLabel } from "@/components/movies/columns";
 import { SERIES_STATUS_TONE, getSeriesStatusLabel } from "@/components/series/columns";
 import { EditMovieDialog } from "@/components/movies/EditMovieDialog";
+import { MissingDetailsBox } from "@/components/movies/MissingDetailsLine";
+import {
+  missingFormDetails,
+  missingSeriesDetails,
+  seriesPublishDescription,
+} from "@/components/movies/missingDetails";
 import { ActorPicker } from "@/components/actors/ActorPicker";
 import {
   DESCRIPTION_MAX_LENGTH,
@@ -133,6 +139,9 @@ function SeriesManageContent() {
   const bannerPreview = useObjectUrl(bannerFile);
   const [savingInfo, setSavingInfo] = useState(false);
   const infoSeededRef = useRef(false);
+  // The same as state, for what is drawn from the form: until the form
+  // holds the show, an empty form would read as "everything is missing".
+  const [infoSeeded, setInfoSeeded] = useState(false);
   // Set when the stored show changed under the form — a save, or details
   // applied from TMDB — so the next load fills the form again. Any other
   // reload (a publish, say) must leave what staff are typing alone, which
@@ -160,6 +169,7 @@ function SeriesManageContent() {
     // The stored pictures are what the form shows from here on.
     setThumbnailFile(null);
     setBannerFile(null);
+    setInfoSeeded(true);
   }, [series]);
 
   // ---- Details from TMDB (the show itself; episodes are not looked up) ----
@@ -532,6 +542,21 @@ function SeriesManageContent() {
     thumbnailFile !== null ||
     bannerFile !== null;
 
+  // What the show still needs before it is published (missingDetails.ts,
+  // the series rule: no director, no age rating), by what the card holds
+  // now — which is what its Save stores — so the list gets shorter as staff
+  // type and pick pictures.
+  const infoMissing = missingFormDetails("series", {
+    posterUrl: series.posterUrl,
+    posterFile: thumbnailFile,
+    coverUrl: series.coverUrl,
+    coverFile: bannerFile,
+    description,
+    descriptionMm,
+    categoryIds,
+    actorIds,
+  });
+
   // A word outside the list stays choosable, so the card never loses it.
   const languageOptions =
     series.language && !LANGUAGES.includes(series.language) ? [...LANGUAGES, series.language] : LANGUAGES;
@@ -600,6 +625,10 @@ function SeriesManageContent() {
           <CardTitle>{t.series.manage.infoCardTitle}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {/* "Still needed before publishing: Poster · Category"; nothing when
+              nothing is missing. A show that is live already is not told
+              "before publishing". */}
+          {infoSeeded && <MissingDetailsBox missing={infoMissing} published={series.status === "PUBLISHED"} />}
           {/* Not linked: Find details. Linked: the match, Refill and Change match. */}
           {tmdbStripShown && (
             <TmdbStrip
@@ -705,8 +734,11 @@ function SeriesManageContent() {
           <ActorPicker value={actorIds} onChange={setActorIds} disabled={savingInfo} hint={t.actors.picker.seriesHint} />
           <div className="grid grid-cols-2 gap-4">
             <TmdbTaggedField fromTmdb={posterFromTmdb}>
+              {/* "Poster", the name the box above and the publish question
+                  use for this picture (in Edit movie "Thumbnail" is a third,
+                  different one). */}
               <FileUploadField
-                label={t.series.manage.thumbnailLabel}
+                label={t.movies.editDialog.posterLabel}
                 accept="image/*"
                 variant="image"
                 aspect="poster"
@@ -951,10 +983,13 @@ function SeriesManageContent() {
         title={
           series.status === "PUBLISHED" ? t.series.unpublishConfirmTitle : t.series.publishConfirmTitle
         }
+        // Publishing: by the show as stored (only the status is sent), with
+        // one more sentence when a poster, a description or a category is
+        // missing — "Still needed: Poster · Category."
         description={
           series.status === "PUBLISHED"
             ? t.series.unpublishConfirmDescription(series.title)
-            : t.series.publishConfirmDescription(series.title)
+            : seriesPublishDescription(t, series.title, missingSeriesDetails(series))
         }
         confirmLabel={series.status === "PUBLISHED" ? t.series.unpublish : t.movies.publish}
         loading={updatingStatus}
