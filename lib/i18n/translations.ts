@@ -572,7 +572,7 @@ const en = {
         "Uploads are paused and will resume automatically from where they left off — nothing is lost.",
       dropFoldersHere: "Drop movie folders here",
       folderStructureHint:
-        "Each folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+        "Each folder: master.m3u8 · rendition folders · subtitles/ (optional)",
       addFolder: "Add folder",
       moviesQueued: (n: number) => `${n} movie${n === 1 ? "" : "s"} queued`,
       restoringSession: " · restoring your last session...",
@@ -712,13 +712,13 @@ const en = {
       replace: {
         button: "Replace",
         dropHere: "Drop the new transcoder bundle here",
-        hint: "One folder: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+        hint: "One folder: master.m3u8 · rendition folders · subtitles/ (optional)",
         addFolder: "Choose folder",
         oneFolderOnly: "Drop exactly one bundle folder.",
         invalidBundle: (reason: string) =>
           `This folder is not a valid bundle: ${reason}`,
         invalid: {
-          original: "original.mp4 is missing at the root",
+          original: "The bundle contains more than one original video",
           master: "master.m3u8 is missing",
           rendition: "no 240p–1080p rendition folder with an index.m3u8",
         },
@@ -5905,7 +5905,7 @@ const mm = {
         "တင်ခြင်းများကို ခေတ္တရပ်ထားပြီး ရပ်ခဲ့သည့်နေရာမှ အလိုအလျောက် ပြန်ဆက်လုပ်ဆောင်ပါမည် — ဘာမှမပျောက်ပါ။",
       dropFoldersHere: "ရုပ်ရှင်ဖိုင်တွဲများကို ဤနေရာတွင် ဆွဲချပါ",
       folderStructureHint:
-        "ဖိုင်တွဲတစ်ခုစီတွင်: original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+        "ဖိုင်တွဲတစ်ခုစီတွင်: master.m3u8 · ရုပ်ထွက်ဖိုင်တွဲများ · subtitles/ (ရှိလျှင်)",
       addFolder: "ဖိုင်တွဲထည့်မည်",
       moviesQueued: (n: number) => `ရုပ်ရှင် ${n} ခု စာရင်းသွင်းထားသည်`,
       restoringSession: " · သင့်နောက်ဆုံးစက်ရှင်ကို ပြန်လည်ရယူနေသည်...",
@@ -6045,13 +6045,13 @@ const mm = {
       replace: {
         button: "အစားထိုးမည်",
         dropHere: "ကုဒ်ပြောင်းထားသော အစုအဖွဲ့အသစ်ကို ဤနေရာတွင် ဆွဲချပါ",
-        hint: "ဖိုင်တွဲတစ်ခု — original.mp4 · master.m3u8 · 240p–1080p · subtitles/",
+        hint: "ဖိုင်တွဲတစ်ခု — master.m3u8 · ရုပ်ထွက်ဖိုင်တွဲများ · subtitles/ (ရှိလျှင်)",
         addFolder: "ဖိုင်တွဲ ရွေးမည်",
         oneFolderOnly: "အစုအဖွဲ့ ဖိုင်တွဲ တစ်ခုတည်းသာ ဆွဲချပါ။",
         invalidBundle: (reason: string) =>
           `ဤဖိုင်တွဲသည် မှန်ကန်သော အစုအဖွဲ့ မဟုတ်ပါ — ${reason}`,
         invalid: {
-          original: "အမြစ်တွင် original.mp4 မရှိပါ",
+          original: "ဖိုင်တွဲထဲတွင် မူရင်းဗီဒီယို တစ်ခုထက်ပို၍ ပါဝင်နေပါသည်",
           master: "master.m3u8 မရှိပါ",
           rendition: "index.m3u8 ပါသော 240p–1080p အရည်အသွေး ဖိုင်တွဲ မရှိပါ",
         },

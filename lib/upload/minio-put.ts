@@ -33,6 +33,8 @@ export async function putToMinio(
     throw new ApiError(
       text || `MinIO PUT failed with status ${response.status}`,
       response.status,
+      undefined,
+      response.headers.get("Retry-After"),
     );
   }
 

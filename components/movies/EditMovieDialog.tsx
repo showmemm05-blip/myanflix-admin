@@ -215,7 +215,7 @@ function EditMovieForm({
     // Below 1 is "not entered": the API rejects 0, so clearing the field
     // leaves the stored runtime untouched instead of zeroing it.
     duration: Math.round(Number(duration)),
-    accessType,
+    accessType: isEpisode ? accessType : "FREE",
     status,
     categoryIds,
     actorIds,
@@ -657,15 +657,19 @@ function EditMovieForm({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-1.5">
             <Label>{t.movies.editDialog.accessTypeLabel}</Label>
-            <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Movie["accessType"])}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
-                <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
-              </SelectContent>
-            </Select>
+            {isEpisode ? (
+              <Select value={accessType} onValueChange={(v) => v && setAccessType(v as Movie["accessType"])}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FREE">{t.movies.accessType.free}</SelectItem>
+                  <SelectItem value="SUBSCRIPTION">{t.movies.accessType.subscription}</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-muted-foreground">{t.movies.accessType.free}</p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label>{t.movies.editDialog.statusLabel}</Label>

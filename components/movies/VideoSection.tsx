@@ -26,6 +26,7 @@ import { uploadBundleDirect, type AssetPatches, type BundleUploadAsset } from "@
 import { formatBytes, formatEta, formatSpeed } from "@/lib/upload/format";
 import {
   foldersFromFileList,
+  isBundleOriginal,
   mapLocalPathToRelativePath,
   readDroppedFolders,
   type DroppedFolder,
@@ -72,16 +73,10 @@ function checkLabel(t: TranslationShape, name: string): string {
   return typeof fixed === "string" ? fixed : name;
 }
 
-/**
- * Mirrors the backend's parseBundleStructure() so a wrong folder is
- * refused before any byte is uploaded: exactly one `original.<ext>` at the
- * root, the master playlist, and at least one known rendition playlist.
- * Returns the i18n reason key of the first thing missing, or null when the
- * bundle looks usable (the backend still does the real validation).
- */
+/** Checks the required HLS files and allows one optional original. The backend validates the full bundle. */
 function findBundleProblem(relativePaths: string[]): "original" | "master" | "rendition" | null {
-  const originals = relativePaths.filter((p) => /^original\.[^/]+$/.test(p));
-  if (originals.length !== 1) return "original";
+  const originals = relativePaths.filter(isBundleOriginal);
+  if (originals.length > 1) return "original";
   if (!relativePaths.includes("hls/master.m3u8")) return "master";
   const hasRendition = KNOWN_RENDITIONS.some((r) => relativePaths.includes(`hls/${r}/index.m3u8`));
   if (!hasRendition) return "rendition";
@@ -89,9 +84,7 @@ function findBundleProblem(relativePaths: string[]): "original" | "master" | "re
 }
 
 function toBundle(folder: DroppedFolder): SelectedBundle {
-  // Same mapping as the bulk queue (addFolders) so the two flows agree on
-  // what a bundle's storage-relative paths are — including the pre-existing
-  // quirk that only `original.mp4` is recognised as the original.
+  // Use the same storage-relative paths as the bulk upload queue.
   const relativePaths = folder.files.map((f) => mapLocalPathToRelativePath(f.relativePath));
   return {
     folderName: folder.folderName,

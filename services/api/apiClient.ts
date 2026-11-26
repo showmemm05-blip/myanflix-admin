@@ -45,11 +45,14 @@ export class ApiError extends Error {
   /** The backend's machine-readable `code`, when the error envelope carries one (e.g. "HOME_PROMO_NOT_FOUND"), or one of the client's own above. */
   code?: string;
 
-  constructor(message: string, status: number, code?: string) {
+  readonly retryAfter: string | null;
+
+  constructor(message: string, status: number, code?: string, retryAfter: string | null = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.retryAfter = retryAfter;
   }
 }
 
@@ -346,7 +349,7 @@ async function request<T>(
   if (!response.ok || !json || json.success === false) {
     const message = json?.message ?? `Request to ${path} failed`;
     const code = typeof json?.code === "string" ? json.code : undefined;
-    throw new ApiError(message, response.status, code);
+    throw new ApiError(message, response.status, code, response.headers.get("Retry-After"));
   }
 
   return json.data as T;

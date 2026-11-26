@@ -144,12 +144,29 @@ export function isTransient(err: unknown): boolean {
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(signal.reason);
-    const timer = setTimeout(resolve, ms);
-    signal.addEventListener("abort", () => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort);
+      resolve();
+    }, ms);
+    function abort() {
       clearTimeout(timer);
       reject(signal.reason);
-    }, { once: true });
+    }
+    signal.addEventListener("abort", abort, { once: true });
   });
+}
+
+// Cross-origin browsers can read Retry-After only when CORS exposes it.
+// Nest also includes the remaining seconds in its standard 429 envelope.
+function rateLimitDelay(error: ApiError): number {
+  const header = error.retryAfter?.trim();
+  if (header && /^\d+$/.test(header)) return Number(header) * 1000;
+  if (header) {
+    const until = Date.parse(header);
+    if (Number.isFinite(until)) return Math.max(0, until - Date.now());
+  }
+  const seconds = /try again in (\d+) seconds?\b/i.exec(error.message)?.[1];
+  return seconds ? Number(seconds) * 1000 : 60_000;
 }
 
 /**
@@ -166,7 +183,11 @@ export async function withTransientRetry<T>(fn: () => Promise<T>, signal: AbortS
     } catch (err) {
       if (signal.aborted || !isTransient(err) || attempt >= CHUNK_RETRY_ATTEMPTS) throw err;
       const backoff = Math.min(CHUNK_RETRY_BASE_MS * 2 ** (attempt - 1), CHUNK_RETRY_MAX_MS);
-      await sleep(backoff, signal);
+      const delay = err instanceof ApiError && err.status === 429
+        ? Math.max(backoff, rateLimitDelay(err))
+        : backoff;
+      if (delay > 2_147_483_647) throw err; // Outside the browser timer range.
+      await sleep(delay, signal);
     }
   }
 }

@@ -172,6 +172,28 @@ describe("withTransientRetry over apiClient — a network blip keeps retrying", 
     assert.equal(fetchCalls, RETRY_ATTEMPTS);
   });
 
+  for (const [description, headers, message, wait] of [
+    ["header", { "Retry-After": "22" }, "Slow down", 22_000],
+    ["cross-origin message", {}, "Too many requests. Try again in 45 seconds.", 45_000],
+    ["missing cooldown", {}, "Too many requests", 60_000],
+  ] as const) {
+    it(`waits out a 429 before retrying: ${description}`, async () => {
+      mock.timers.enable({ apis: ["setTimeout"] });
+      responder = () => fetchCalls === 1
+        ? new Response(JSON.stringify({ success: false, message }), { status: 429, headers: new Headers(Object.entries(headers)) })
+        : Response.json({ success: true, data: { sessionId: "recovered" } });
+      const signal = new AbortController().signal;
+      const pending = withTransientRetry(() => multipartInit(signal), signal);
+      await settled();
+      mock.timers.tick(wait - 1);
+      await settled();
+      assert.equal(fetchCalls, 1);
+      mock.timers.tick(1);
+      assert.equal((await pending).sessionId, "recovered");
+      assert.equal(fetchCalls, 2);
+    });
+  }
+
   it("a real rejection (4xx) is thrown at once, without a retry", async () => {
     responder = () =>
       new Response(JSON.stringify({ success: false, message: "Validation failed" }), {

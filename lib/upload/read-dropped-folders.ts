@@ -160,15 +160,18 @@ export function extractTitleFromFolderName(folderName: string): string {
   return cleaned || folderName;
 }
 
+export function isBundleOriginal(path: string): boolean {
+  return /^original\.[A-Za-z0-9]+$/.test(path);
+}
+
 /**
  * Maps a path relative to a movie folder's own root onto the storage
  * relativePath the backend expects (see backend UploadsService's
- * parseBundleStructure() — the fixed contract: original.mp4 at the root,
- * everything else nested under "hls/" to match StorageService's existing
- * MinIO key convention, which streaming already depends on unchanged).
+ * parseBundleStructure()). An optional original stays at the root, subtitle
+ * sources stay under "subtitles/", and playlists and segments go under "hls/".
  */
 export function mapLocalPathToRelativePath(localPath: string): string {
-  if (localPath === "original.mp4") return "original.mp4";
+  if (isBundleOriginal(localPath)) return localPath;
   if (localPath === "master.m3u8") return "hls/master.m3u8";
   if (localPath.startsWith("subtitles/")) return localPath;
   return `hls/${localPath}`;
